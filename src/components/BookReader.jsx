@@ -101,8 +101,6 @@ function spawnConfetti(container) {
   }
 }
 
-// ── Flourish characters that rotate per page ────────────────────────────────
-const FLOURISHES = ["✦", "❋", "✧", "❊", "✤", "❁", "✺", "✵"];
 
 // Helper: check if a URL is a raw photo (data URI) vs generated image (http URL)
 function isGeneratedImage(url) {
@@ -395,12 +393,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
 
           {/* Cover face */}
           <div className="br-cb-face" style={{ background: coverGradient }}>
-            <div className="br-cb-badge">{styleName}</div>
             <h1 className="br-cb-title">{story.title}</h1>
-            <p className="br-cb-for">A story written for {heroName}</p>
-            <div className="br-cb-emoji">
-              <span className="br-cb-emoji-glow">{story.pages?.[0]?.emoji || "⭐"}</span>
-            </div>
+            <div className="br-cb-line" />
+            <p className="br-cb-for">A story for {heroName}</p>
             <p className="br-cb-author">By {authorName}</p>
           </div>
 
@@ -414,7 +409,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         </div>
 
         {phase === "reveal" && (
-          <button className="br-open-btn" onClick={handleOpen}>Open Your Book ✨</button>
+          <button className="br-open-btn" onClick={handleOpen}>Open Your Book</button>
         )}
       </div>
     );
@@ -457,16 +452,17 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         >
           {/* Cover page (full spread with cover image) */}
           {current.type === "cover" && (
-            <div className="br-spread br-cover-spread" style={{ background: gradient }}>
+            <div className="br-spread br-cover-spread" style={{ background: coverImageUrl ? '#000' : gradient }}>
               {coverImageUrl && (
-                <img className="br-cover-bg-img" src={coverImageUrl} alt="" />
+                <>
+                  <img className="br-cover-bg-img" src={coverImageUrl} alt="" />
+                  <div className="br-cover-overlay" />
+                </>
               )}
               <div className="br-noise" />
               <div className="br-cover-content">
-                <div className="br-cc-badge">{styleName}</div>
                 <h1 className="br-cc-title">{story.title}</h1>
                 <div className="br-cc-line" />
-                <div className="br-cc-emoji">{story.pages?.[0]?.emoji || "⭐"}</div>
                 <p className="br-cc-for">A story written for</p>
                 <p className="br-cc-name">{heroName}</p>
                 <p className="br-cc-author">By {authorName}</p>
@@ -481,56 +477,46 @@ export default function BookReader({ data, cast, styleName, onReset }) {
               <div className="br-page-left" style={{ background: gradient }}>
                 <div className="br-noise" />
                 <div className="br-pl-inner">
-                  <div className="br-pl-flourish">❦</div>
                   <div className="br-pl-label">Dedication</div>
-                  <div className="br-pl-flourish">❦</div>
                 </div>
                 <div className="br-pl-mat" />
               </div>
               <div className="br-spine" />
               <div className="br-page-right">
                 <div className="br-pr-inner">
-                  <div className="br-pr-flourish">✦</div>
                   <p className="br-pr-text" style={{ fontStyle: "italic" }}>{dedication}</p>
-                  <div className="br-pr-pagenum">~ ❤️ ~</div>
                 </div>
-                <div className="br-dogear" />
               </div>
             </div>
           )}
 
           {/* Story pages */}
           {current.type === "page" && (() => {
-            const flourish = FLOURISHES[current.pageIdx % FLOURISHES.length];
             const hasImage = isGeneratedImage(current.page.imageUrl);
             return (
               <div className="br-spread">
-                <div className="br-page-left" style={{ background: gradient }}>
-                  <div className="br-noise" />
+                <div className="br-page-left">
                   {regeneratingImage === current.pageIdx ? (
                     <div className="br-pl-inner"><div className="br-img-loading">Regenerating…</div></div>
                   ) : hasImage ? (
                     <img className="br-pl-img" src={current.page.imageUrl} alt={`Page ${current.pageIdx + 1}`} />
                   ) : (
-                    <div className="br-pl-inner">
+                    <div className="br-pl-inner" style={{ background: gradient }}>
                       <div className="br-pl-emoji">{current.page.emoji || "🌟"}</div>
                     </div>
                   )}
                   {hasImage && <div className="br-pl-fade" />}
-                  <div className="br-pl-bottom">{flourish}</div>
                 </div>
                 <div className="br-spine" />
                 <div className="br-page-right">
                   <div className="br-pr-inner">
-                    <div className="br-pr-flourish">{flourish}</div>
                     <p className="br-pr-text">
                       {renderTextWithDropCap(current.page.text, current.pageIdx, narrating, narratingSentence)}
                     </p>
-                    <div className="br-pr-pagenum">~ {current.pageIdx + 1} ~</div>
+                    <div className="br-pr-pagenum">{current.pageIdx + 1}</div>
                   </div>
-                  <div className="br-dogear" />
                   <button className="br-edit-toggle" onClick={() => setActiveEdit(activeEdit ? null : { index: current.pageIdx, type: "story" })}>
-                    ✏️ Edit
+                    Edit
                   </button>
                 </div>
               </div>
@@ -539,15 +525,15 @@ export default function BookReader({ data, cast, styleName, onReset }) {
 
           {/* End page */}
           {current.type === "end" && (
-            <div className="br-spread br-cover-spread" style={{ background: gradient }}>
+            <div className="br-spread br-cover-spread" style={{ background: '#0C0A09' }}>
               <div className="br-noise" />
-              <div className="br-cover-content">
-                <div className="br-cc-emoji">✨</div>
-                <h1 className="br-cc-title" style={{ fontSize: 28 }}>The End</h1>
+              <div className="br-cover-content" style={{ justifyContent: 'center' }}>
+                <h1 className="br-cc-title" style={{ fontSize: 32, opacity: 0.9 }}>The End</h1>
+                <div className="br-cc-line" />
                 <p className="br-cc-for">A StoriKids Original</p>
                 <div className="br-end-actions">
-                  <button className="br-end-btn" onClick={handleShare}>🔗 Share</button>
-                  <button className="br-end-btn" onClick={onReset}>✨ New Story</button>
+                  <button className="br-end-btn" onClick={handleShare}>Share</button>
+                  <button className="br-end-btn" onClick={onReset}>New Story</button>
                 </div>
               </div>
             </div>
