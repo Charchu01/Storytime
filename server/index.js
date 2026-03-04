@@ -6,19 +6,17 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
-const REPLICATE_KEY = process.env.REPLICATE_KEY;
-
-if (!ANTHROPIC_KEY) console.warn("⚠️  ANTHROPIC_KEY not set");
-if (!REPLICATE_KEY) console.warn("⚠️  REPLICATE_KEY not set");
-
-const replicate = new Replicate({ auth: REPLICATE_KEY });
+// Read keys lazily from process.env so they're always fresh
+function getAnthropicKey() { return process.env.ANTHROPIC_KEY; }
+function getReplicateKey() { return process.env.REPLICATE_KEY; }
 
 // ── Anthropic proxy ──────────────────────────────────────────────────────────
 
 app.post("/api/claude", async (req, res) => {
-  const { system, userMsg, maxTokens = 1400 } = req.body;
+  const apiKey = getAnthropicKey();
+  if (!apiKey) return res.status(500).json({ error: "ANTHROPIC_KEY not configured on server" });
 
+  const { system, userMsg, maxTokens = 1400 } = req.body;
   if (!system || !userMsg) {
     return res.status(400).json({ error: "system and userMsg are required" });
   }
@@ -28,7 +26,7 @@ app.post("/api/claude", async (req, res) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_KEY,
+        "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
@@ -40,7 +38,6 @@ app.post("/api/claude", async (req, res) => {
     });
 
     const data = await response.json();
-
     if (!response.ok) {
       return res.status(response.status).json({
         error: data.error?.message || "Anthropic API error",
@@ -58,13 +55,16 @@ app.post("/api/claude", async (req, res) => {
 // ── Image generation via Replicate (Flux) ────────────────────────────────────
 
 app.post("/api/generate-image", async (req, res) => {
-  const { prompt, aspectRatio = "3:4" } = req.body;
+  const apiKey = getReplicateKey();
+  if (!apiKey) return res.status(500).json({ error: "REPLICATE_KEY not configured on server" });
 
+  const { prompt, aspectRatio = "3:4" } = req.body;
   if (!prompt) {
     return res.status(400).json({ error: "prompt is required" });
   }
 
   try {
+    const replicate = new Replicate({ auth: apiKey });
     const output = await replicate.run("black-forest-labs/flux-1.1-pro", {
       input: {
         prompt,
@@ -76,7 +76,6 @@ app.post("/api/generate-image", async (req, res) => {
       },
     });
 
-    // Flux returns a URL string or a FileOutput object
     const imageUrl = typeof output === "string" ? output : output?.url?.() || String(output);
     res.json({ imageUrl });
   } catch (err) {
@@ -88,8 +87,24 @@ app.post("/api/generate-image", async (req, res) => {
 // ── Health check ─────────────────────────────────────────────────────────────
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", hasAnthropic: !!ANTHROPIC_KEY, hasReplicate: !!REPLICATE_KEY });
+  res.json({
+    status: "ok",
+    hasAnthropic: !!process.env.ANTHROPIC_KEY,
+    hasReplicate: !!process.env.REPLICATE_KEY,
+  });
 });
 
+// ── Start server ─────────────────────────────────────────────────────────────
+
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`✨ StoriKids server running on port ${PORT}`));
+const server = app.listen(PORT, () => {
+  console.log(`✨ StoriKids server running on port ${PORT}`);
+  console.log(`   Anthropic: ${process.env.ANTHROPIC_KEY ? "✓" : "✗ (set ANTHROPIC_KEY)"}`);
+  console.log(`   Replicate: ${process.env.REPLICATE_KEY ? "✓" : "✗ (set REPLICATE_KEY)"}`);
+});
+
+// Keep process alive
+server.on("error", (err) => {
+  console.error("Server error:", err);
+  process.exit(1);
+});
