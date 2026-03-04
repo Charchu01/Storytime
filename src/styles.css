@@ -1937,6 +1937,14 @@
   width: 5px; height: 5px; border-radius: 50%; background: var(--terra);
 }
 .gn-right { display: flex; gap: 12px; align-items: center; }
+.gn-auth { display: flex; gap: 10px; align-items: center; }
+.gn-signin {
+  background: none; color: var(--ink); border: 1.5px solid var(--ghost);
+  border-radius: 999px; padding: 8px 18px;
+  font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: border-color 0.2s;
+}
+.gn-signin:hover { border-color: var(--terra); color: var(--terra); }
 .gn-cta {
   background: var(--terra); color: white; border: none;
   border-radius: 999px; padding: 9px 20px;
@@ -1984,6 +1992,9 @@
 }
 .drawer-link:active { background: rgba(200,93,42,.08); }
 .drawer-link-sm { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--mid); }
+.drawer-auth { display: flex; flex-direction: column; gap: 0; }
+.drawer-auth button.drawer-link { background: none; border: none; text-align: left; width: 100%; cursor: pointer; }
+.drawer-link-cta { color: var(--terra) !important; font-weight: 700; }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    HOMEPAGE

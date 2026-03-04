@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import { useState, useEffect, createContext, useContext, useCallback } from "react";
+import { ClerkProvider } from "@clerk/clerk-react";
 import HomePage from "./pages/HomePage";
 import CreatePage from "./pages/CreatePage";
 import BookReaderPage from "./pages/BookReaderPage";
@@ -72,7 +73,9 @@ export default function App() {
 
   const appValue = { stories, addStory, deleteStory, addActivity };
 
-  return (
+  const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+  const inner = (
     <AppContext.Provider value={appValue}>
       <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
         <Routes>
@@ -94,4 +97,10 @@ export default function App() {
       </ToastContext.Provider>
     </AppContext.Provider>
   );
+
+  // Wrap with ClerkProvider if key is available, otherwise render without auth
+  if (clerkKey) {
+    return <ClerkProvider publishableKey={clerkKey}>{inner}</ClerkProvider>;
+  }
+  return inner;
 }

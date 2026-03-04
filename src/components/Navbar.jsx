@@ -1,5 +1,65 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
+import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/clerk-react";
+
+const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+function AuthSection() {
+  if (!CLERK_ENABLED) {
+    return <Link to="/create" className="gn-cta">Start Free →</Link>;
+  }
+
+  const { isSignedIn, isLoaded } = useUser();
+
+  if (!isLoaded) return null;
+
+  if (isSignedIn) {
+    return (
+      <div className="gn-auth">
+        <Link to="/create" className="gn-cta">Create Story</Link>
+        <UserButton
+          afterSignOutUrl="/"
+          appearance={{
+            elements: { avatarBox: { width: 36, height: 36 } },
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="gn-auth">
+      <SignInButton mode="modal">
+        <button className="gn-signin">Sign In</button>
+      </SignInButton>
+      <SignUpButton mode="modal">
+        <button className="gn-cta">Get Started →</button>
+      </SignUpButton>
+    </div>
+  );
+}
+
+function MobileAuthSection() {
+  if (!CLERK_ENABLED) return null;
+
+  const { isSignedIn, isLoaded } = useUser();
+
+  if (!isLoaded || isSignedIn) return null;
+
+  return (
+    <>
+      <div className="drawer-sep" />
+      <div className="drawer-auth">
+        <SignInButton mode="modal">
+          <button className="drawer-link">Sign In</button>
+        </SignInButton>
+        <SignUpButton mode="modal">
+          <button className="drawer-link drawer-link-cta">Get Started →</button>
+        </SignUpButton>
+      </div>
+    </>
+  );
+}
 
 export default function Navbar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -41,7 +101,7 @@ export default function Navbar() {
           </div>
 
           <div className="gn-right">
-            <Link to="/create" className="gn-cta">Start Free →</Link>
+            <AuthSection />
           </div>
 
           <button className="gn-burger" onClick={() => setDrawerOpen(true)} aria-label="Menu">
@@ -63,6 +123,7 @@ export default function Navbar() {
             <Link to="/library" className="drawer-link">My Library</Link>
             <Link to="/profile" className="drawer-link">My Profile</Link>
             <Link to="/account" className="drawer-link">Account & Billing</Link>
+            <MobileAuthSection />
             <div className="drawer-sep" />
             <Link to="/privacy" className="drawer-link drawer-link-sm">Privacy Policy</Link>
             <Link to="/terms" className="drawer-link drawer-link-sm">Terms of Service</Link>
