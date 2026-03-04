@@ -1,5 +1,26 @@
 import Replicate from "replicate";
 
+// Retry helper: waits and retries on 429 rate-limit errors
+async function runWithRetry(replicate, model, input, maxRetries = 2) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await replicate.run(model, { input });
+    } catch (err) {
+      const is429 = err.response?.status === 429 ||
+        err.status === 429 ||
+        (err.message && err.message.includes("429"));
+      if (is429 && attempt < maxRetries) {
+        // Wait 12s (rate limit resets in ~10s per Replicate docs)
+        const waitMs = 12000;
+        console.log(`Rate limited (attempt ${attempt + 1}), waiting ${waitMs / 1000}s...`);
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -20,67 +41,38 @@ export default async function handler(req, res) {
   let usedModel = "flux-1.1-pro";
   let identityError = null;
 
-  // Step 1: Try identity-preserving model if requested
+  // Step 1: Try Kontext identity-preserving model if requested
   if (referencePhotoUrl && model === "kontext") {
     try {
-      output = await replicate.run("black-forest-labs/flux-kontext-pro", {
-        input: {
-          prompt,
-          input_image: referencePhotoUrl,
-          aspect_ratio: aspectRatio,
-          safety_tolerance: 5,
-        },
+      output = await runWithRetry(replicate, "black-forest-labs/flux-kontext-pro", {
+        prompt,
+        input_image: referencePhotoUrl,
+        aspect_ratio: aspectRatio,
+        safety_tolerance: 5,
       });
       usedModel = "kontext";
     } catch (err) {
       identityError = err.message || "Kontext failed";
-      console.error("Kontext Pro failed:", identityError);
-      output = null;
-    }
-  } else if (referencePhotoUrl && model === "pulid") {
-    const dims = aspectRatio === "16:9" ? { width: 1344, height: 768 }
-      : aspectRatio === "3:4" ? { width: 768, height: 1024 }
-      : { width: 1024, height: 1024 };
-    try {
-      output = await replicate.run("bytedance/flux-pulid", {
-        input: {
-          prompt,
-          main_face_image: referencePhotoUrl,
-          width: dims.width,
-          height: dims.height,
-          num_outputs: 1,
-          start_step: 1,
-          guidance_scale: 4,
-          num_inference_steps: 20,
-          true_cfg: true,
-        },
-      });
-      if (Array.isArray(output)) output = output[0];
-      usedModel = "pulid";
-    } catch (err) {
-      identityError = err.message || "PuLID failed";
-      console.error("PuLID failed:", identityError);
+      console.error("Kontext Pro failed, falling back:", identityError);
       output = null;
     }
   }
 
-  // Step 2: Fallback to text-only Flux 1.1 Pro if identity model failed or wasn't requested
+  // Step 2: Fallback to text-only Flux 1.1 Pro
   if (!output) {
     try {
-      output = await replicate.run("black-forest-labs/flux-1.1-pro", {
-        input: {
-          prompt,
-          aspect_ratio: aspectRatio,
-          output_format: "webp",
-          output_quality: 90,
-          safety_tolerance: 5,
-          prompt_upsampling: true,
-        },
+      output = await runWithRetry(replicate, "black-forest-labs/flux-1.1-pro", {
+        prompt,
+        aspect_ratio: aspectRatio,
+        output_format: "webp",
+        output_quality: 90,
+        safety_tolerance: 5,
+        prompt_upsampling: true,
       });
       usedModel = "flux-1.1-pro";
     } catch (err) {
       const fluxError = err.message || "Unknown error";
-      console.error("Flux 1.1 Pro also failed:", fluxError);
+      console.error("Flux 1.1 Pro failed:", fluxError);
       const detail = identityError
         ? `Identity model: ${identityError}. Fallback: ${fluxError}`
         : fluxError;
