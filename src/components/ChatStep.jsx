@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { SPARKS, LOVES, MOODS, SPARK_REACTIONS } from "../constants/data";
-import { generateStory, generateAllImages, analyzeCharacterPhotos } from "../api/story";
+import { generateStory, generateAllImages, analyzeCharacterPhotos, uploadHeroPhoto } from "../api/story";
 
 function TypingIndicator() {
   return (
@@ -251,9 +251,10 @@ export default function ChatStep({ cast, style, onNext, onBack }) {
         mood: answers.moodText || answers.mood,
       });
 
-      // Step 2: Generate illustrations
+      // Step 2: Upload hero photo once, then generate all illustrations
       setLoadStep(2);
-      const images = await generateAllImages(story.pages, enrichedCast, style, (current, total) => {
+      const heroPhotoUrl = await uploadHeroPhoto(enrichedCast);
+      const images = await generateAllImages(story.pages, enrichedCast, style, heroPhotoUrl, (current, total) => {
         // Could add per-image progress here
       });
 
@@ -272,6 +273,7 @@ export default function ChatStep({ cast, style, onNext, onBack }) {
         dedication: answers.dedication !== "skip" ? answers.dedication : null,
         style,
         enrichedCast,
+        heroPhotoUrl,
       });
     } catch (err) {
       console.error("Story generation failed:", err);

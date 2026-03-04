@@ -29,7 +29,7 @@ function PageImage({ imageUrl, pageIndex, isLoading }) {
 }
 
 export default function PreviewStep({ data, cast, onReset, onBack }) {
-  const { story, dedication, style, enrichedCast } = data;
+  const { story, dedication, style, enrichedCast, heroPhotoUrl } = data;
   // Use enriched cast (with appearance descriptions) if available, otherwise fall back to original
   const activeCast = enrichedCast || cast;
   const [pages, setPages] = useState(story.pages);
@@ -109,7 +109,8 @@ export default function PreviewStep({ data, cast, onReset, onBack }) {
         const newImageUrl = await generatePageImage(
           `${pages[pageIndex].imagePrompt || pages[pageIndex].text}. Additional direction: ${instruction}`,
           activeCast,
-          style
+          style,
+          heroPhotoUrl
         );
         setPages((prev) =>
           prev.map((page, i) => (i === pageIndex ? { ...page, imageUrl: newImageUrl } : page))
@@ -128,7 +129,8 @@ export default function PreviewStep({ data, cast, onReset, onBack }) {
       const newImageUrl = await generatePageImage(
         pages[pageIndex].imagePrompt || pages[pageIndex].text,
         activeCast,
-        style
+        style,
+        heroPhotoUrl
       );
       setPages((prev) =>
         prev.map((page, i) => (i === pageIndex ? { ...page, imageUrl: newImageUrl } : page))
