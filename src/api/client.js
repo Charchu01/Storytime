@@ -54,14 +54,14 @@ export async function uploadPhoto(photoDataUri) {
   return data.photoUrl;
 }
 
-// Generate an image. referencePhotoUrl should be an HTTP URL (from uploadPhoto), NOT base64.
-export async function generateImage(prompt, aspectRatio = "16:9", referencePhotoUrl = null, model = null) {
+// Generate an image using flux-pulid. referencePhotoUrl is an HTTP URL (from uploadPhoto).
+export async function generateImage(prompt, referencePhotoUrl = null) {
   let response;
   try {
     response = await fetch("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, aspectRatio, referencePhotoUrl, model }),
+      body: JSON.stringify({ prompt, referencePhotoUrl, width: 768, height: 576 }),
     });
   } catch (err) {
     throw new Error(`Network error calling /api/generate-image: ${err.message}`);

@@ -10,12 +10,11 @@ export const ROLES = [
 ];
 
 export const STYLES = [
-  { id: "wc", name: "Watercolor", tagline: "Dreamy & classic", mood: "Timeless", emoji: "🎨", className: "sc-wc" },
-  { id: "px", name: "Pixar 3D", tagline: "Cinematic magic", mood: "Epic", emoji: "🌟", className: "sc-px" },
-  { id: "sk", name: "Storybook Sketch", tagline: "Cozy & hand-drawn", mood: "Cozy", emoji: "✏️", className: "sc-sk" },
-  { id: "an", name: "Anime", tagline: "Vibrant & expressive", mood: "Exciting", emoji: "🌸", className: "sc-an" },
-  { id: "re", name: "Realistic", tagline: "Lifelike portraits", mood: "Premium", emoji: "📸", className: "sc-re" },
-  { id: "pl", name: "Soft Plush", tagline: "Stuffed animal world", mood: "Gentle", emoji: "🧸", className: "sc-pl" },
+  { id: "sb", name: "Storybook", tagline: "Warm, timeless — like the books you grew up with", mood: "Classic", emoji: "✨", className: "sc-sb" },
+  { id: "wc", name: "Watercolor", tagline: "Soft, dreamy — painterly and poetic", mood: "Dreamy", emoji: "🎨", className: "sc-wc" },
+  { id: "bb", name: "Bold & Bright", tagline: "Vibrant, modern — big personality on every page", mood: "Vibrant", emoji: "🌈", className: "sc-bb" },
+  { id: "cs", name: "Cozy & Soft", tagline: "Gentle pastel tones — perfect for bedtime stories", mood: "Gentle", emoji: "🧸", className: "sc-cs" },
+  { id: "sc", name: "Sketch & Color", tagline: "Whimsical hand-drawn feel — like it was made just for them", mood: "Whimsical", emoji: "✏️", className: "sc-sc" },
 ];
 
 export const SPARKS = [

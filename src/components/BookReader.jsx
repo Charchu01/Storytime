@@ -2,26 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../App";
 import EditDrawer from "./EditDrawer";
-import { editPageText, generatePageImage } from "../api/story";
-
-// ── Art style gradients ──────────────────────────────────────────────────────
-const STYLE_GRADIENTS = {
-  Watercolor: "linear-gradient(135deg, #F9C6D0, #FDDFC4, #FEF0E7)",
-  "Pixar 3D": "linear-gradient(135deg, #1a1a4e, #2d1b6b, #0d0d2b)",
-  "Storybook Sketch": "linear-gradient(135deg, #F5EDD6, #EDE0C4, #E5D5B0)",
-  Anime: "linear-gradient(135deg, #C850C0, #4158D0, #FFCC70)",
-  Realistic: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)",
-  "Soft Plush": "linear-gradient(135deg, #FFDEE9, #B5FFFC, #FFE9D9)",
-};
-
-const STYLE_COVER_GRADIENTS = {
-  Watercolor: "linear-gradient(160deg, #E8A0B0, #F0C4A8, #F5DFC8)",
-  "Pixar 3D": "linear-gradient(160deg, #1a1a5e, #3d2b8b, #1d1d4b)",
-  "Storybook Sketch": "linear-gradient(160deg, #D8C8A0, #C4B498, #B8A888)",
-  Anime: "linear-gradient(160deg, #A040A0, #3148C0, #D0A840)",
-  Realistic: "linear-gradient(160deg, #1f1c49, #403b83, #34345e)",
-  "Soft Plush": "linear-gradient(160deg, #E0C0D0, #90D8D4, #E0C8B0)",
-};
+import { editPageText, generatePageImage, STYLE_GRADIENTS, STYLE_COVER_GRADIENTS } from "../api/story";
 
 // ── Web Audio helpers ────────────────────────────────────────────────────────
 let audioCtx = null;
@@ -105,6 +86,15 @@ function spawnConfetti(container) {
 // Helper: check if a URL is a raw photo (data URI) vs generated image (http URL)
 function isGeneratedImage(url) {
   return url && typeof url === "string" && url.startsWith("http");
+}
+
+// SAFETY: Never display the uploaded reference photo on a book page
+function isReferencePhoto(url, heroPhotoUrl) {
+  if (!url || !heroPhotoUrl) return false;
+  // Check against both data URIs and uploaded URLs
+  if (url === heroPhotoUrl) return true;
+  if (url.startsWith("data:")) return true;
+  return false;
 }
 
 // Render text with drop cap on first letter
@@ -472,40 +462,77 @@ export default function BookReader({ data, cast, styleName, onReset }) {
           )}
 
           {/* Dedication page */}
-          {current.type === "dedication" && (
-            <div className="br-spread">
-              <div className="br-page-left" style={{ background: gradient }}>
-                <div className="br-noise" />
-                <div className="br-pl-inner">
-                  <div className="br-pl-label">Dedication</div>
+          {current.type === "dedication" && (() => {
+            const coverEmoji = story.coverEmoji || story.pages?.[0]?.scene_emoji || "✨";
+            const floatingEmojis = ["🌟", "💫", "✨", "🌙", "⭐", "💖", "🦋", "🌸", "🍃", "🌺"];
+            return (
+              <div className="br-spread">
+                <div className="br-page-left br-ded-left" style={{ background: gradient }}>
+                  <div className="br-noise" />
+                  <div className="br-ded-hero-emoji">{coverEmoji}</div>
+                  {floatingEmojis.map((em, i) => (
+                    <div
+                      key={i}
+                      className="br-ded-float-emoji"
+                      style={{
+                        left: `${10 + Math.random() * 75}%`,
+                        top: `${8 + Math.random() * 78}%`,
+                        fontSize: `${20 + Math.random() * 16}px`,
+                        opacity: 0.3 + Math.random() * 0.35,
+                        animationDuration: `${3 + Math.random() * 4}s`,
+                        animationDelay: `${Math.random() * 3}s`,
+                      }}
+                    >
+                      {em}
+                    </div>
+                  ))}
+                  <div className="br-pl-bottom" style={{ color: "rgba(255,255,255,0.25)" }}>✦</div>
                 </div>
-                <div className="br-pl-mat" />
-              </div>
-              <div className="br-spine" />
-              <div className="br-page-right">
-                <div className="br-pr-inner">
-                  <p className="br-pr-text" style={{ fontStyle: "italic" }}>{dedication}</p>
+                <div className="br-spine" />
+                <div className="br-page-right">
+                  <div className="br-pr-inner br-ded-right-inner">
+                    <div className="br-ded-flourish">✦</div>
+                    <div className="br-ded-label">Dedication</div>
+                    <p className="br-ded-text">{dedication}</p>
+                    <div className="br-ded-heart">♥</div>
+                    <div className="br-pr-pagenum">~ ♥ ~</div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Story pages */}
           {current.type === "page" && (() => {
-            const hasImage = isGeneratedImage(current.page.imageUrl);
+            const imgUrl = current.page.imageUrl;
+            // SAFETY: never display the raw reference photo
+            const isSafeImage = isGeneratedImage(imgUrl) && !isReferencePhoto(imgUrl, data.heroPhotoUrl);
+            const pageEmoji = current.page.scene_emoji || current.page.emoji || "🌟";
             return (
               <div className="br-spread">
-                <div className="br-page-left">
+                <div className="br-page-left" style={!isSafeImage ? { background: gradient } : undefined}>
                   {regeneratingImage === current.pageIdx ? (
-                    <div className="br-pl-inner"><div className="br-img-loading">Regenerating…</div></div>
-                  ) : hasImage ? (
-                    <img className="br-pl-img" src={current.page.imageUrl} alt={`Page ${current.pageIdx + 1}`} />
+                    <div className="br-pl-inner">
+                      <div className="br-pl-emoji br-emoji-pulse">{pageEmoji}</div>
+                      <div className="br-illustrating-badge">Illustrating...</div>
+                    </div>
+                  ) : isSafeImage ? (
+                    <img
+                      className="br-pl-img br-img-fadein"
+                      src={imgUrl}
+                      alt={`Page ${current.pageIdx + 1}`}
+                      onError={(e) => {
+                        // Fallback to gradient placeholder if image fails to load
+                        e.target.style.display = "none";
+                        e.target.parentElement.style.background = gradient;
+                      }}
+                    />
                   ) : (
-                    <div className="br-pl-inner" style={{ background: gradient }}>
-                      <div className="br-pl-emoji">{current.page.emoji || "🌟"}</div>
+                    <div className="br-pl-inner">
+                      <div className="br-pl-emoji br-emoji-pulse">{pageEmoji}</div>
                     </div>
                   )}
-                  {hasImage && <div className="br-pl-fade" />}
+                  {isSafeImage && <div className="br-pl-fade" />}
                 </div>
                 <div className="br-spine" />
                 <div className="br-page-right">
