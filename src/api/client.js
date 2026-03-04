@@ -1,10 +1,10 @@
-export async function claudeCall(system, userMsg, maxTokens = 1400) {
+export async function claudeCall(system, userMsg, maxTokens = 1400, imageDataUrl = null) {
   let response;
   try {
     response = await fetch("/api/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ system, userMsg, maxTokens }),
+      body: JSON.stringify({ system, userMsg, maxTokens, imageDataUrl }),
     });
   } catch (err) {
     throw new Error(`Network error calling /api/claude: ${err.message}`);
@@ -25,7 +25,7 @@ export async function claudeCall(system, userMsg, maxTokens = 1400) {
   return data.text;
 }
 
-export async function generateImage(prompt, aspectRatio = "3:4") {
+export async function generateImage(prompt, aspectRatio = "16:9") {
   let response;
   try {
     response = await fetch("/api/generate-image", {

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { SPARKS, LOVES, MOODS, SPARK_REACTIONS } from "../constants/data";
-import { generateStory, generateAllImages } from "../api/story";
+import { generateStory, generateAllImages, analyzeCharacterPhotos } from "../api/story";
 
 function TypingIndicator() {
   return (
@@ -42,7 +42,7 @@ function Message({ message }) {
 
 function LoadingScreen({ step, error, onRetry }) {
   const steps = [
-    "Building characters…",
+    "Analyzing character photos…",
     "Writing the story…",
     "Generating illustrations…",
     "Adding the finishing touches…",
@@ -233,12 +233,18 @@ export default function ChatStep({ cast, style, onNext, onBack }) {
     setLoadStep(0);
 
     try {
-      // Step 0-1: Generate story text
+      // Step 0: Analyze character photos for better image generation
       setLoadStep(0);
-      await new Promise((r) => setTimeout(r, 500));
-      setLoadStep(1);
+      const hasPhotos = cast.some((c) => c.photo);
+      let enrichedCast = cast;
+      if (hasPhotos) {
+        enrichedCast = await analyzeCharacterPhotos(cast);
+      }
+      await new Promise((r) => setTimeout(r, 300));
 
-      const story = await generateStory(cast, style, {
+      // Step 1: Generate story text
+      setLoadStep(1);
+      const story = await generateStory(enrichedCast, style, {
         hero: answers.heroName || hero.name,
         spark: answers.sparkText || answers.spark,
         loves: answers.lovesText || answers.loves,
@@ -247,7 +253,7 @@ export default function ChatStep({ cast, style, onNext, onBack }) {
 
       // Step 2: Generate illustrations
       setLoadStep(2);
-      const images = await generateAllImages(story.pages, cast, style, (current, total) => {
+      const images = await generateAllImages(story.pages, enrichedCast, style, (current, total) => {
         // Could add per-image progress here
       });
 
