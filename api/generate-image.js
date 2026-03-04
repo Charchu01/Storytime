@@ -15,14 +15,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "prompt is required" });
   }
 
-  try {
-    const replicate = new Replicate({ auth: apiKey });
-    let output;
-    let usedModel = "none";
+  const replicate = new Replicate({ auth: apiKey });
+  let output;
+  let usedModel = "flux-1.1-pro";
+  let identityError = null;
 
-    // referencePhotoUrl is a proper HTTP URL (uploaded via /api/upload-photo)
-    if (referencePhotoUrl && model === "kontext") {
-      usedModel = "kontext";
+  // Step 1: Try identity-preserving model if requested
+  if (referencePhotoUrl && model === "kontext") {
+    try {
       output = await replicate.run("black-forest-labs/flux-kontext-pro", {
         input: {
           prompt,
@@ -31,12 +31,17 @@ export default async function handler(req, res) {
           safety_tolerance: 5,
         },
       });
-    } else if (referencePhotoUrl && model === "pulid") {
-      usedModel = "pulid";
-      const dims = aspectRatio === "16:9" ? { width: 1344, height: 768 }
-        : aspectRatio === "3:4" ? { width: 768, height: 1024 }
-        : { width: 1024, height: 1024 };
-
+      usedModel = "kontext";
+    } catch (err) {
+      identityError = err.message || "Kontext failed";
+      console.error("Kontext Pro failed:", identityError);
+      output = null;
+    }
+  } else if (referencePhotoUrl && model === "pulid") {
+    const dims = aspectRatio === "16:9" ? { width: 1344, height: 768 }
+      : aspectRatio === "3:4" ? { width: 768, height: 1024 }
+      : { width: 1024, height: 1024 };
+    try {
       output = await replicate.run("bytedance/flux-pulid", {
         input: {
           prompt,
@@ -50,14 +55,18 @@ export default async function handler(req, res) {
           true_cfg: true,
         },
       });
+      if (Array.isArray(output)) output = output[0];
+      usedModel = "pulid";
+    } catch (err) {
+      identityError = err.message || "PuLID failed";
+      console.error("PuLID failed:", identityError);
+      output = null;
+    }
+  }
 
-      // PuLID returns an array
-      if (Array.isArray(output)) {
-        output = output[0];
-      }
-    } else {
-      // Text-only generation using Flux 1.1 Pro (no reference photo)
-      usedModel = "flux-1.1-pro";
+  // Step 2: Fallback to text-only Flux 1.1 Pro if identity model failed or wasn't requested
+  if (!output) {
+    try {
       output = await replicate.run("black-forest-labs/flux-1.1-pro", {
         input: {
           prompt,
@@ -68,32 +77,27 @@ export default async function handler(req, res) {
           prompt_upsampling: true,
         },
       });
+      usedModel = "flux-1.1-pro";
+    } catch (err) {
+      const fluxError = err.message || "Unknown error";
+      console.error("Flux 1.1 Pro also failed:", fluxError);
+      const detail = identityError
+        ? `Identity model: ${identityError}. Fallback: ${fluxError}`
+        : fluxError;
+      return res.status(500).json({ error: `Image generation failed: ${detail}` });
     }
+  }
 
-    // Normalize output to a URL string
-    // Replicate SDK v1.4.0 returns FileOutput (extends ReadableStream) with toString() returning URL
-    let imageUrl;
-    if (typeof output === "string") {
-      imageUrl = output;
-    } else if (output != null) {
-      // FileOutput.toString() returns the URL, String() calls toString()
-      imageUrl = String(output);
-      // Sanity check: if it doesn't look like a URL, something went wrong
-      if (!imageUrl.startsWith("http")) {
-        console.error("Unexpected output format:", imageUrl.slice(0, 100));
-        return res.status(500).json({
-          error: `Unexpected image output format from ${usedModel}`,
-        });
-      }
-    } else {
-      return res.status(500).json({ error: "Model returned empty output" });
-    }
+  // Step 3: Normalize output to a URL string
+  const imageUrl = typeof output === "string"
+    ? output
+    : (output?.url?.() || String(output));
 
-    res.json({ imageUrl, model: usedModel });
-  } catch (err) {
-    console.error("Image generation error:", err);
-    res.status(500).json({
-      error: `Failed to generate image (${err.message || "Unknown error"})`,
+  if (!imageUrl || !imageUrl.startsWith("http")) {
+    return res.status(500).json({
+      error: `Bad output from ${usedModel}: ${String(imageUrl).slice(0, 80)}`,
     });
   }
+
+  res.json({ imageUrl, model: usedModel });
 }

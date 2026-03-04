@@ -17,21 +17,25 @@ export default async function handler(req, res) {
 
   try {
     // Parse the data URI
-    const base64Data = photoDataUri.split(",")[1];
-    if (!base64Data) {
+    const commaIdx = photoDataUri.indexOf(",");
+    if (commaIdx === -1) {
       return res.status(400).json({ error: "Invalid data URI format" });
     }
-
-    const mimeMatch = photoDataUri.match(/^data:(image\/\w+);/);
+    const base64Data = photoDataUri.slice(commaIdx + 1);
+    const mimeMatch = photoDataUri.match(/^data:(image\/[a-zA-Z+]+);/);
     const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
 
-    // Convert to buffer and upload to Replicate's file hosting
+    // Convert to buffer then to Blob (Replicate SDK accepts Blob for file upload)
     const buffer = Buffer.from(base64Data, "base64");
+    const blob = new Blob([buffer], { type: mime });
+
     const replicate = new Replicate({ auth: apiKey });
-    const file = await replicate.files.create(
-      new Blob([buffer], { type: mime }),
-      { filename: "character-photo.jpg" }
-    );
+    const file = await replicate.files.create(blob);
+
+    if (!file?.urls?.get) {
+      console.error("Unexpected file response:", JSON.stringify(file));
+      return res.status(500).json({ error: "Upload succeeded but no URL returned" });
+    }
 
     res.json({ photoUrl: file.urls.get });
   } catch (err) {
