@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "REPLICATE_KEY not configured" });
   }
 
-  const { photoDataUri } = req.body;
+  const { photoDataUri } = req.body || {};
   if (!photoDataUri) {
     return res.status(400).json({ error: "photoDataUri is required" });
   }
