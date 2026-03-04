@@ -1,36 +1,36 @@
 import { claudeCall, generateImage, uploadPhoto } from "./client";
 import { ROLES } from "../constants/data";
 
-// Style prompts for Kontext Pro (identity-preserving, with reference photo)
+// Kontext scene prompts — describe the SCENE in art style, character is part of the world
 const KONTEXT_STYLE_PROMPTS = {
   Watercolor:
-    "Transform this person into a beautiful watercolor children's book illustration. Soft pastel washes, dreamy brushstrokes, warm gentle lighting. Keep their exact facial features, hair color, skin tone, and distinctive features. Whimsical storybook aesthetic.",
+    "Beautiful watercolor children's book illustration. Soft pastel washes, dreamy brushstrokes, warm gentle lighting. Wide or medium shot showing a full scene. Keep this person's facial features, hair color, skin tone recognizable but make them ONE element of a rich, detailed environment.",
   "Pixar 3D":
-    "Transform this person into a Pixar-style 3D animated character for a children's book. Vibrant colors, soft lighting, big expressive eyes, smooth skin, cinematic composition. Keep their exact facial features, hair, and skin tone. Warm magical Pixar aesthetic.",
+    "Pixar-style 3D animated children's book illustration. Vibrant colors, soft lighting, cinematic composition, dramatic camera angle. Wide or medium shot showing a full scene. Keep this person's facial features, hair, skin tone recognizable but make them ONE element of a rich, detailed world.",
   "Storybook Sketch":
-    "Transform this person into a hand-drawn pencil and ink children's book sketch. Cozy crosshatching, warm earth tones, gentle linework. Keep their exact facial features, hair, and skin tone. Nostalgic storybook illustration feel.",
+    "Hand-drawn pencil and ink children's book sketch illustration. Cozy crosshatching, warm earth tones, gentle linework. Wide or medium shot showing a full scene. Keep this person's facial features, hair, skin tone recognizable but make them ONE element of a rich, detailed environment.",
   Anime:
-    "Transform this person into a beautiful anime-style character for a children's book. Studio Ghibli inspired, vibrant colors, expressive eyes, soft cel shading, magical sparkles. Keep their facial features, hair color, and skin tone recognizable. Enchanting anime aesthetic.",
+    "Beautiful anime-style children's book illustration, Studio Ghibli inspired. Vibrant colors, expressive eyes, soft cel shading, magical sparkles. Wide or medium shot showing a full scene. Keep this person's facial features, hair, skin tone recognizable but make them ONE element of a rich, detailed world.",
   Realistic:
-    "Transform this person into a realistic digital painting for a children's book. Soft portrait lighting, warm golden tones, detailed and lifelike rendering. Keep their exact facial features, hair, and appearance. Gentle, warm illustrated atmosphere.",
+    "Realistic digital painting children's book illustration. Soft portrait lighting, warm golden tones, detailed and lifelike. Wide or medium shot showing a full scene. Keep this person's facial features, hair, appearance recognizable but make them ONE element of a rich, detailed environment.",
   "Soft Plush":
-    "Transform this person into an adorable soft plush toy character for a children's book. Felt and fabric textures, rounded shapes, pastel colors, cozy nursery aesthetic. Keep their hair color, skin tone, and recognizable features. Cuddly storybook style.",
+    "Adorable soft plush toy style children's book illustration. Felt and fabric textures, rounded shapes, pastel colors. Wide or medium shot showing a full scene. Keep this person's hair, skin tone recognizable but make them ONE element of a rich, cozy world.",
 };
 
-// Text-only style prompts (no reference photo — fallback)
+// Text-only style prompts (no reference photo)
 const TEXT_STYLE_PROMPTS = {
   Watercolor:
-    "children's book illustration, beautiful watercolor painting, soft pastel colors, dreamy washes, gentle brushstrokes, warm lighting, whimsical, full scene composition",
+    "children's book illustration, beautiful watercolor painting, soft pastel colors, dreamy washes, gentle brushstrokes, warm lighting, whimsical, wide shot, full scene composition with rich environment and atmosphere",
   "Pixar 3D":
-    "children's book illustration, Pixar-style 3D render, vibrant colors, soft lighting, expressive characters, cinematic composition, warm and magical, detailed character rendering",
+    "children's book illustration, Pixar-style 3D render, vibrant colors, soft lighting, cinematic composition, dramatic camera angle, wide shot, full scene with rich environment, warm and magical",
   "Storybook Sketch":
-    "children's book illustration, hand-drawn pencil and ink sketch, cozy crosshatching, warm earth tones, gentle linework, nostalgic storybook feel, detailed character illustration",
+    "children's book illustration, hand-drawn pencil and ink sketch, cozy crosshatching, warm earth tones, gentle linework, wide shot, full scene composition with rich environment, nostalgic storybook feel",
   Anime:
-    "children's book illustration, beautiful anime style, vibrant colors, expressive eyes, soft cel shading, magical sparkles, Studio Ghibli inspired, detailed character art",
+    "children's book illustration, beautiful anime style, Studio Ghibli inspired, vibrant colors, soft cel shading, magical sparkles, wide shot, full scene with rich environment and atmosphere",
   Realistic:
-    "children's book illustration, realistic digital painting, soft portrait lighting, warm golden tones, detailed and lifelike, gentle atmosphere, photorealistic character rendering",
+    "children's book illustration, realistic digital painting, soft lighting, warm golden tones, detailed and lifelike, wide shot, full scene composition with rich environment and atmosphere",
   "Soft Plush":
-    "children's book illustration, soft plush toy style, felt and fabric textures, rounded shapes, pastel colors, cozy nursery aesthetic, adorable character design",
+    "children's book illustration, soft plush toy style, felt and fabric textures, rounded shapes, pastel colors, wide shot, full scene composition with cozy world and atmosphere",
 };
 
 function buildCharacterDescription(cast) {
@@ -70,18 +70,17 @@ function buildDetailedCharacterPrompt(cast) {
 }
 
 // Build the prompt and model selection for a single page image.
-// heroPhotoUrl is a pre-uploaded HTTP URL (or null if no photo).
 function buildImageRequest(sceneDescription, cast, styleName, heroPhotoUrl) {
+  const styleAnchor = "Maintain visual consistency with previous pages. Same art style, same color palette, same character appearance throughout. ";
+
   if (heroPhotoUrl) {
-    // We have a reference photo URL — use Kontext Pro for identity preservation
     const styleBase = KONTEXT_STYLE_PROMPTS[styleName] || KONTEXT_STYLE_PROMPTS["Watercolor"];
-    const prompt = `${styleBase} Scene: ${sceneDescription}. No text, words, or letters in the image.`;
+    const prompt = `${styleAnchor}${styleBase} Scene: ${sceneDescription}. No text, words, or letters in the image.`;
     return { prompt, referencePhotoUrl: heroPhotoUrl, model: "kontext" };
   } else {
-    // No photo — use text-only generation
     const styleBase = TEXT_STYLE_PROMPTS[styleName] || TEXT_STYLE_PROMPTS["Watercolor"];
     const characterDesc = buildDetailedCharacterPrompt(cast);
-    const prompt = `${styleBase}. Characters: ${characterDesc}. Scene: ${sceneDescription}. Consistent character appearances, expressive faces. No text, words, or letters in the image.`;
+    const prompt = `${styleAnchor}${styleBase}. Characters: ${characterDesc}. Scene: ${sceneDescription}. Consistent character appearances throughout. No text, words, or letters in the image.`;
     return { prompt, referencePhotoUrl: null, model: null };
   }
 }
@@ -133,17 +132,22 @@ export async function generateStory(cast, styleName, storyData) {
 
   const systemPrompt = `You are a children's book author and illustrator director. Create a personalized picture book.
 Return ONLY valid JSON with this exact structure:
-{"title":"...","pages":[{"text":"...","imagePrompt":"..."}]}
+{"title":"...","coverScene":"...","pages":[{"text":"...","imagePrompt":"..."}]}
 
 Rules:
 - Exactly ${storyData.pageCount || 5} pages
 - Each page: 2-3 warm, vivid sentences in picture-book voice using the characters' real names
-- Each imagePrompt: a detailed visual scene description for an illustrator.${heroHasPhoto
-    ? " The hero character's face will be preserved from their photo, so focus on describing the SCENE, SETTING, ACTIONS, EXPRESSIONS, and CLOTHING rather than facial features. Describe the environment, lighting, other characters, and what's happening."
-    : " Include specific character appearances (hair color, skin tone, clothing, expressions), setting details, composition, and mood. Describe what characters look like in EVERY imagePrompt for consistency. Never use character names — describe their appearance instead."}
+- "coverScene": a wide landscape scene description for the cover illustration — the magical world the story takes place in. Rich environment, atmospheric, cinematic. No characters needed, just the world/setting.
+- For each imagePrompt: generate a FULL SCENE description showing the story action — wide or medium shot, character as part of the world, rich environment and atmosphere. Never a portrait or face close-up. The scene should tell the story visually even without reading the text.
+  - Use rule of thirds composition. Character positioned slightly left of center with negative space flowing right.
+  - Include: environment details, lighting, atmosphere, weather/time of day, foreground and background elements, character's body language and actions, clothing colors
+  - The character should be roughly 30-40% of the frame height, never filling the whole image${heroHasPhoto
+    ? "\n  - The hero character's face will be preserved from their photo, so focus on describing the SCENE, SETTING, ACTIONS, EXPRESSIONS, and CLOTHING rather than facial features. Describe the environment, lighting, other characters, and what's happening."
+    : "\n  - Include specific character appearances (hair color, skin tone, clothing, expressions) in EVERY imagePrompt for consistency. Never use character names — describe their appearance instead."}
 - Make it magical, age-appropriate, and emotionally resonant
 - The story should have a clear arc: setup, adventure, challenge, resolution, warm ending
-- Each imagePrompt should be 2-3 sentences of rich visual detail`;
+- Each imagePrompt should be 3-4 sentences of rich visual and environmental detail
+- Maintain visual consistency: same color temperature, same rendering style, same character appearance throughout all pages`;
 
   const userPrompt = `Cast: ${characterDescriptions}
 ${appearanceNotes ? `\nCharacter Appearances:\n${appearanceNotes}\n` : ""}
@@ -189,11 +193,38 @@ export async function uploadHeroPhoto(cast) {
   }
 }
 
+// Generate cover scene image
+export async function generateCoverImage(coverScene, styleName, heroPhotoUrl) {
+  if (!coverScene) return null;
+  const styleAnchor = "Maintain visual consistency. ";
+  const styleBase = heroPhotoUrl
+    ? (KONTEXT_STYLE_PROMPTS[styleName] || KONTEXT_STYLE_PROMPTS["Watercolor"])
+    : (TEXT_STYLE_PROMPTS[styleName] || TEXT_STYLE_PROMPTS["Watercolor"]);
+  const prompt = `${styleAnchor}${styleBase}. Scene: ${coverScene}. Wide cinematic landscape, atmospheric, no characters needed. No text, words, or letters in the image.`;
+
+  try {
+    return await generateImage(prompt, "16:9", null, null);
+  } catch (err) {
+    console.error("Cover image generation failed:", err);
+    return null;
+  }
+}
+
 // Generate all page images, reusing the pre-uploaded heroPhotoUrl for every page
-export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, onProgress) {
+export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, onProgress, coverScene) {
   const results = [];
   let failCount = 0;
   let firstError = null;
+
+  // Generate cover image first if we have a scene description
+  let coverImageUrl = null;
+  if (coverScene) {
+    if (onProgress) onProgress(-1, pages.length, "cover");
+    coverImageUrl = await generateCoverImage(coverScene, styleName, heroPhotoUrl);
+    if (coverImageUrl) {
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  }
 
   for (let i = 0; i < pages.length; i++) {
     if (onProgress) onProgress(i, pages.length);
@@ -222,7 +253,7 @@ export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, on
     throw new Error(firstError || "All illustrations failed. Please try again.");
   }
 
-  return results;
+  return { pageImages: results, coverImageUrl };
 }
 
 export async function editPageText(currentText, instruction, cast) {

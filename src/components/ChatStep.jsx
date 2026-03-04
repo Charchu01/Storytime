@@ -294,9 +294,11 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
       // Step 2: Upload hero photo once, then generate all illustrations
       setLoadStep(2);
       const heroPhotoUrl = await uploadHeroPhoto(enrichedCast);
-      const images = await generateAllImages(story.pages, enrichedCast, style, heroPhotoUrl, (current, total) => {
-        // Could add per-image progress here
-      });
+      const { pageImages, coverImageUrl } = await generateAllImages(
+        story.pages, enrichedCast, style, heroPhotoUrl,
+        (current, total) => { /* per-image progress */ },
+        story.coverScene
+      );
 
       // Step 3: Finalize
       setLoadStep(3);
@@ -305,11 +307,11 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
       // Merge images into pages
       const pagesWithImages = story.pages.map((page, i) => ({
         ...page,
-        imageUrl: images[i] || null,
+        imageUrl: pageImages[i] || null,
       }));
 
       onNext({
-        story: { ...story, pages: pagesWithImages },
+        story: { ...story, pages: pagesWithImages, coverImageUrl },
         dedication: answers.dedication !== "skip" ? answers.dedication : null,
         authorName: answers.authorName || "A loving family",
         style,

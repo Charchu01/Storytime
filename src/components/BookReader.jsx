@@ -101,6 +101,39 @@ function spawnConfetti(container) {
   }
 }
 
+// ── Flourish characters that rotate per page ────────────────────────────────
+const FLOURISHES = ["✦", "❋", "✧", "❊", "✤", "❁", "✺", "✵"];
+
+// Helper: check if a URL is a raw photo (data URI) vs generated image (http URL)
+function isGeneratedImage(url) {
+  return url && typeof url === "string" && url.startsWith("http");
+}
+
+// Render text with drop cap on first letter
+function renderTextWithDropCap(text, pageIdx, narrating, narratingSentence) {
+  if (!text) return null;
+
+  if (narrating && narratingSentence >= 0) {
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    return sentences.map((sentence, i) => {
+      if (i === 0) {
+        const first = sentence.charAt(0);
+        const rest = sentence.slice(1);
+        return (
+          <span key={i} className={`br-sentence${i === narratingSentence ? " br-sentence-active" : ""}`}>
+            <span className="br-drop-cap">{first}</span>{rest}
+          </span>
+        );
+      }
+      return <span key={i} className={`br-sentence${i === narratingSentence ? " br-sentence-active" : ""}`}>{sentence}</span>;
+    });
+  }
+
+  const first = text.charAt(0);
+  const rest = text.slice(1);
+  return <><span className="br-drop-cap">{first}</span>{rest}</>;
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 export default function BookReader({ data, cast, styleName, onReset }) {
   const navigate = useNavigate();
@@ -108,6 +141,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const story = data.story || data;
   const pages = story.pages || [];
   const dedication = data.dedication;
+  const coverImageUrl = story.coverImageUrl || null;
   const heroName = cast.find((c) => c.isHero)?.name || cast[0]?.name || "your little one";
   const authorName = data.authorName || "A loving family";
 
@@ -421,9 +455,12 @@ export default function BookReader({ data, cast, styleName, onReset }) {
           ref={bookRef}
           style={{ transform: `rotate(${bookRotation}deg)` }}
         >
-          {/* Cover page (full spread) */}
+          {/* Cover page (full spread with cover image) */}
           {current.type === "cover" && (
             <div className="br-spread br-cover-spread" style={{ background: gradient }}>
+              {coverImageUrl && (
+                <img className="br-cover-bg-img" src={coverImageUrl} alt="" />
+              )}
               <div className="br-noise" />
               <div className="br-cover-content">
                 <div className="br-cc-badge">{styleName}</div>
@@ -433,6 +470,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                 <p className="br-cc-for">A story written for</p>
                 <p className="br-cc-name">{heroName}</p>
                 <p className="br-cc-author">By {authorName}</p>
+                <div className="br-cc-watermark">StoriKids</div>
               </div>
             </div>
           )}
@@ -462,42 +500,42 @@ export default function BookReader({ data, cast, styleName, onReset }) {
           )}
 
           {/* Story pages */}
-          {current.type === "page" && (
-            <div className="br-spread">
-              <div className="br-page-left" style={{ background: gradient }}>
-                <div className="br-noise" />
-                {regeneratingImage === current.pageIdx ? (
-                  <div className="br-pl-inner"><div className="br-img-loading">Regenerating…</div></div>
-                ) : current.page.imageUrl ? (
-                  <img className="br-pl-img" src={current.page.imageUrl} alt={`Page ${current.pageIdx + 1}`} />
-                ) : (
-                  <div className="br-pl-inner">
-                    <div className="br-pl-emoji">{current.page.emoji || "🌟"}</div>
-                  </div>
-                )}
-                <div className="br-pl-mat" />
-                <div className="br-pl-bottom">✦</div>
-              </div>
-              <div className="br-spine" />
-              <div className="br-page-right">
-                <div className="br-pr-inner">
-                  <div className="br-pr-flourish">✦</div>
-                  <p className="br-pr-text">
-                    {narrating && narratingSentence >= 0
-                      ? (current.page.text.match(/[^.!?]+[.!?]+/g) || [current.page.text]).map((sentence, i) => (
-                          <span key={i} className={`br-sentence${i === narratingSentence ? " br-sentence-active" : ""}`}>{sentence}</span>
-                        ))
-                      : current.page.text}
-                  </p>
-                  <div className="br-pr-pagenum">~ {current.pageIdx + 1} ~</div>
+          {current.type === "page" && (() => {
+            const flourish = FLOURISHES[current.pageIdx % FLOURISHES.length];
+            const hasImage = isGeneratedImage(current.page.imageUrl);
+            return (
+              <div className="br-spread">
+                <div className="br-page-left" style={{ background: gradient }}>
+                  <div className="br-noise" />
+                  {regeneratingImage === current.pageIdx ? (
+                    <div className="br-pl-inner"><div className="br-img-loading">Regenerating…</div></div>
+                  ) : hasImage ? (
+                    <img className="br-pl-img" src={current.page.imageUrl} alt={`Page ${current.pageIdx + 1}`} />
+                  ) : (
+                    <div className="br-pl-inner">
+                      <div className="br-pl-emoji">{current.page.emoji || "🌟"}</div>
+                    </div>
+                  )}
+                  {hasImage && <div className="br-pl-fade" />}
+                  <div className="br-pl-bottom">{flourish}</div>
                 </div>
-                <div className="br-dogear" />
-                <button className="br-edit-toggle" onClick={() => setActiveEdit(activeEdit ? null : { index: current.pageIdx, type: "story" })}>
-                  ✏️ Edit
-                </button>
+                <div className="br-spine" />
+                <div className="br-page-right">
+                  <div className="br-pr-inner">
+                    <div className="br-pr-flourish">{flourish}</div>
+                    <p className="br-pr-text">
+                      {renderTextWithDropCap(current.page.text, current.pageIdx, narrating, narratingSentence)}
+                    </p>
+                    <div className="br-pr-pagenum">~ {current.pageIdx + 1} ~</div>
+                  </div>
+                  <div className="br-dogear" />
+                  <button className="br-edit-toggle" onClick={() => setActiveEdit(activeEdit ? null : { index: current.pageIdx, type: "story" })}>
+                    ✏️ Edit
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* End page */}
           {current.type === "end" && (
