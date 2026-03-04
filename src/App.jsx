@@ -1,57 +1,93 @@
-import { useState } from "react";
-import Landing from "./components/Landing";
-import CastStep from "./components/CastStep";
-import StyleStep from "./components/StyleStep";
-import ChatStep from "./components/ChatStep";
-import PreviewStep from "./components/PreviewStep";
+import { Routes, Route } from "react-router-dom";
+import { useState, useEffect, createContext, useContext, useCallback } from "react";
+import HomePage from "./pages/HomePage";
+import CreatePage from "./pages/CreatePage";
+import BookReaderPage from "./pages/BookReaderPage";
+import LibraryPage from "./pages/LibraryPage";
+import ProfilePage from "./pages/ProfilePage";
+import AccountPage from "./pages/AccountPage";
+import SharedPage from "./pages/SharedPage";
+import PrivacyPage from "./pages/PrivacyPage";
+import TermsPage from "./pages/TermsPage";
+import NotFoundPage from "./pages/NotFoundPage";
+import Navbar from "./components/Navbar";
+import CookieBanner from "./components/CookieBanner";
+import ToastContainer from "./components/ToastContainer";
 import "./styles.css";
 
-export default function App() {
-  const [step, setStep] = useState("landing");
-  const [cast, setCast] = useState([]);
-  const [style, setStyle] = useState(null);
-  const [result, setResult] = useState(null);
+// ── Toast context ────────────────────────────────────────────────────────────
+const ToastContext = createContext();
+export function useToast() { return useContext(ToastContext); }
 
-  function reset() {
-    setCast([]);
-    setStyle(null);
-    setResult(null);
-    setStep("landing");
+// ── Story storage helpers ────────────────────────────────────────────────────
+function loadStories() {
+  try { return JSON.parse(localStorage.getItem("sk_stories") || "[]"); }
+  catch { return []; }
+}
+function saveStories(stories) {
+  localStorage.setItem("sk_stories", JSON.stringify(stories));
+}
+
+// ── App Context for global state ─────────────────────────────────────────────
+const AppContext = createContext();
+export function useAppContext() { return useContext(AppContext); }
+
+export default function App() {
+  const [stories, setStories] = useState(loadStories);
+  const [toasts, setToasts] = useState([]);
+
+  useEffect(() => { saveStories(stories); }, [stories]);
+
+  // Toast system
+  const addToast = useCallback((message, type = "info", duration = 4000) => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    if (duration > 0) setTimeout(() => removeToast(id), duration);
+    return id;
+  }, []);
+
+  const removeToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  function addStory(story) {
+    const entry = { ...story, id: story.id || Date.now().toString(36) + Math.random().toString(36).slice(2), createdAt: new Date().toISOString() };
+    setStories((prev) => [entry, ...prev]);
+    return entry.id;
   }
 
+  function deleteStory(id) {
+    setStories((prev) => prev.filter((s) => s.id !== id));
+  }
+
+  function addActivity(action, storyTitle) {
+    try {
+      const history = JSON.parse(localStorage.getItem("sk_activity") || "[]");
+      history.unshift({ date: new Date().toISOString(), title: storyTitle, action, status: "Complete" });
+      localStorage.setItem("sk_activity", JSON.stringify(history.slice(0, 50)));
+    } catch {}
+  }
+
+  const appValue = { stories, addStory, deleteStory, addActivity };
+
   return (
-    <div className="app">
-      {step === "landing" && (
-        <Landing onStart={() => setStep("cast")} />
-      )}
-      {step === "cast" && (
-        <CastStep
-          onNext={(characters) => { setCast(characters); setStep("style"); }}
-          onBack={() => setStep("landing")}
-        />
-      )}
-      {step === "style" && (
-        <StyleStep
-          onNext={(styleName) => { setStyle(styleName); setStep("chat"); }}
-          onBack={() => setStep("cast")}
-        />
-      )}
-      {step === "chat" && (
-        <ChatStep
-          cast={cast}
-          style={style}
-          onNext={(storyResult) => { setResult(storyResult); setStep("preview"); }}
-          onBack={() => setStep("style")}
-        />
-      )}
-      {step === "preview" && (
-        <PreviewStep
-          data={result}
-          cast={cast}
-          onReset={reset}
-          onBack={() => setStep("chat")}
-        />
-      )}
-    </div>
+    <AppContext.Provider value={appValue}>
+      <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
+        <Routes>
+          <Route path="/" element={<><Navbar /><HomePage /></>} />
+          <Route path="/create" element={<CreatePage />} />
+          <Route path="/book/:id" element={<BookReaderPage />} />
+          <Route path="/library" element={<><Navbar /><LibraryPage /></>} />
+          <Route path="/profile" element={<><Navbar /><ProfilePage /></>} />
+          <Route path="/account" element={<><Navbar /><AccountPage /></>} />
+          <Route path="/shared" element={<SharedPage />} />
+          <Route path="/privacy" element={<><Navbar /><PrivacyPage /></>} />
+          <Route path="/terms" element={<><Navbar /><TermsPage /></>} />
+          <Route path="*" element={<><Navbar /><NotFoundPage /></>} />
+        </Routes>
+        <CookieBanner />
+        <ToastContainer />
+      </ToastContext.Provider>
+    </AppContext.Provider>
   );
 }

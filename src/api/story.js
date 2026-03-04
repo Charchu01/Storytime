@@ -136,7 +136,7 @@ Return ONLY valid JSON with this exact structure:
 {"title":"...","pages":[{"text":"...","imagePrompt":"..."}]}
 
 Rules:
-- Exactly 5 pages
+- Exactly ${storyData.pageCount || 5} pages
 - Each page: 2-3 warm, vivid sentences in picture-book voice using the characters' real names
 - Each imagePrompt: a detailed visual scene description for an illustrator.${heroHasPhoto
     ? " The hero character's face will be preserved from their photo, so focus on describing the SCENE, SETTING, ACTIONS, EXPRESSIONS, and CLOTHING rather than facial features. Describe the environment, lighting, other characters, and what's happening."
@@ -153,7 +153,8 @@ They love: ${storyData.loves}
 Mood: ${storyData.mood}
 Art style: ${styleName}`;
 
-  const raw = await claudeCall(systemPrompt, userPrompt, 1800);
+  const maxTokens = (storyData.pageCount || 5) > 6 ? 3000 : 1800;
+  const raw = await claudeCall(systemPrompt, userPrompt, maxTokens);
 
   let parsed;
   try {

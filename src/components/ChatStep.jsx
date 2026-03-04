@@ -76,7 +76,7 @@ function LoadingScreen({ step, error, onRetry }) {
   );
 }
 
-export default function ChatStep({ cast, style, onNext, onBack }) {
+export default function ChatStep({ cast, style, length = 6, occasion, onNext, onBack }) {
   const hero = cast.find((c) => c.isHero) || cast[0];
   const [phase, setPhase] = useState("spark");
   const [answers, setAnswers] = useState({});
@@ -249,6 +249,7 @@ export default function ChatStep({ cast, style, onNext, onBack }) {
         spark: answers.sparkText || answers.spark,
         loves: answers.lovesText || answers.loves,
         mood: answers.moodText || answers.mood,
+        pageCount: length,
       });
 
       // Step 2: Upload hero photo once, then generate all illustrations
@@ -271,6 +272,7 @@ export default function ChatStep({ cast, style, onNext, onBack }) {
       onNext({
         story: { ...story, pages: pagesWithImages },
         dedication: answers.dedication !== "skip" ? answers.dedication : null,
+        authorName: answers.authorName || "A loving family",
         style,
         enrichedCast,
         heroPhotoUrl,
