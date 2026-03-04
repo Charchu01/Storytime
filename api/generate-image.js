@@ -96,22 +96,23 @@ export default async function handler(req, res) {
       }
     }
 
-    // Step 2: Fallback to text-only Flux 1.1 Pro
+    // Step 2: Fallback to text-only Flux 1.1 Pro Ultra
     if (!output || !extractUrl(output)) {
       try {
         output = await runWithRetry(
           replicate,
-          "black-forest-labs/flux-1.1-pro",
+          "black-forest-labs/flux-1.1-pro-ultra",
           {
             prompt,
             aspect_ratio: aspectRatio,
             output_format: "webp",
-            output_quality: 90,
+            output_quality: 95,
             safety_tolerance: 5,
             prompt_upsampling: true,
+            raw: false,
           }
         );
-        usedModel = "flux-1.1-pro";
+        usedModel = "flux-1.1-pro-ultra";
       } catch (err) {
         const fluxError = err.message || "Unknown error";
         console.error("Flux 1.1 Pro failed:", fluxError);

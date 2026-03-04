@@ -4,33 +4,33 @@ import { ROLES } from "../constants/data";
 // Kontext scene prompts — describe the SCENE in art style, character is part of the world
 const KONTEXT_STYLE_PROMPTS = {
   Watercolor:
-    "Beautiful watercolor children's book illustration. Soft pastel washes, dreamy brushstrokes, warm gentle lighting. Wide or medium shot showing a full scene. Keep this person's facial features, hair color, skin tone recognizable but make them ONE element of a rich, detailed environment.",
+    "Award-winning children's picture book illustration. Luminous watercolor washes with visible wet-on-wet blending, layered transparent glazes, and delicate dry-brush texture. Rich color harmony with warm golden light streaming through the scene. Atmospheric depth with soft focus background elements. Professional editorial quality, reminiscent of Jerry Pinkney or Oliver Jeffers. Wide composition with this person as one element of an immersive, beautifully detailed world. Keep this person's facial features, hair color, skin tone recognizable.",
   "Pixar 3D":
-    "Pixar-style 3D animated children's book illustration. Vibrant colors, soft lighting, cinematic composition, dramatic camera angle. Wide or medium shot showing a full scene. Keep this person's facial features, hair, skin tone recognizable but make them ONE element of a rich, detailed world.",
+    "Premium Pixar-quality 3D rendered children's book illustration. Sophisticated global illumination, volumetric light rays, subsurface scattering on skin. Rich cinematic color grading with teal-and-orange palette. Shallow depth of field with beautiful bokeh. Detailed textures on every surface — fabric weave, wood grain, leaf veins. Wide cinematic composition, 35mm lens feel. Keep this person's facial features, hair, skin tone recognizable but make them one element of a breathtaking, richly detailed world.",
   "Storybook Sketch":
-    "Hand-drawn pencil and ink children's book sketch illustration. Cozy crosshatching, warm earth tones, gentle linework. Wide or medium shot showing a full scene. Keep this person's facial features, hair, skin tone recognizable but make them ONE element of a rich, detailed environment.",
+    "Exquisite hand-drawn children's book illustration in the tradition of E.H. Shepard or Beatrix Potter. Fine pen and ink linework with delicate crosshatching, tinted with soft watercolor washes in warm earth tones and muted sage greens. Charming vignette composition with decorative botanical details. Nostalgic warmth with masterful draftsmanship. Keep this person's facial features, hair, skin tone recognizable but make them one element of a rich, detailed environment.",
   Anime:
-    "Beautiful anime-style children's book illustration, Studio Ghibli inspired. Vibrant colors, expressive eyes, soft cel shading, magical sparkles. Wide or medium shot showing a full scene. Keep this person's facial features, hair, skin tone recognizable but make them ONE element of a rich, detailed world.",
+    "Breathtaking Studio Ghibli-quality anime illustration for a premium children's book. Luminous hand-painted backgrounds with extraordinary environmental detail — dappled sunlight through leaves, rippling water reflections, clouds with painterly depth. Rich saturated colors with sophisticated color harmony. Hayao Miyazaki-level world-building with a sense of wonder and scale. Keep this person's facial features, hair, skin tone recognizable but make them one element of a vast, beautifully realized world.",
   Realistic:
-    "Realistic digital painting children's book illustration. Soft portrait lighting, warm golden tones, detailed and lifelike. Wide or medium shot showing a full scene. Keep this person's facial features, hair, appearance recognizable but make them ONE element of a rich, detailed environment.",
+    "Museum-quality realistic digital painting for a premium children's book. Masterful oil-painting technique with visible brushwork, rich impasto highlights, and luminous glazes. Rembrandt-quality lighting with warm golden tones and atmospheric perspective. Incredible detail in textures — fabric folds, wood grain, natural elements. Wide composition with cinematic depth. Keep this person's facial features, hair, appearance recognizable but make them one element of a richly detailed, immersive environment.",
   "Soft Plush":
-    "Adorable soft plush toy style children's book illustration. Felt and fabric textures, rounded shapes, pastel colors. Wide or medium shot showing a full scene. Keep this person's hair, skin tone recognizable but make them ONE element of a rich, cozy world.",
+    "Exquisite stop-motion quality felt and fabric children's book illustration. Incredibly detailed textile textures — hand-stitched felt characters, knitted backgrounds, embroidered flowers, corduroy hills. Warm studio lighting with soft shadows revealing every fiber and stitch. Miniature diorama feel with tilt-shift depth of field. Premium craft quality like Wes Anderson's Isle of Dogs. Keep this person's hair, skin tone recognizable but make them one element of a richly textured, cozy handcrafted world.",
 };
 
 // Text-only style prompts (no reference photo)
 const TEXT_STYLE_PROMPTS = {
   Watercolor:
-    "children's book illustration, beautiful watercolor painting, soft pastel colors, dreamy washes, gentle brushstrokes, warm lighting, whimsical, wide shot, full scene composition with rich environment and atmosphere",
+    "Award-winning children's picture book illustration. Luminous watercolor with wet-on-wet blending, layered transparent glazes, delicate dry-brush details. Rich color harmony, warm golden light, atmospheric depth with soft-focus backgrounds. Professional editorial quality reminiscent of Jerry Pinkney. Wide composition, immersive detailed world",
   "Pixar 3D":
-    "children's book illustration, Pixar-style 3D render, vibrant colors, soft lighting, cinematic composition, dramatic camera angle, wide shot, full scene with rich environment, warm and magical",
+    "Premium Pixar-quality 3D rendered children's book illustration. Global illumination, volumetric light rays, subsurface scattering. Cinematic teal-and-orange color grading. Shallow depth of field with bokeh. Detailed textures on every surface — fabric weave, wood grain, leaf veins. Wide 35mm cinematic composition, richly detailed world",
   "Storybook Sketch":
-    "children's book illustration, hand-drawn pencil and ink sketch, cozy crosshatching, warm earth tones, gentle linework, wide shot, full scene composition with rich environment, nostalgic storybook feel",
+    "Exquisite hand-drawn children's book illustration in the tradition of E.H. Shepard or Beatrix Potter. Fine pen and ink with delicate crosshatching, tinted with soft watercolor washes in warm earth tones and muted sage. Charming vignette composition with botanical details. Nostalgic warmth, masterful draftsmanship",
   Anime:
-    "children's book illustration, beautiful anime style, Studio Ghibli inspired, vibrant colors, soft cel shading, magical sparkles, wide shot, full scene with rich environment and atmosphere",
+    "Breathtaking Studio Ghibli-quality anime illustration. Luminous hand-painted backgrounds with extraordinary detail — dappled sunlight, rippling water, painterly clouds. Rich saturated colors with sophisticated harmony. Miyazaki-level world-building with wonder and scale. Wide composition, beautifully realized world",
   Realistic:
-    "children's book illustration, realistic digital painting, soft lighting, warm golden tones, detailed and lifelike, wide shot, full scene composition with rich environment and atmosphere",
+    "Museum-quality realistic digital painting. Masterful oil-painting technique with visible brushwork, impasto highlights, luminous glazes. Rembrandt lighting with warm golden tones and atmospheric perspective. Incredible texture detail — fabric, wood, nature. Wide composition with cinematic depth, richly immersive",
   "Soft Plush":
-    "children's book illustration, soft plush toy style, felt and fabric textures, rounded shapes, pastel colors, wide shot, full scene composition with cozy world and atmosphere",
+    "Exquisite stop-motion quality felt and fabric illustration. Detailed textile textures — hand-stitched felt, knitted backgrounds, embroidered flowers, corduroy hills. Warm studio lighting revealing every fiber and stitch. Miniature diorama feel with tilt-shift depth. Premium craft quality like Wes Anderson. Richly textured handcrafted world",
 };
 
 function buildCharacterDescription(cast) {
@@ -71,16 +71,17 @@ function buildDetailedCharacterPrompt(cast) {
 
 // Build the prompt and model selection for a single page image.
 function buildImageRequest(sceneDescription, cast, styleName, heroPhotoUrl) {
-  const styleAnchor = "Maintain visual consistency with previous pages. Same art style, same color palette, same character appearance throughout. ";
+  const styleAnchor = "Consistent visual style throughout. Same art technique, color palette, lighting mood, and character appearance on every page. ";
+  const qualitySuffix = " Absolutely no text, words, letters, numbers, or writing of any kind anywhere in the image. Ultra high detail, professional quality.";
 
   if (heroPhotoUrl) {
     const styleBase = KONTEXT_STYLE_PROMPTS[styleName] || KONTEXT_STYLE_PROMPTS["Watercolor"];
-    const prompt = `${styleAnchor}${styleBase} Scene: ${sceneDescription}. No text, words, or letters in the image.`;
+    const prompt = `${styleAnchor}${styleBase} Scene: ${sceneDescription}.${qualitySuffix}`;
     return { prompt, referencePhotoUrl: heroPhotoUrl, model: "kontext" };
   } else {
     const styleBase = TEXT_STYLE_PROMPTS[styleName] || TEXT_STYLE_PROMPTS["Watercolor"];
     const characterDesc = buildDetailedCharacterPrompt(cast);
-    const prompt = `${styleAnchor}${styleBase}. Characters: ${characterDesc}. Scene: ${sceneDescription}. Consistent character appearances throughout. No text, words, or letters in the image.`;
+    const prompt = `${styleAnchor}${styleBase}. Characters: ${characterDesc}. Scene: ${sceneDescription}. Consistent character appearances throughout.${qualitySuffix}`;
     return { prompt, referencePhotoUrl: null, model: null };
   }
 }
@@ -200,7 +201,7 @@ export async function generateCoverImage(coverScene, styleName, heroPhotoUrl) {
   const styleBase = heroPhotoUrl
     ? (KONTEXT_STYLE_PROMPTS[styleName] || KONTEXT_STYLE_PROMPTS["Watercolor"])
     : (TEXT_STYLE_PROMPTS[styleName] || TEXT_STYLE_PROMPTS["Watercolor"]);
-  const prompt = `${styleAnchor}${styleBase}. Scene: ${coverScene}. Wide cinematic landscape, atmospheric, no characters needed. No text, words, or letters in the image.`;
+  const prompt = `${styleAnchor}${styleBase}. Scene: ${coverScene}. Epic wide cinematic landscape with dramatic atmospheric perspective, volumetric lighting, and rich environmental storytelling. No characters needed. Absolutely no text, words, letters, numbers, or writing of any kind anywhere in the image. Ultra high detail, professional quality.`;
 
   try {
     return await generateImage(prompt, "16:9", null, null);
