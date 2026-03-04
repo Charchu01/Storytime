@@ -222,6 +222,7 @@ export async function uploadHeroPhoto(cast) {
 export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, onProgress) {
   const results = [];
   let failCount = 0;
+  let firstError = null;
 
   for (let i = 0; i < pages.length; i++) {
     if (onProgress) onProgress(i, pages.length);
@@ -235,14 +236,15 @@ export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, on
       results.push(imageUrl);
     } catch (err) {
       console.error(`Failed to generate image for page ${i + 1}:`, err);
+      if (!firstError) firstError = err.message;
       failCount++;
       results.push(null);
     }
   }
 
-  // If ALL images failed, throw so the user sees an error instead of blank pages
+  // If ALL images failed, throw with the actual error so the user knows what went wrong
   if (failCount === pages.length) {
-    throw new Error("All illustrations failed to generate. Please check your connection and try again.");
+    throw new Error(firstError || "All illustrations failed. Please try again.");
   }
 
   return results;
