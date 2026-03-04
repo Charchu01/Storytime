@@ -1,7 +1,44 @@
 import { useState, useRef } from "react";
 import { ROLES } from "../constants/data";
 
-const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_PHOTO_SIZE = 10 * 1024 * 1024; // 10MB raw input
+const PHOTO_MAX_DIM = 1024; // Resize to max 1024px on longest side
+const PHOTO_QUALITY = 0.85; // JPEG quality
+
+// Resize and compress photo to keep data URLs manageable for API calls
+function compressPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+
+      let { width, height } = img;
+      if (width > PHOTO_MAX_DIM || height > PHOTO_MAX_DIM) {
+        const scale = PHOTO_MAX_DIM / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const dataUrl = canvas.toDataURL("image/jpeg", PHOTO_QUALITY);
+      resolve(dataUrl);
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Failed to load image"));
+    };
+
+    img.src = url;
+  });
+}
 
 export default function CharModal({ preset, existing, onSave, onClose }) {
   const [role, setRole] = useState(existing?.role || preset || "child");
@@ -13,17 +50,19 @@ export default function CharModal({ preset, existing, onSave, onClose }) {
 
   const currentRole = ROLES.find((r) => r.id === role);
 
-  function handleFile(file) {
+  async function handleFile(file) {
     if (!file) return;
     if (file.size > MAX_PHOTO_SIZE) {
-      setError("Photo must be under 5MB");
+      setError("Photo must be under 10MB");
       return;
     }
     setError(null);
-    const reader = new FileReader();
-    reader.onload = (event) => setPhoto(event.target.result);
-    reader.onerror = () => setError("Failed to read photo");
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressPhoto(file);
+      setPhoto(compressed);
+    } catch {
+      setError("Failed to process photo");
+    }
   }
 
   function handleSave() {

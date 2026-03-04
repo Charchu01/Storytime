@@ -29,7 +29,9 @@ function PageImage({ imageUrl, pageIndex, isLoading }) {
 }
 
 export default function PreviewStep({ data, cast, onReset, onBack }) {
-  const { story, dedication, style } = data;
+  const { story, dedication, style, enrichedCast } = data;
+  // Use enriched cast (with appearance descriptions) if available, otherwise fall back to original
+  const activeCast = enrichedCast || cast;
   const [pages, setPages] = useState(story.pages);
   const [activeEdit, setActiveEdit] = useState(null);
   const [regeneratingImage, setRegeneratingImage] = useState(null);
@@ -99,14 +101,14 @@ export default function PreviewStep({ data, cast, onReset, onBack }) {
 
   async function handleEditSave(pageIndex, instruction, type) {
     if (type === "story") {
-      const newText = await editPageText(pages[pageIndex].text, instruction, cast);
+      const newText = await editPageText(pages[pageIndex].text, instruction, activeCast);
       setPages((prev) => prev.map((page, i) => (i === pageIndex ? { ...page, text: newText } : page)));
     } else {
       setRegeneratingImage(pageIndex);
       try {
         const newImageUrl = await generatePageImage(
           `${pages[pageIndex].imagePrompt || pages[pageIndex].text}. Additional direction: ${instruction}`,
-          cast,
+          activeCast,
           style
         );
         setPages((prev) =>
@@ -125,7 +127,7 @@ export default function PreviewStep({ data, cast, onReset, onBack }) {
     try {
       const newImageUrl = await generatePageImage(
         pages[pageIndex].imagePrompt || pages[pageIndex].text,
-        cast,
+        activeCast,
         style
       );
       setPages((prev) =>
