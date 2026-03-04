@@ -3002,6 +3002,81 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+   OCCASION CARDS (ChatStep)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.occ-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px;
+}
+.occ-card {
+  background: white; border: 1.5px solid rgba(0,0,0,0.08); border-radius: 12px;
+  padding: 10px 6px; cursor: pointer; text-align: center;
+  transition: border-color .15s, transform .15s, box-shadow .15s;
+}
+.occ-card:hover { border-color: var(--terra); transform: scale(1.04); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.occ-card:active { transform: scale(0.96); }
+.occ-em { display: block; font-size: 28px; margin-bottom: 4px; }
+.occ-txt { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--ink); }
+.occ-skip {
+  background: none; border: none; color: var(--terra); cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: 13px; margin-top: 4px;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+@media (max-width: 480px) { .occ-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   PHOTO TIPS TOOLTIP
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.photo-tips {
+  background: #FEF7ED; border: 1px solid rgba(200,93,42,0.2); border-radius: 12px;
+  padding: 12px 16px; margin-bottom: 10px; cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: 13px; color: var(--ink); line-height: 1.7;
+  animation: fadeIn .3s ease;
+}
+.photo-tips strong { display: block; margin-bottom: 4px; }
+.photo-tips div { color: #16a34a; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   OFFLINE BANNER
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.offline-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 300;
+  background: #1C0F08; color: white; text-align: center;
+  padding: 10px 24px; font-family: 'Inter', sans-serif; font-size: 13px;
+  animation: slideDown .3s ease;
+}
+@keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   INSTALL PROMPT
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.install-prompt {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 80;
+  background: #1C0F08; padding: 14px 24px;
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  animation: slideUp .3s ease;
+}
+.install-prompt-text { font-family: 'Inter', sans-serif; font-size: 13px; color: white; }
+.install-prompt-btn {
+  background: var(--terra); color: white; border: none; border-radius: 999px;
+  padding: 8px 20px; font-family: 'Inter', sans-serif; font-size: 13px; cursor: pointer;
+}
+.install-prompt-skip {
+  background: none; border: none; color: rgba(255,255,255,0.5);
+  font-family: 'Inter', sans-serif; font-size: 13px; cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   NARRATION HIGHLIGHT
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.br-sentence { transition: background .25s ease, padding .25s ease; border-radius: 4px; }
+.br-sentence-active { background: rgba(255, 200, 100, 0.28); padding: 2px 4px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
    UTILITY
    ═══════════════════════════════════════════════════════════════════════════════ */
 
