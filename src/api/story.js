@@ -17,22 +17,6 @@ const KONTEXT_STYLE_PROMPTS = {
     "Transform this person into an adorable soft plush toy character for a children's book. Felt and fabric textures, rounded shapes, pastel colors, cozy nursery aesthetic. Keep their hair color, skin tone, and recognizable features. Cuddly storybook style.",
 };
 
-// Style prompts for PuLID (stronger stylization with identity anchoring)
-const PULID_STYLE_PROMPTS = {
-  Watercolor:
-    "beautiful watercolor children's book illustration, soft pastel colors, dreamy washes, gentle brushstrokes, warm lighting, whimsical storybook, portrait of this person",
-  "Pixar 3D":
-    "Pixar-style 3D animated character, children's book illustration, vibrant colors, soft lighting, big expressive eyes, cinematic composition, warm and magical, portrait of this person",
-  "Storybook Sketch":
-    "hand-drawn pencil and ink sketch, children's book illustration, cozy crosshatching, warm earth tones, gentle linework, nostalgic storybook feel, portrait of this person",
-  Anime:
-    "beautiful anime style character, children's book, vibrant colors, expressive eyes, soft cel shading, magical sparkles, Studio Ghibli inspired, portrait of this person",
-  Realistic:
-    "realistic digital painting, children's book illustration, soft portrait lighting, warm golden tones, detailed and lifelike, gentle atmosphere, portrait of this person",
-  "Soft Plush":
-    "soft plush toy character, children's book, felt and fabric textures, rounded shapes, pastel colors, cozy nursery aesthetic, adorable, portrait of this person",
-};
-
 // Text-only style prompts (no reference photo — fallback)
 const TEXT_STYLE_PROMPTS = {
   Watercolor:
@@ -48,9 +32,6 @@ const TEXT_STYLE_PROMPTS = {
   "Soft Plush":
     "children's book illustration, soft plush toy style, felt and fabric textures, rounded shapes, pastel colors, cozy nursery aesthetic, adorable character design",
 };
-
-// Styles that work better with PuLID (extreme stylization needs stronger identity anchoring)
-const PULID_PREFERRED_STYLES = new Set(["Pixar 3D", "Anime", "Soft Plush"]);
 
 function buildCharacterDescription(cast) {
   return cast
@@ -92,26 +73,15 @@ function buildDetailedCharacterPrompt(cast) {
 // heroPhotoUrl is a pre-uploaded HTTP URL (or null if no photo).
 function buildImageRequest(sceneDescription, cast, styleName, heroPhotoUrl) {
   if (heroPhotoUrl) {
-    // We have a reference photo URL — use identity-preserving model
-    const usePulid = PULID_PREFERRED_STYLES.has(styleName);
-    const model = usePulid ? "pulid" : "kontext";
-
-    let prompt;
-    if (usePulid) {
-      const styleBase = PULID_STYLE_PROMPTS[styleName] || PULID_STYLE_PROMPTS["Watercolor"];
-      prompt = `${styleBase}. Scene: ${sceneDescription}. No text, words, or letters in the image.`;
-    } else {
-      const styleBase = KONTEXT_STYLE_PROMPTS[styleName] || KONTEXT_STYLE_PROMPTS["Watercolor"];
-      prompt = `${styleBase} Scene: ${sceneDescription}. No text, words, or letters in the image.`;
-    }
-
-    return { prompt, referencePhotoUrl: heroPhotoUrl, model };
+    // We have a reference photo URL — use Kontext Pro for identity preservation
+    const styleBase = KONTEXT_STYLE_PROMPTS[styleName] || KONTEXT_STYLE_PROMPTS["Watercolor"];
+    const prompt = `${styleBase} Scene: ${sceneDescription}. No text, words, or letters in the image.`;
+    return { prompt, referencePhotoUrl: heroPhotoUrl, model: "kontext" };
   } else {
     // No photo — use text-only generation
     const styleBase = TEXT_STYLE_PROMPTS[styleName] || TEXT_STYLE_PROMPTS["Watercolor"];
     const characterDesc = buildDetailedCharacterPrompt(cast);
     const prompt = `${styleBase}. Characters: ${characterDesc}. Scene: ${sceneDescription}. Consistent character appearances, expressive faces. No text, words, or letters in the image.`;
-
     return { prompt, referencePhotoUrl: null, model: null };
   }
 }
@@ -239,6 +209,10 @@ export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, on
       if (!firstError) firstError = err.message;
       failCount++;
       results.push(null);
+    }
+    // Small delay between requests to avoid rate-limit bursts
+    if (i < pages.length - 1) {
+      await new Promise((r) => setTimeout(r, 1500));
     }
   }
 
