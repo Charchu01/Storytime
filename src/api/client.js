@@ -25,13 +25,13 @@ export async function claudeCall(system, userMsg, maxTokens = 1400, imageDataUrl
   return data.text;
 }
 
-export async function generateImage(prompt, aspectRatio = "16:9") {
+export async function generateImage(prompt, aspectRatio = "16:9", referencePhoto = null, model = null) {
   let response;
   try {
     response = await fetch("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, aspectRatio }),
+      body: JSON.stringify({ prompt, aspectRatio, referencePhoto, model }),
     });
   } catch (err) {
     throw new Error(`Network error calling /api/generate-image: ${err.message}`);

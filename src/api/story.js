@@ -1,7 +1,41 @@
 import { claudeCall, generateImage } from "./client";
 import { ROLES } from "../constants/data";
 
-const ART_STYLE_PROMPTS = {
+// Style prompts for Kontext Pro (identity-preserving, with reference photo)
+// These tell Kontext HOW to transform the person's photo into the art style
+const KONTEXT_STYLE_PROMPTS = {
+  Watercolor:
+    "Transform this person into a beautiful watercolor children's book illustration. Soft pastel washes, dreamy brushstrokes, warm gentle lighting. Keep their exact facial features, hair color, skin tone, and distinctive features. Whimsical storybook aesthetic.",
+  "Pixar 3D":
+    "Transform this person into a Pixar-style 3D animated character for a children's book. Vibrant colors, soft lighting, big expressive eyes, smooth skin, cinematic composition. Keep their exact facial features, hair, and skin tone. Warm magical Pixar aesthetic.",
+  "Storybook Sketch":
+    "Transform this person into a hand-drawn pencil and ink children's book sketch. Cozy crosshatching, warm earth tones, gentle linework. Keep their exact facial features, hair, and skin tone. Nostalgic storybook illustration feel.",
+  Anime:
+    "Transform this person into a beautiful anime-style character for a children's book. Studio Ghibli inspired, vibrant colors, expressive eyes, soft cel shading, magical sparkles. Keep their facial features, hair color, and skin tone recognizable. Enchanting anime aesthetic.",
+  Realistic:
+    "Transform this person into a realistic digital painting for a children's book. Soft portrait lighting, warm golden tones, detailed and lifelike rendering. Keep their exact facial features, hair, and appearance. Gentle, warm illustrated atmosphere.",
+  "Soft Plush":
+    "Transform this person into an adorable soft plush toy character for a children's book. Felt and fabric textures, rounded shapes, pastel colors, cozy nursery aesthetic. Keep their hair color, skin tone, and recognizable features. Cuddly storybook style.",
+};
+
+// Style prompts for PuLID (stronger stylization with identity anchoring)
+const PULID_STYLE_PROMPTS = {
+  Watercolor:
+    "beautiful watercolor children's book illustration, soft pastel colors, dreamy washes, gentle brushstrokes, warm lighting, whimsical storybook, portrait of this person",
+  "Pixar 3D":
+    "Pixar-style 3D animated character, children's book illustration, vibrant colors, soft lighting, big expressive eyes, cinematic composition, warm and magical, portrait of this person",
+  "Storybook Sketch":
+    "hand-drawn pencil and ink sketch, children's book illustration, cozy crosshatching, warm earth tones, gentle linework, nostalgic storybook feel, portrait of this person",
+  Anime:
+    "beautiful anime style character, children's book, vibrant colors, expressive eyes, soft cel shading, magical sparkles, Studio Ghibli inspired, portrait of this person",
+  Realistic:
+    "realistic digital painting, children's book illustration, soft portrait lighting, warm golden tones, detailed and lifelike, gentle atmosphere, portrait of this person",
+  "Soft Plush":
+    "soft plush toy character, children's book, felt and fabric textures, rounded shapes, pastel colors, cozy nursery aesthetic, adorable, portrait of this person",
+};
+
+// Text-only style prompts (no reference photo — fallback)
+const TEXT_STYLE_PROMPTS = {
   Watercolor:
     "children's book illustration, beautiful watercolor painting, soft pastel colors, dreamy washes, gentle brushstrokes, warm lighting, whimsical, full scene composition",
   "Pixar 3D":
@@ -16,6 +50,9 @@ const ART_STYLE_PROMPTS = {
     "children's book illustration, soft plush toy style, felt and fabric textures, rounded shapes, pastel colors, cozy nursery aesthetic, adorable character design",
 };
 
+// Styles that work better with PuLID (extreme stylization needs stronger identity anchoring)
+const PULID_PREFERRED_STYLES = new Set(["Pixar 3D", "Anime", "Soft Plush"]);
+
 function buildCharacterDescription(cast) {
   return cast
     .map((character) => {
@@ -27,7 +64,7 @@ function buildCharacterDescription(cast) {
     .join(", ");
 }
 
-// Build a detailed character appearance description for image prompts
+// Build detailed character prompt for text-only generation (no photo available)
 function buildDetailedCharacterPrompt(cast) {
   return cast
     .map((character) => {
@@ -35,10 +72,8 @@ function buildDetailedCharacterPrompt(cast) {
       const parts = [];
 
       if (character.appearanceDescription) {
-        // Use Claude-analyzed appearance description
         parts.push(character.appearanceDescription);
       } else {
-        // Fallback to basic description
         const ageDesc = character.age ? `${character.age}-year-old` : "";
         if (character.role === "pet") {
           parts.push(`a pet named ${character.name}`);
@@ -55,11 +90,34 @@ function buildDetailedCharacterPrompt(cast) {
     .join("; ");
 }
 
-function buildImagePrompt(pageText, cast, styleName) {
-  const styleBase = ART_STYLE_PROMPTS[styleName] || ART_STYLE_PROMPTS["Watercolor"];
-  const characterDesc = buildDetailedCharacterPrompt(cast);
+// Choose the right model and build the prompt based on whether we have a reference photo
+function buildImageRequest(sceneDescription, cast, styleName) {
+  const heroChar = cast.find((c) => c.isHero) || cast[0];
+  const hasHeroPhoto = heroChar?.photo;
 
-  return `${styleBase}. Characters: ${characterDesc}. Scene: ${pageText}. Consistent character appearances throughout, expressive faces, dynamic poses. No text, words, or letters in the image.`;
+  if (hasHeroPhoto) {
+    // We have a reference photo — use identity-preserving model
+    const usePulid = PULID_PREFERRED_STYLES.has(styleName);
+    const model = usePulid ? "pulid" : "kontext";
+
+    let prompt;
+    if (usePulid) {
+      const styleBase = PULID_STYLE_PROMPTS[styleName] || PULID_STYLE_PROMPTS["Watercolor"];
+      prompt = `${styleBase}. Scene: ${sceneDescription}. No text, words, or letters in the image.`;
+    } else {
+      const styleBase = KONTEXT_STYLE_PROMPTS[styleName] || KONTEXT_STYLE_PROMPTS["Watercolor"];
+      prompt = `${styleBase} Scene: ${sceneDescription}. No text, words, or letters in the image.`;
+    }
+
+    return { prompt, referencePhoto: heroChar.photo, model };
+  } else {
+    // No photo — use text-only generation with detailed descriptions
+    const styleBase = TEXT_STYLE_PROMPTS[styleName] || TEXT_STYLE_PROMPTS["Watercolor"];
+    const characterDesc = buildDetailedCharacterPrompt(cast);
+    const prompt = `${styleBase}. Characters: ${characterDesc}. Scene: ${sceneDescription}. Consistent character appearances, expressive faces. No text, words, or letters in the image.`;
+
+    return { prompt, referencePhoto: null, model: null };
+  }
 }
 
 // Use Claude to analyze a character photo and generate a detailed appearance description
@@ -102,11 +160,12 @@ export async function analyzeCharacterPhotos(cast) {
 export async function generateStory(cast, styleName, storyData) {
   const characterDescriptions = buildCharacterDescription(cast);
 
-  // Include appearance descriptions in story generation for better integration
   const appearanceNotes = cast
     .filter((c) => c.appearanceDescription)
     .map((c) => `${c.name}: ${c.appearanceDescription}`)
     .join("\n");
+
+  const heroHasPhoto = (cast.find((c) => c.isHero) || cast[0])?.photo;
 
   const systemPrompt = `You are a children's book author and illustrator director. Create a personalized picture book.
 Return ONLY valid JSON with this exact structure:
@@ -115,10 +174,12 @@ Return ONLY valid JSON with this exact structure:
 Rules:
 - Exactly 5 pages
 - Each page: 2-3 warm, vivid sentences in picture-book voice using the characters' real names
-- Each imagePrompt: a VERY detailed visual scene description for an illustrator. Include specific character appearances (hair color, skin tone, clothing for this scene, expressions), setting details (colors, lighting, objects), composition, and mood. Describe what characters look like in EVERY imagePrompt for consistency. Never use character names in imagePrompt — describe their appearance instead.
+- Each imagePrompt: a detailed visual scene description for an illustrator.${heroHasPhoto
+    ? " The hero character's face will be preserved from their photo, so focus on describing the SCENE, SETTING, ACTIONS, EXPRESSIONS, and CLOTHING rather than facial features. Describe the environment, lighting, other characters, and what's happening."
+    : " Include specific character appearances (hair color, skin tone, clothing, expressions), setting details, composition, and mood. Describe what characters look like in EVERY imagePrompt for consistency. Never use character names — describe their appearance instead."}
 - Make it magical, age-appropriate, and emotionally resonant
 - The story should have a clear arc: setup, adventure, challenge, resolution, warm ending
-- Each imagePrompt should be at least 2-3 sentences of rich visual detail`;
+- Each imagePrompt should be 2-3 sentences of rich visual detail`;
 
   const userPrompt = `Cast: ${characterDescriptions}
 ${appearanceNotes ? `\nCharacter Appearances:\n${appearanceNotes}\n` : ""}
@@ -146,8 +207,8 @@ Art style: ${styleName}`;
 }
 
 export async function generatePageImage(pageText, cast, styleName) {
-  const prompt = buildImagePrompt(pageText, cast, styleName);
-  return generateImage(prompt, "16:9");
+  const { prompt, referencePhoto, model } = buildImageRequest(pageText, cast, styleName);
+  return generateImage(prompt, "16:9", referencePhoto, model);
 }
 
 export async function generateAllImages(pages, cast, styleName, onProgress) {

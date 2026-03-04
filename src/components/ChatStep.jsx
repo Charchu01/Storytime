@@ -271,6 +271,7 @@ export default function ChatStep({ cast, style, onNext, onBack }) {
         story: { ...story, pages: pagesWithImages },
         dedication: answers.dedication !== "skip" ? answers.dedication : null,
         style,
+        enrichedCast,
       });
     } catch (err) {
       console.error("Story generation failed:", err);
