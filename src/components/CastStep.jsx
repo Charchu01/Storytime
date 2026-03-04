@@ -2,8 +2,8 @@ import { useState } from "react";
 import { ROLES } from "../constants/data";
 import CharModal from "./CharModal";
 
-export default function CastStep({ onNext, onBack }) {
-  const [cast, setCast] = useState([]);
+export default function CastStep({ onNext, onBack, initialCast }) {
+  const [cast, setCast] = useState(initialCast || []);
   const [modal, setModal] = useState(null);
 
   function saveCharacter(character) {
