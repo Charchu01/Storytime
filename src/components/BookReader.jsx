@@ -118,6 +118,11 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const [activeEdit, setActiveEdit] = useState(null);
   const [localPages, setLocalPages] = useState(pages);
   const [regeneratingImage, setRegeneratingImage] = useState(null);
+  const [narrating, setNarrating] = useState(false);
+  const [narratingSentence, setNarratingSentence] = useState(-1);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const narrationAudio = useRef(null);
+  const narrationCache = useRef({});
 
   const bookRef = useRef();
   const confettiRef = useRef();
@@ -214,6 +219,122 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     setActiveEdit(null);
   }
 
+  // ── Narration (ElevenLabs) ───────────────────────────────────────────
+  async function handleNarrate() {
+    const current = getPageData(currentPage);
+    if (current.type !== "page" || !current.page?.text) return;
+
+    if (narrating) {
+      // Pause
+      narrationAudio.current?.pause();
+      setNarrating(false);
+      setNarratingSentence(-1);
+      return;
+    }
+
+    const text = current.page.text;
+    const cacheKey = `page_${current.pageIdx}`;
+
+    try {
+      let audioUrl = narrationCache.current[cacheKey];
+
+      if (!audioUrl) {
+        const apiKey = import.meta.env.VITE_ELEVENLABS_KEY;
+        if (!apiKey) { addToast("Audio unavailable — no API key configured", "info"); return; }
+
+        setNarrating(true);
+        setNarratingSentence(-1);
+        addToast("Preparing narration...", "info", 2000);
+
+        const resp = await fetch("https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "xi-api-key": apiKey },
+          body: JSON.stringify({ text, model_id: "eleven_turbo_v2", voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
+        });
+
+        if (!resp.ok) throw new Error("ElevenLabs API error");
+        const blob = await resp.blob();
+        audioUrl = URL.createObjectURL(blob);
+        narrationCache.current[cacheKey] = audioUrl;
+      }
+
+      const audio = new Audio(audioUrl);
+      narrationAudio.current = audio;
+      setNarrating(true);
+
+      // Sentence highlighting
+      const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+      const avgDuration = (audio.duration || 5) / sentences.length;
+
+      audio.addEventListener("playing", () => {
+        sentences.forEach((_, i) => {
+          setTimeout(() => setNarratingSentence(i), i * avgDuration * 1000);
+        });
+      });
+
+      audio.addEventListener("ended", () => {
+        setNarrating(false);
+        setNarratingSentence(-1);
+        // Auto-advance after 1.5s
+        setTimeout(() => { if (!isLastPage) goNext(); }, 1500);
+      });
+
+      audio.play().catch(() => {
+        setNarrating(false);
+        addToast("Audio unavailable — try again later", "info");
+      });
+    } catch {
+      setNarrating(false);
+      setNarratingSentence(-1);
+      addToast("Audio unavailable — try again later", "info");
+    }
+  }
+
+  // Stop narration on page change
+  useEffect(() => {
+    narrationAudio.current?.pause();
+    setNarrating(false);
+    setNarratingSentence(-1);
+  }, [currentPage]);
+
+  // ── PDF Download ───────────────────────────────────────────────────────
+  async function handleDownloadPdf() {
+    setPdfGenerating(true);
+    addToast("Preparing your book...", "info", 3000);
+
+    try {
+      // Dynamic import to avoid bundling unless needed
+      const { default: html2canvas } = await import("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/+esm");
+      const { jsPDF } = await import("https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm");
+
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const bookEl = bookRef.current;
+      if (!bookEl) throw new Error("Book element not found");
+
+      const canvas = await html2canvas(bookEl, { scale: 2, useCORS: true, backgroundColor: null });
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      const pdfW = pdf.internal.pageSize.getWidth();
+      const pdfH = pdf.internal.pageSize.getHeight();
+      pdf.addImage(imgData, "JPEG", 0, 0, pdfW, pdfH);
+
+      const title = story.title || "My StoriKids Book";
+      pdf.save(`${title} - StoriKids.pdf`);
+
+      // Log activity
+      try {
+        const history = JSON.parse(localStorage.getItem("sk_activity") || "[]");
+        history.unshift({ date: new Date().toISOString(), title, action: "PDF Download", status: "Complete" });
+        localStorage.setItem("sk_activity", JSON.stringify(history.slice(0, 50)));
+      } catch {}
+
+      addToast("📚 Your book is saved! Check your downloads.", "magic");
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      addToast("PDF generation failed — try again", "error");
+    }
+    setPdfGenerating(false);
+  }
+
   // ── Share ──────────────────────────────────────────────────────────────────
   function handleShare() {
     try {
@@ -276,6 +397,14 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       <div className="br-toolbar">
         <button className="br-tool-btn" onClick={() => navigate("/library")}>← Back to Library</button>
         <div className="br-tool-right">
+          {current.type === "page" && (
+            <button className="br-tool-icon" onClick={handleNarrate} title={narrating ? "Pause" : "Read to me"}>
+              {narrating ? "⏸ Pause" : "🔊 Read to me"}
+            </button>
+          )}
+          <button className="br-tool-icon" onClick={handleDownloadPdf} disabled={pdfGenerating} title="Save PDF">
+            {pdfGenerating ? "⏳" : "⬇"} Save PDF
+          </button>
           <button className="br-tool-icon" onClick={handleShare} title="Share">🔗</button>
           <button className="br-tool-icon" onClick={onReset} title="New Story">✨</button>
         </div>
@@ -353,7 +482,13 @@ export default function BookReader({ data, cast, styleName, onReset }) {
               <div className="br-page-right">
                 <div className="br-pr-inner">
                   <div className="br-pr-flourish">✦</div>
-                  <p className="br-pr-text">{current.page.text}</p>
+                  <p className="br-pr-text">
+                    {narrating && narratingSentence >= 0
+                      ? (current.page.text.match(/[^.!?]+[.!?]+/g) || [current.page.text]).map((sentence, i) => (
+                          <span key={i} className={`br-sentence${i === narratingSentence ? " br-sentence-active" : ""}`}>{sentence}</span>
+                        ))
+                      : current.page.text}
+                  </p>
                   <div className="br-pr-pagenum">~ {current.pageIdx + 1} ~</div>
                 </div>
                 <div className="br-dogear" />

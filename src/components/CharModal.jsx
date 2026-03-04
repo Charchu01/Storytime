@@ -46,6 +46,7 @@ export default function CharModal({ preset, existing, onSave, onClose }) {
   const [age, setAge] = useState(existing?.age || "");
   const [photo, setPhoto] = useState(existing?.photo || null);
   const [error, setError] = useState(null);
+  const [showTips, setShowTips] = useState(false);
   const fileRef = useRef();
 
   const currentRole = ROLES.find((r) => r.id === role);
@@ -60,6 +61,12 @@ export default function CharModal({ preset, existing, onSave, onClose }) {
     try {
       const compressed = await compressPhoto(file);
       setPhoto(compressed);
+      // Show tips on first photo upload
+      if (!photo && !localStorage.getItem("sk_photo_tips_seen")) {
+        setShowTips(true);
+        localStorage.setItem("sk_photo_tips_seen", "1");
+        setTimeout(() => setShowTips(false), 5000);
+      }
     } catch {
       setError("Failed to process photo");
     }
@@ -132,6 +139,15 @@ export default function CharModal({ preset, existing, onSave, onClose }) {
           style={{ display: "none" }}
           onChange={(e) => handleFile(e.target.files[0])}
         />
+
+        {showTips && (
+          <div className="photo-tips" onClick={() => setShowTips(false)}>
+            <strong>📸 Tips for the best results:</strong>
+            <div>✓ Clear face, looking forward</div>
+            <div>✓ Good natural lighting</div>
+            <div>✓ Just this person in the frame</div>
+          </div>
+        )}
 
         {error && (
           <div style={{ color: "#e53e3e", fontSize: 13, fontWeight: 700, marginBottom: 8 }}>

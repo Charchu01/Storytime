@@ -13,6 +13,8 @@ import NotFoundPage from "./pages/NotFoundPage";
 import Navbar from "./components/Navbar";
 import CookieBanner from "./components/CookieBanner";
 import ToastContainer from "./components/ToastContainer";
+import OfflineBanner from "./components/OfflineBanner";
+import InstallPrompt from "./components/InstallPrompt";
 import "./styles.css";
 
 // ── Toast context ────────────────────────────────────────────────────────────
@@ -87,6 +89,8 @@ export default function App() {
         </Routes>
         <CookieBanner />
         <ToastContainer />
+        <OfflineBanner />
+        <InstallPrompt />
       </ToastContext.Provider>
     </AppContext.Provider>
   );

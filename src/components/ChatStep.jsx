@@ -2,6 +2,17 @@ import { useState, useRef, useEffect } from "react";
 import { SPARKS, LOVES, MOODS, SPARK_REACTIONS } from "../constants/data";
 import { generateStory, generateAllImages, analyzeCharacterPhotos, uploadHeroPhoto } from "../api/story";
 
+const OCCASIONS = [
+  { emoji: "🎂", label: "Birthday" },
+  { emoji: "🏫", label: "First Day of School" },
+  { emoji: "👶", label: "New Baby Sibling" },
+  { emoji: "🦷", label: "Lost a Tooth" },
+  { emoji: "😨", label: "Facing a Fear" },
+  { emoji: "🐾", label: "Pet Story" },
+  { emoji: "✈️", label: "Big Trip" },
+  { emoji: "🌟", label: "Just Because" },
+];
+
 function TypingIndicator() {
   return (
     <div className="typing-r">
@@ -78,8 +89,9 @@ function LoadingScreen({ step, error, onRetry }) {
 
 export default function ChatStep({ cast, style, length = 6, occasion, onNext, onBack }) {
   const hero = cast.find((c) => c.isHero) || cast[0];
-  const [phase, setPhase] = useState("spark");
+  const [phase, setPhase] = useState("occasion");
   const [answers, setAnswers] = useState({});
+  const [authorName, setAuthorName] = useState("");
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
   const [dedication, setDedication] = useState(
@@ -120,12 +132,26 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
     const names = cast.map((c) => c.name).join(", ");
     addAI(`I've got your cast — **${names}**! 🎉 They're all going to be in this story.`, () => {
       setTimeout(() => {
-        addAI("What kind of adventure should this be? Pick one of my ideas below — or just type your own!", () => {
+        addAI("Before we dive in — what's the occasion? Pick one or just skip and tell me your idea! 🌟", () => {
           setShowTray(true);
         });
       }, 600);
     });
   }, []);
+
+  function pickOccasion(label) {
+    if (answers.occasion) return;
+    setShowTray(false);
+    setAnswers((prev) => ({ ...prev, occasion: label }));
+    addUser(label === "skip" ? "No specific occasion" : label);
+    setTimeout(() => {
+      const reaction = label === "skip" ? "No problem!" : `${label} — love it! 🎉`;
+      addAI(`${reaction} Now, what kind of adventure should this be? Pick one of my ideas below — or just type your own!`, () => {
+        setPhase("spark");
+        setShowTray(true);
+      });
+    }, 300);
+  }
 
   function pickSpark(id, text) {
     if (answers.spark) return;
@@ -206,7 +232,20 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
     if (value !== "skip") addUser(`"${value.slice(0, 55)}…"`);
     else addUser("Skip the dedication");
     setTimeout(() => {
-      addAI("I have everything I need ✨ Check the summary below — then let's create your book!", () => {
+      addAI("One last thing — what name should go on the cover as the author? This is YOUR book too! ✨", () => {
+        setPhase("author");
+        setShowTray(true);
+      });
+    }, 300);
+  }
+
+  function pickAuthor(name) {
+    if (answers.authorName) return;
+    setShowTray(false);
+    setAnswers((prev) => ({ ...prev, authorName: name }));
+    addUser(name);
+    setTimeout(() => {
+      addAI(`By **${name}** — perfect! ✨ I have everything I need. Check the summary below — then let's create your book!`, () => {
         setPhase("done");
         setShowTray(true);
       });
@@ -285,7 +324,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
 
   if (loading || error) return <LoadingScreen step={loadStep} error={error} onRetry={() => { setError(null); setLoading(false); }} />;
 
-  const progressMap = { spark: 55, hero: 67, loves: 78, mood: 88, ded: 94, done: 100 };
+  const progressMap = { occasion: 50, spark: 58, hero: 67, loves: 76, mood: 84, ded: 90, author: 95, done: 100 };
 
   return (
     <div className="chat-shell">
@@ -327,6 +366,21 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
 
       {showTray && (
         <div className="tray">
+          {phase === "occasion" && !answers.occasion && (
+            <>
+              <div className="tray-lbl">🎉 What's the occasion?</div>
+              <div className="occ-grid">
+                {OCCASIONS.map((o) => (
+                  <button key={o.label} className="occ-card" onClick={() => pickOccasion(o.label)}>
+                    <span className="occ-em">{o.emoji}</span>
+                    <span className="occ-txt">{o.label}</span>
+                  </button>
+                ))}
+              </div>
+              <button className="occ-skip" onClick={() => pickOccasion("skip")}>Skip — I have my own idea →</button>
+            </>
+          )}
+
           {phase === "spark" && !answers.spark && (
             <>
               <div className="tray-lbl">💡 Quick ideas — or type your own below</div>
@@ -401,6 +455,27 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
             </>
           )}
 
+          {phase === "author" && !answers.authorName && (
+            <>
+              <div className="tray-lbl">✍️ Author name for the cover</div>
+              <input
+                className="f-inp"
+                style={{ marginBottom: 10 }}
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value)}
+                placeholder="e.g. The Johnson Family"
+                maxLength={40}
+              />
+              <button
+                className="ded-use"
+                disabled={!authorName.trim()}
+                onClick={() => pickAuthor(authorName.trim())}
+              >
+                ✓ Use this name
+              </button>
+            </>
+          )}
+
           {phase === "done" && (
             <>
               <div className="recap">
@@ -433,7 +508,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
         </div>
       )}
 
-      {!["ded", "done"].includes(phase) && (
+      {!["occasion", "ded", "author", "done"].includes(phase) && (
         <div className="ibar">
           <div className="iwrap">
             <textarea
