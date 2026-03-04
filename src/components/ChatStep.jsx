@@ -40,7 +40,7 @@ function Message({ message }) {
   );
 }
 
-function LoadingScreen({ step }) {
+function LoadingScreen({ step, error, onRetry }) {
   const steps = [
     "Building characters…",
     "Writing the story…",
@@ -50,17 +50,28 @@ function LoadingScreen({ step }) {
 
   return (
     <div className="loading">
-      <div style={{ fontSize: 56 }}>📚</div>
-      <div className="load-ring" />
-      <div className="load-h">Creating your storybook…</div>
-      <div className="load-steps">
-        {steps.map((label, i) => (
-          <div key={i} className={`ls${step === i ? " act" : step > i ? " dn" : ""}`}>
-            <span>{step > i ? "✓" : "→"}</span>
-            {label}
+      <div style={{ fontSize: 56 }}>{error ? "😔" : "📚"}</div>
+      {!error && <div className="load-ring" />}
+      <div className="load-h">{error ? "Something went wrong" : "Creating your storybook…"}</div>
+      {error ? (
+        <div style={{ textAlign: "center", maxWidth: 400 }}>
+          <div style={{ fontSize: 14, color: "var(--mid)", marginBottom: 16, lineHeight: 1.6, wordBreak: "break-word" }}>
+            {error}
           </div>
-        ))}
-      </div>
+          <button className="big-btn" style={{ maxWidth: 240, margin: "0 auto" }} onClick={onRetry}>
+            Try Again
+          </button>
+        </div>
+      ) : (
+        <div className="load-steps">
+          {steps.map((label, i) => (
+            <div key={i} className={`ls${step === i ? " act" : step > i ? " dn" : ""}`}>
+              <span>{step > i ? "✓" : "→"}</span>
+              {label}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -258,11 +269,10 @@ export default function ChatStep({ cast, style, onNext, onBack }) {
     } catch (err) {
       console.error("Story generation failed:", err);
       setError(err.message || "Something went wrong. Please try again.");
-      setLoading(false);
     }
   }
 
-  if (loading) return <LoadingScreen step={loadStep} />;
+  if (loading || error) return <LoadingScreen step={loadStep} error={error} onRetry={() => { setError(null); setLoading(false); }} />;
 
   const progressMap = { spark: 55, hero: 67, loves: 78, mood: 88, ded: 94, done: 100 };
 

@@ -1,11 +1,22 @@
 export async function claudeCall(system, userMsg, maxTokens = 1400) {
-  const response = await fetch("/api/claude", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ system, userMsg, maxTokens }),
-  });
+  let response;
+  try {
+    response = await fetch("/api/claude", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ system, userMsg, maxTokens }),
+    });
+  } catch (err) {
+    throw new Error(`Network error calling /api/claude: ${err.message}`);
+  }
 
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    const text = await response.text().catch(() => "");
+    throw new Error(`/api/claude returned non-JSON (${response.status}): ${text.slice(0, 200)}`);
+  }
 
   if (!response.ok) {
     throw new Error(data.error || `API error (${response.status})`);
@@ -15,13 +26,24 @@ export async function claudeCall(system, userMsg, maxTokens = 1400) {
 }
 
 export async function generateImage(prompt, aspectRatio = "3:4") {
-  const response = await fetch("/api/generate-image", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, aspectRatio }),
-  });
+  let response;
+  try {
+    response = await fetch("/api/generate-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, aspectRatio }),
+    });
+  } catch (err) {
+    throw new Error(`Network error calling /api/generate-image: ${err.message}`);
+  }
 
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    const text = await response.text().catch(() => "");
+    throw new Error(`/api/generate-image returned non-JSON (${response.status}): ${text.slice(0, 200)}`);
+  }
 
   if (!response.ok) {
     throw new Error(data.error || `Image generation failed (${response.status})`);
