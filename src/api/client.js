@@ -1,7 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
-
 export async function claudeCall(system, userMsg, maxTokens = 1400) {
-  const response = await fetch(`${API_BASE}/api/claude`, {
+  const response = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ system, userMsg, maxTokens }),
@@ -17,7 +15,7 @@ export async function claudeCall(system, userMsg, maxTokens = 1400) {
 }
 
 export async function generateImage(prompt, aspectRatio = "3:4") {
-  const response = await fetch(`${API_BASE}/api/generate-image`, {
+  const response = await fetch("/api/generate-image", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt, aspectRatio }),
