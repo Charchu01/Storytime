@@ -1,8 +1,7 @@
-import { claudeCall, generateImage } from "./client";
+import { claudeCall, generateImage, uploadPhoto } from "./client";
 import { ROLES } from "../constants/data";
 
 // Style prompts for Kontext Pro (identity-preserving, with reference photo)
-// These tell Kontext HOW to transform the person's photo into the art style
 const KONTEXT_STYLE_PROMPTS = {
   Watercolor:
     "Transform this person into a beautiful watercolor children's book illustration. Soft pastel washes, dreamy brushstrokes, warm gentle lighting. Keep their exact facial features, hair color, skin tone, and distinctive features. Whimsical storybook aesthetic.",
@@ -64,7 +63,6 @@ function buildCharacterDescription(cast) {
     .join(", ");
 }
 
-// Build detailed character prompt for text-only generation (no photo available)
 function buildDetailedCharacterPrompt(cast) {
   return cast
     .map((character) => {
@@ -90,13 +88,11 @@ function buildDetailedCharacterPrompt(cast) {
     .join("; ");
 }
 
-// Choose the right model and build the prompt based on whether we have a reference photo
-function buildImageRequest(sceneDescription, cast, styleName) {
-  const heroChar = cast.find((c) => c.isHero) || cast[0];
-  const hasHeroPhoto = heroChar?.photo;
-
-  if (hasHeroPhoto) {
-    // We have a reference photo — use identity-preserving model
+// Build the prompt and model selection for a single page image.
+// heroPhotoUrl is a pre-uploaded HTTP URL (or null if no photo).
+function buildImageRequest(sceneDescription, cast, styleName, heroPhotoUrl) {
+  if (heroPhotoUrl) {
+    // We have a reference photo URL — use identity-preserving model
     const usePulid = PULID_PREFERRED_STYLES.has(styleName);
     const model = usePulid ? "pulid" : "kontext";
 
@@ -109,18 +105,17 @@ function buildImageRequest(sceneDescription, cast, styleName) {
       prompt = `${styleBase} Scene: ${sceneDescription}. No text, words, or letters in the image.`;
     }
 
-    return { prompt, referencePhoto: heroChar.photo, model };
+    return { prompt, referencePhotoUrl: heroPhotoUrl, model };
   } else {
-    // No photo — use text-only generation with detailed descriptions
+    // No photo — use text-only generation
     const styleBase = TEXT_STYLE_PROMPTS[styleName] || TEXT_STYLE_PROMPTS["Watercolor"];
     const characterDesc = buildDetailedCharacterPrompt(cast);
     const prompt = `${styleBase}. Characters: ${characterDesc}. Scene: ${sceneDescription}. Consistent character appearances, expressive faces. No text, words, or letters in the image.`;
 
-    return { prompt, referencePhoto: null, model: null };
+    return { prompt, referencePhotoUrl: null, model: null };
   }
 }
 
-// Use Claude to analyze a character photo and generate a detailed appearance description
 async function analyzeCharacterPhoto(character) {
   if (!character.photo) return null;
 
@@ -141,7 +136,6 @@ async function analyzeCharacterPhoto(character) {
   }
 }
 
-// Analyze all character photos and enrich the cast with appearance descriptions
 export async function analyzeCharacterPhotos(cast) {
   const enrichedCast = await Promise.all(
     cast.map(async (character) => {
@@ -206,13 +200,28 @@ Art style: ${styleName}`;
   return parsed;
 }
 
-export async function generatePageImage(pageText, cast, styleName) {
-  const { prompt, referencePhoto, model } = buildImageRequest(pageText, cast, styleName);
-  return generateImage(prompt, "16:9", referencePhoto, model);
+export async function generatePageImage(pageText, cast, styleName, heroPhotoUrl) {
+  const { prompt, referencePhotoUrl, model } = buildImageRequest(pageText, cast, styleName, heroPhotoUrl);
+  return generateImage(prompt, "16:9", referencePhotoUrl, model);
 }
 
-export async function generateAllImages(pages, cast, styleName, onProgress) {
+// Upload the hero's photo ONCE to Replicate file hosting, returning a reusable HTTP URL
+export async function uploadHeroPhoto(cast) {
+  const heroChar = cast.find((c) => c.isHero) || cast[0];
+  if (!heroChar?.photo) return null;
+
+  try {
+    return await uploadPhoto(heroChar.photo);
+  } catch (err) {
+    console.error("Failed to upload hero photo, falling back to text-only:", err);
+    return null;
+  }
+}
+
+// Generate all page images, reusing the pre-uploaded heroPhotoUrl for every page
+export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, onProgress) {
   const results = [];
+  let failCount = 0;
 
   for (let i = 0; i < pages.length; i++) {
     if (onProgress) onProgress(i, pages.length);
@@ -220,13 +229,20 @@ export async function generateAllImages(pages, cast, styleName, onProgress) {
       const imageUrl = await generatePageImage(
         pages[i].imagePrompt || pages[i].text,
         cast,
-        styleName
+        styleName,
+        heroPhotoUrl
       );
       results.push(imageUrl);
     } catch (err) {
       console.error(`Failed to generate image for page ${i + 1}:`, err);
+      failCount++;
       results.push(null);
     }
+  }
+
+  // If ALL images failed, throw so the user sees an error instead of blank pages
+  if (failCount === pages.length) {
+    throw new Error("All illustrations failed to generate. Please check your connection and try again.");
   }
 
   return results;
