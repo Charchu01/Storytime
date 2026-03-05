@@ -1,4 +1,4 @@
-import { claudeCall, generateImage, generateLoraImage, uploadPhoto } from "./client";
+import { claudeCall, generateImage, uploadPhoto } from "./client";
 import { ROLES, STYLES } from "../constants/data";
 
 // Style anchors now live in STYLES[] in constants/data.js (single source of truth)
@@ -53,9 +53,9 @@ export function logCost(type, model, success, durationMs, error) {
       model,
       success,
       durationMs,
-      cost: type === "lora_train" ? 1.50 :
-            type === "pulid" ? 0.04 :
-            type === "lora_gen" ? 0.01 : 0,
+      cost: type === "kontext_max" ? 0.05 :
+            type === "kontext" ? 0.04 :
+            type === "flux" ? 0.04 : 0,
       error: error || null,
     });
     localStorage.setItem("st_costs", JSON.stringify(log.slice(-200)));
@@ -336,62 +336,40 @@ Based on the story idea, choose the perfect world setting, character personality
 }
 
 // ── Generate a single page image with fallback chain ────────────────────────
-export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood, worldVocab, toneLighting) {
+export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood, worldVocab, toneLighting, tier = "standard") {
   const prompt = buildScenePrompt(sceneDescription, cast, styleName, mood || "wonder", worldVocab, toneLighting);
   const startTime = Date.now();
 
-  // Detect if hero is male for PuLID multi-output
-  const hero = cast.find(c => c.isHero) || cast[0];
-  const isMale = hero?.role === "dad" || hero?.role === "grandpa";
-
-  // ATTEMPT 1: Primary model
-  try {
-    const url = await generateImage(prompt, heroPhotoUrl, !!heroPhotoUrl, isMale);
-    if (await validateImageUrl(url)) {
-      const blobUrl = await cacheImageAsBlob(url);
-      logCost("pulid", "primary", true, Date.now() - startTime, null);
-      return blobUrl;
+  // ATTEMPT 1: With face reference (Kontext Max for premium, Kontext Pro for standard)
+  if (heroPhotoUrl) {
+    try {
+      const url = await generateImage(prompt, heroPhotoUrl, tier, styleName);
+      if (await validateImageUrl(url)) {
+        const blobUrl = await cacheImageAsBlob(url);
+        logCost(tier === "premium" ? "kontext_max" : "kontext", tier, true, Date.now() - startTime, null);
+        return blobUrl;
+      }
+    } catch (err) {
+      console.warn("Face-ref generation failed:", err.message);
     }
-  } catch (err) {
-    // Primary attempt failed — trying fallback
   }
 
-  // ATTEMPT 2: Retry without face reference
+  // ATTEMPT 2: Without face reference (scene only)
   try {
-    const url = await generateImage(prompt, null, false);
+    const url = await generateImage(prompt, null, tier, styleName);
     if (await validateImageUrl(url)) {
       const blobUrl = await cacheImageAsBlob(url);
-      logCost("pulid", "retry_no_face", true, Date.now() - startTime, null);
+      logCost("flux", "no_face", true, Date.now() - startTime, null);
       if (heroPhotoUrl) imageGenFlags.faceRefLostCount++;
       return blobUrl;
     }
   } catch (err) {
-    // Fallback attempt also failed
+    console.warn("Scene-only generation failed:", err.message);
   }
 
-  // ATTEMPT 3: Return null (will show styled fallback in UI)
-  logCost("pulid", "all_failed", false, Date.now() - startTime, "All attempts failed");
+  // ATTEMPT 3: Return null (UI shows styled fallback)
+  logCost("all", "failed", false, Date.now() - startTime, "All failed");
   return null;
-}
-
-// ── Generate a Premium page image using LoRA ──────────────────────────────────
-export async function generatePremiumPageImage(sceneDescription, cast, styleName, loraUrl, triggerWord, mood, worldVocab, toneLighting) {
-  const prompt = buildScenePrompt(sceneDescription, cast, styleName, mood || "wonder", worldVocab, toneLighting);
-  const startTime = Date.now();
-
-  try {
-    const url = await generateLoraImage(prompt, loraUrl, triggerWord);
-    if (await validateImageUrl(url)) {
-      const blobUrl = await cacheImageAsBlob(url);
-      logCost("lora_gen", loraUrl, true, Date.now() - startTime, null);
-      return blobUrl;
-    }
-  } catch (err) {
-    // Premium gen failed — falling back to standard
-  }
-
-  // Fallback to standard
-  return generatePageImage(sceneDescription, cast, styleName, null, mood, worldVocab, toneLighting);
 }
 
 // ── Upload hero photo once ────────────────────────────────────────────────────
@@ -427,66 +405,34 @@ export async function uploadHeroPhoto(cast) {
 }
 
 // ── Generate cover image ──────────────────────────────────────────────────────
-export async function generateCoverImage(coverScene, styleName) {
+export async function generateCoverImage(coverScene, styleName, tier = "standard") {
   if (!coverScene) return null;
   const styleData = STYLES.find(s => s.name === styleName);
   const styleAnchor = styleData?.anchor || STYLES[0].anchor;
   const prompt = `${styleAnchor} A breathtaking wide establishing shot of ${coverScene}, cinematic composition, epic scale, no characters visible, pure world-building, evocative and magical, ${QUALITY_TAGS}`;
 
   try {
-    const url = await generateImage(prompt, null);
+    const url = await generateImage(prompt, null, tier, styleName);
     const blobUrl = await cacheImageAsBlob(url);
     return blobUrl;
   } catch (err) {
-    // Cover generation is non-critical
     return null;
   }
 }
 
 // ── Generate ALL page images in parallel ──────────────────────────────────────
-export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, onPageImage, coverScene, worldVocab, toneLighting) {
-  const coverPromise = generateCoverImage(coverScene, styleName);
-
-  // Generate ALL pages in parallel
-  const pagePromises = pages.map((page, i) => {
-    const sceneDesc = page.scene_description || page.imagePrompt || page.text;
-    const mood = page.mood || "wonder";
-    return generatePageImage(sceneDesc, cast, styleName, heroPhotoUrl, mood, worldVocab, toneLighting)
-      .then((url) => {
-        if (onPageImage) onPageImage(i, url);
-        return url;
-      })
-      .catch((err) => {
-        // Page image failed — will show styled fallback
-        if (onPageImage) onPageImage(i, null);
-        return null;
-      });
-  });
-
-  const pageImages = await Promise.all(pagePromises);
-  const coverImageUrl = await coverPromise;
-
-  if (pageImages.every((url) => url === null)) {
-    throw new Error("All illustrations failed. Please try again.");
-  }
-
-  return { pageImages, coverImageUrl };
-}
-
-// ── Generate ALL Premium page images ─────────────────────────────────────────
-export async function generateAllPremiumImages(pages, cast, styleName, loraUrl, triggerWord, onPageImage, coverScene, worldVocab, toneLighting) {
-  const coverPromise = generateCoverImage(coverScene, styleName);
+export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, onPageImage, coverScene, worldVocab, toneLighting, tier = "standard") {
+  const coverPromise = generateCoverImage(coverScene, styleName, tier);
 
   const pagePromises = pages.map((page, i) => {
     const sceneDesc = page.scene_description || page.imagePrompt || page.text;
     const mood = page.mood || "wonder";
-    return generatePremiumPageImage(sceneDesc, cast, styleName, loraUrl, triggerWord, mood, worldVocab, toneLighting)
+    return generatePageImage(sceneDesc, cast, styleName, heroPhotoUrl, mood, worldVocab, toneLighting, tier)
       .then((url) => {
         if (onPageImage) onPageImage(i, url);
         return url;
       })
-      .catch((err) => {
-        // Premium page image failed — will show styled fallback
+      .catch(() => {
         if (onPageImage) onPageImage(i, null);
         return null;
       });
