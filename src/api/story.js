@@ -251,7 +251,7 @@ export async function generateStory(cast, styleName, storyData) {
 
 Generate a complete picture book with this exact JSON structure:
 
-{"title":"Story title (creative, evocative, 3-6 words)","coverScene":"A breathtaking wide establishing shot description of the story world — epic scale, no characters visible, pure world-building","coverEmoji":"Single emoji representing the story world","pages":[{"pageNumber":1,"text":"The story text for this page. 2-4 sentences.","scene_description":"A detailed WIDE or MEDIUM SHOT illustration description.","scene_emoji":"Single emoji for this scene","mood":"One of: wonder, adventure, cozy, tense, triumphant, tender","characters_present":["Name1","Name2"]}]}
+{"title":"Story title (creative, evocative, 3-6 words)","coverScene":"A breathtaking wide establishing shot description of the story world — epic scale, no characters visible, pure world-building","coverEmoji":"Single emoji representing the story world","pages":[{"pageNumber":1,"text":"The story text for this page. 2-4 sentences.","scene_description":"A detailed WIDE or MEDIUM SHOT illustration description with rich environmental details including colors, lighting, textures, and atmosphere that an image generator can use.","scene_emoji":"Single emoji for this scene","mood":"One of: wonder, adventure, cozy, tense, triumphant, tender","characters_present":["Name1","Name2"]}]}
 
 Story writing rules:
 * Exactly ${storyData.pageCount || 6} pages
@@ -261,27 +261,34 @@ Story writing rules:
 * The story should have a clear arc: setup, adventure, challenge, resolution, warm ending
 * The ending should feel earned and warm
 ${storyData.personalIngredient ? `* PRIORITY: Weave this personal detail into the emotional core of the story: "${storyData.personalIngredient}"` : ""}
-${storyData.storyLesson ? `* Lesson "${storyData.storyLesson}" must emerge naturally — NEVER stated directly.` : ""}
 ${storyData.storyFormat === "rhyming" ? "* Write in strict AABB rhyme scheme. 8-10 syllables per line." : ""}
 ${storyData.storyFormat === "funny" ? "* Every page needs a genuine surprise. Setup on one page, punchline on the next." : ""}
 
 Illustration rules:
 * Wide establishing shots for big moments, medium shots for emotional moments
 * Always show the character IN the world, not isolated
+* Each scene_description MUST include vivid world vocabulary — describe the environment with specific colors, textures, lighting, and atmosphere so the image generator has rich visual context
 * Each page's characters_present must list which characters are visible in that scene
 * The character should be 30-40% of frame height, never filling the whole image
 
+Based on the story idea provided, choose the perfect world setting, character personality traits, emotional tone, and story arc. The user has given you creative freedom — make it magical.
+
 Return ONLY valid JSON. No preamble. No markdown code blocks. Just the raw JSON object.`;
 
-  const userPrompt = `Cast: ${characterDescriptions}
+  const userPrompt = `Hero: ${storyData.hero || storyData.heroName || "the child"}${storyData.heroAge ? ` (age ${storyData.heroAge})` : ""}
 ${appearanceNotes ? `\nCharacter Appearances:\n${appearanceNotes}\n` : ""}
-Hero: ${storyData.hero}
-Story theme: ${storyData.spark}
-They love: ${storyData.loves}
-Mood: ${storyData.mood}
-${storyData.storyWorld ? `World: ${storyData.storyWorld}` : ""}
-${storyData.storyTone ? `Tone: ${storyData.storyTone}` : ""}
-Art style: ${styleName}`;
+${characterDescriptions ? `Cast: ${characterDescriptions}` : ""}
+
+Story idea: ${storyData.storyIdea || storyData.sparkText || storyData.spark || "A magical adventure"}
+
+Art style: ${styleName}
+Pages: ${storyData.pageCount || 6}
+${storyData.tone ? `Preferred tone: ${storyData.tone}` : ""}
+${storyData.storyFormat === "rhyming" ? "Write in AABB rhyming couplets." : ""}
+${storyData.storyFormat === "funny" ? "Make it genuinely funny with surprises." : ""}
+${storyData.personalIngredient ? `Personal detail to weave in: "${storyData.personalIngredient}"` : ""}
+
+Based on the story idea, choose the perfect world setting, character personality, emotional arc, and visual environments. Make it magical and personal.`;
 
   const maxTokens = (storyData.pageCount || 6) > 6 ? 3000 : 1800;
   const raw = await claudeCall(systemPrompt, userPrompt, maxTokens);

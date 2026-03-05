@@ -1,19 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import ModeSelector from "../components/ModeSelector";
-import TierSelector from "../components/TierSelector";
+import ModeAndTierSelector from "../components/ModeAndTierSelector";
 import OnboardingWizard from "../components/OnboardingWizard";
 import GenerationStep from "../components/GenerationStep";
 import BookReader from "../components/BookReader";
 import { useAppContext } from "../App";
-import { STYLES, STORY_WORLDS, STORY_TONES, STORY_LESSONS, STORY_FORMATS, LOVES } from "../constants/data";
+import { STYLES } from "../constants/data";
 
 const DRAFT_KEY = "sk_draft";
 
 function saveDraft(data) {
   try {
     const safe = { ...data };
-    // Don't store photo data URIs in localStorage (too large)
     delete safe.cast;
     delete safe.wizardData;
     localStorage.setItem(DRAFT_KEY, JSON.stringify(safe));
@@ -32,8 +30,8 @@ export default function CreatePage() {
   const [searchParams] = useSearchParams();
   const { addStory } = useAppContext();
 
-  // Flow: mode → tier → wizard → generate → preview
-  const [step, setStep] = useState("mode");
+  // Flow: modeAndTier → wizard → generate → preview
+  const [step, setStep] = useState("modeAndTier");
   const [mode, setMode] = useState(searchParams.get("mode") || null);
   const [isGift, setIsGift] = useState(false);
   const [tier, setTier] = useState(null);
@@ -54,7 +52,6 @@ export default function CreatePage() {
           setVaultChar(stored);
           sessionStorage.removeItem("sk_vault_char");
           setTier("premium");
-          // Skip mode selector — go straight to wizard with child mode
           setMode("child");
           setStep("wizard");
         }
@@ -62,25 +59,20 @@ export default function CreatePage() {
     }
   }, []);
 
-  // If mode is passed via URL, skip mode selector
+  // If mode is passed via URL, skip to modeAndTier with mode pre-selected
   useEffect(() => {
     const urlMode = searchParams.get("mode");
     if (urlMode && ["child", "pet", "family", "special", "imagination"].includes(urlMode)) {
       setMode(urlMode);
-      setStep("tier");
     }
   }, []);
 
   useEffect(() => { document.title = "Create Your Story — Storytime"; }, []);
 
-  function handleModeSelect(selectedMode, gift) {
+  function handleModeAndTierSelect(selectedMode, selectedTier, gift) {
     setMode(selectedMode);
-    setIsGift(gift);
-    setStep("tier");
-  }
-
-  function handleTierSelect(selectedTier) {
     setTier(selectedTier);
+    setIsGift(gift);
     setLength(selectedTier === "premium" ? 10 : 6);
     setStep("wizard");
   }
@@ -88,7 +80,7 @@ export default function CreatePage() {
   function handleWizardComplete(allData) {
     setWizardData(allData);
 
-    // Build cast from wizard data, including uploaded photos
+    // Build cast from wizard data
     const heroPhotos = allData.heroPhotos || [];
     const heroCast = [];
     if (allData.heroName) {
@@ -107,7 +99,11 @@ export default function CreatePage() {
 
     // Add companions from wizard
     if (allData.cast?.length > 0) {
-      heroCast.push(...allData.cast.map((c) => ({ ...c, isHero: false })));
+      heroCast.push(...allData.cast.map((c) => ({
+        ...c,
+        id: Date.now() + Math.random(),
+        isHero: false,
+      })));
     }
 
     setCast(heroCast);
@@ -119,24 +115,17 @@ export default function CreatePage() {
     // Set length from wizard
     if (allData.length) setLength(allData.length);
 
-    // Build enriched story data for generation
+    // Build enriched story data for generation — now simplified with storyIdea
     const enrichedStoryData = {
       heroName: allData.heroName,
-      storyWorld: STORY_WORLDS.find((w) => w.id === allData.world)?.label || null,
-      storyTone: STORY_TONES.find((t) => t.id === allData.tone)?.label || null,
-      storyFormat: allData.format || "classic",
-      storyLesson: STORY_LESSONS.find((l) => l.id === allData.lesson)?.label || null,
-      personalIngredient: allData.secret || null,
-      personality: allData.personality || [],
-      loves: allData.loves?.map((id) => {
-        const found = LOVES.find((l) => l.id === id);
-        return found ? found.label : id;
-      }) || [],
-      occasion: allData.occasion || null,
+      heroAge: allData.heroAge,
+      storyIdea: allData.storyIdea || "",
       spark: allData.spark,
-      sparkText: allData.sparkText,
+      storyFormat: allData.format || "classic",
+      personalIngredient: allData.secret || null,
       dedication: allData.dedication || null,
       authorName: allData.authorName || "A loving family",
+      tone: allData.tone || null,
     };
 
     setWizardData(enrichedStoryData);
@@ -165,7 +154,7 @@ export default function CreatePage() {
     setStyle(null);
     setResult(null);
     setWizardData(null);
-    setStep("mode");
+    setStep("modeAndTier");
   }
 
   if (step === "preview" && result) {
@@ -174,16 +163,10 @@ export default function CreatePage() {
 
   return (
     <div className="create-page">
-      {step === "mode" && (
-        <ModeSelector
-          onSelect={handleModeSelect}
+      {step === "modeAndTier" && (
+        <ModeAndTierSelector
+          onSelect={handleModeAndTierSelect}
           onBack={() => navigate("/")}
-        />
-      )}
-      {step === "tier" && (
-        <TierSelector
-          onSelect={handleTierSelect}
-          onBack={() => setStep("mode")}
         />
       )}
       {step === "wizard" && (
@@ -192,7 +175,7 @@ export default function CreatePage() {
           isGift={isGift}
           tier={tier}
           onComplete={handleWizardComplete}
-          onBack={() => setStep("tier")}
+          onBack={() => setStep("modeAndTier")}
         />
       )}
       {step === "generate" && (
