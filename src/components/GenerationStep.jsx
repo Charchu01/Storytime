@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   generateStory,
-  generateAllImages,
+  generateAllImagesChained,
   generateCoverImage,
   analyzeCharacterPhotos,
   uploadHeroPhoto,
@@ -158,18 +158,21 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         tone: wizardData?.tone || null,
       });
 
-      // Phase 4: Generate cover FIRST, then all page images
+      // Phase 4: Generate cover FIRST (style anchor for chaining)
       setLoadPhase("illustrating");
       setPageCount(story.pages.length);
       setPageImages(new Array(story.pages.length).fill(undefined));
 
-      // Cover first (fast, no face ref, no competition for API slots)
       let coverImageUrl = null;
       if (story.coverScene) {
-        coverImageUrl = await generateCoverImage(story.coverScene, style, tier);
+        coverImageUrl = await generateCoverImage(
+          story.coverScene, style, tier,
+          story.title, wizardData?.heroName, wizardData?.authorName,
+          heroPhotoUrl
+        );
       }
 
-      // All pages with progress updates
+      // Phase 5: Generate pages SEQUENTIALLY (chained — each page references previous)
       const onPageImage = (pageIdx, url) => {
         setPageImages((prev) => {
           const next = [...prev];
@@ -178,10 +181,9 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         });
       };
 
-      // Generate all pages (cover already done, pass null coverScene)
-      const finalResult = await generateAllImages(
+      const finalResult = await generateAllImagesChained(
         story.pages, enrichedCast, style, heroPhotoUrl,
-        onPageImage, null, null, null, tier
+        onPageImage, coverImageUrl, tier
       );
 
       setLoadPhase("finishing");

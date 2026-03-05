@@ -2643,17 +2643,15 @@
 .st-ded-heart { font-size: 18px; color: #C85D2A; margin-top: 20px; }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   STORY PAGES — panoramic illustration across two pages
+   STORY PAGES — full-page illustration with text baked into image
    ═══════════════════════════════════════════════════════════════════════════════ */
-.st-story-page { background: #FFF9F2; }
+.st-story-page { background: #FFF9F2; position: relative; }
 
-/* Illustration container — full bleed behind everything */
-.st-illust-container {
-  position: absolute; inset: 0; overflow: hidden; z-index: 1;
-}
-.st-illust {
+/* Full page image — text is baked in by Nano Banana Pro */
+.st-full-page-img {
   width: 100%; height: 100%;
-  object-fit: cover; display: block;
+  object-fit: cover; object-position: center center;
+  display: block;
 }
 
 /* Fallback when no illustration */
@@ -2673,37 +2671,12 @@
 }
 @keyframes stPulse { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
 
-/* Text overlay wash — translucent gradient at top */
-.st-text-wash {
-  position: absolute; top: 0; left: 0; right: 0;
-  padding: 20px 24px 40px; z-index: 5;
-  pointer-events: none;
+/* Fallback text (when image fails) */
+.st-fallback-text {
+  font-family: 'Fraunces', serif; font-size: 15px; line-height: 1.8;
+  color: rgba(44, 24, 16, 0.7); text-align: center;
+  max-width: 340px; padding: 16px;
 }
-.st-text-wash::before {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 249, 242, 0.65) 0%,
-    rgba(255, 249, 242, 0.45) 40%,
-    rgba(255, 249, 242, 0.15) 70%,
-    transparent 100%
-  );
-  z-index: -1;
-}
-.st-page-text {
-  font-family: 'Fraunces', serif; font-size: 14px; font-weight: 600;
-  line-height: 1.7; color: #2C1810; margin: 0;
-  text-shadow: 0 1px 2px rgba(255,255,255,0.4), 0 0 6px rgba(255,255,255,0.2);
-}
-
-/* Page numbers */
-.st-pagenum {
-  position: absolute; bottom: 12px; z-index: 5;
-  font-family: 'Fraunces', serif; font-size: 10px; font-weight: 700;
-  color: rgba(44,24,16,0.35); user-select: none;
-  text-shadow: 0 1px 2px rgba(255,255,255,0.3);
-}
-.st-pagenum-left { left: 16px; }
 
 /* Edit toggle on story page */
 .st-edit-toggle {
@@ -2715,110 +2688,19 @@
 .st-story-page:hover .st-edit-toggle { opacity: 0.6; }
 .st-edit-toggle:hover { opacity: 1 !important; }
 
-/* Narration highlights */
-.st-sentence { transition: background .25s ease, padding .25s ease; border-radius: 4px; }
-.st-sentence-active { background: rgba(255, 200, 100, 0.35); padding: 2px 4px; }
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   TEXT PAGE (mood-themed, facing the illustration)
-   ═══════════════════════════════════════════════════════════════════════════════ */
-.st-text-page { position: relative; overflow: hidden; background: var(--tp-bg, #FFFBF0); }
-.st-text-page-bg { position: absolute; inset: 0; background: var(--tp-tint); }
-
-/* Edge bleed — connection to illustration side */
-.st-edge-bleed {
-  position: absolute; top: 0; bottom: 0; width: 80px;
-  z-index: 1; pointer-events: none;
+/* Voice picker */
+.st-voice-picker {
+  display: flex; gap: 2px; margin-right: 4px;
 }
-.st-bleed-from-left {
-  left: 0;
-  background: linear-gradient(to right, var(--tp-tint) 0%, transparent 100%);
-  opacity: 3;
+.st-voice-btn {
+  background: none; border: 1px solid transparent; border-radius: 6px;
+  font-size: 16px; padding: 4px 6px; cursor: pointer;
+  opacity: 0.5; transition: opacity .2s, border-color .2s;
 }
-.st-bleed-from-right {
-  right: 0;
-  background: linear-gradient(to left, var(--tp-tint) 0%, transparent 100%);
-  opacity: 3;
+.st-voice-btn:hover { opacity: 0.8; }
+.st-voice-btn.st-voice-active {
+  opacity: 1; border-color: rgba(255,255,255,0.4);
 }
-
-/* Ambient glow from illustration */
-.st-ambient-glow {
-  position: absolute; width: 180px; height: 250px; border-radius: 50%;
-  background: var(--tp-glow); filter: blur(50px);
-  pointer-events: none; z-index: 0;
-}
-.st-glow-from-left { left: -30px; top: 25%; }
-.st-glow-from-right { right: -30px; top: 25%; }
-
-/* Decorative motifs layer */
-.st-decor-layer {
-  position: absolute; inset: 0; pointer-events: none;
-  z-index: 1; overflow: hidden;
-}
-.st-decor-motif { position: absolute; user-select: none; filter: grayscale(0.3); }
-
-/* Mood-specific abstract shapes */
-.st-mood-shape { position: absolute; border-radius: 50%; pointer-events: none; }
-.st-mood-wonder .st-mood-shape {
-  width: 120px; height: 120px;
-  background: radial-gradient(circle, rgba(255, 215, 120, 0.06) 0%, transparent 70%);
-  top: 15%; right: 20%;
-}
-.st-mood-adventure .st-mood-shape {
-  width: 200px; height: 3px; border-radius: 0;
-  background: linear-gradient(90deg, transparent, var(--tp-accent, #C85D2A), transparent);
-  opacity: 0.08; top: 40%; left: 10%; transform: rotate(-12deg);
-}
-.st-mood-cozy .st-mood-shape {
-  width: 160px; height: 140px;
-  background: radial-gradient(ellipse, rgba(255, 180, 100, 0.05) 0%, transparent 70%);
-  bottom: 20%; left: 15%;
-}
-.st-mood-tense .st-mood-shape {
-  width: 120px; height: 120px;
-  background: radial-gradient(circle, rgba(100, 80, 160, 0.04) 0%, transparent 70%);
-  top: 20%; right: 15%;
-}
-.st-mood-triumphant .st-mood-shape {
-  width: 200px; height: 200px;
-  background: conic-gradient(from 0deg,
-    transparent 0deg, rgba(255, 200, 50, 0.04) 30deg,
-    transparent 60deg, rgba(255, 200, 50, 0.04) 90deg, transparent 120deg);
-  top: 10%; right: 10%;
-}
-.st-mood-tender .st-mood-shape {
-  width: 140px; height: 100px;
-  background: radial-gradient(ellipse, rgba(220, 160, 180, 0.05) 0%, transparent 70%);
-  top: 25%; right: 25%;
-}
-
-/* Text content area */
-.st-text-page-content {
-  position: relative; z-index: 2;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 48px 36px; min-height: 100%;
-}
-.st-story-text {
-  font-family: 'Fraunces', serif; font-size: 17px; font-weight: 500;
-  line-height: 2.0; text-align: center; max-width: 340px;
-  color: var(--tp-text, #2C1810); letter-spacing: 0.01em;
-}
-.st-text-flourish-top {
-  font-size: 14px; opacity: 0.2; margin-bottom: 24px;
-  color: var(--tp-accent, #D4A853); letter-spacing: 12px;
-}
-.st-text-flourish-end {
-  font-size: 14px; opacity: 0.25; margin-top: 24px;
-  color: var(--tp-accent, #D4A853); letter-spacing: 8px;
-}
-.st-text-pagenum {
-  position: absolute; bottom: 16px;
-  font-family: 'Fraunces', serif; font-size: 11px; font-weight: 700;
-  color: var(--tp-accent, #D4A853); opacity: 0.35;
-}
-
-/* Image page — clean, no text overlays */
-.st-image-page .st-illust-container { z-index: 2; }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    BACK COVER
@@ -3387,10 +3269,6 @@
 
   /* Premium Book Reader — mobile adjustments */
   .st-desk-glow { display: none; }
-  .st-story-text { font-size: 15px; line-height: 1.8; max-width: 300px; }
-  .st-text-page-content { padding: 32px 24px; }
-  .st-edge-bleed { display: none; }
-  .st-ambient-glow { display: none; }
   .st-book-wrapper { padding: 8px 12px; }
   .st-nav-arrow { display: none; }
   .st-closed-book { width: 220px; height: 300px; }

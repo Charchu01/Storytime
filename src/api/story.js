@@ -1,8 +1,6 @@
 import { claudeCall, generateImage, uploadPhoto } from "./client";
 import { ROLES, STYLES } from "../constants/data";
 
-// Style anchors now live in STYLES[] in constants/data.js (single source of truth)
-
 // ── Face-ref-lost tracking ───────────────────────────────────────────────────
 export const imageGenFlags = { faceRefLostCount: 0 };
 
@@ -23,25 +21,14 @@ export const STYLE_COVER_GRADIENTS = {
   "Sketch & Color": "linear-gradient(160deg, #A16207, #854D0E, #713F12)",
 };
 
-// World vocabularies now live in STORY_WORLDS[] in constants/data.js
-// worldVocab is passed as a parameter to buildScenePrompt
-
-// ── Mood → lighting presets ───────────────────────────────────────────────────
-const MOOD_LIGHTING = {
-  wonder: "soft magical golden light, gentle god rays, sparkles",
-  adventure: "dramatic dynamic lighting, strong shadows, energetic",
-  cozy: "warm lamplight, soft glows, intimate and safe",
-  tense: "cool dramatic shadows, high contrast, atmospheric",
-  triumphant: "radiant warm sunlight, everything glowing, celebratory",
-  tender: "soft diffused light, pastel tones, gentle and loving",
+// ── Nano Banana Pro style descriptions ───────────────────────────────────────
+const NANO_STYLES = {
+  "Storybook": "classic children's storybook illustration with bold saturated colours, clean outlines, and warm painterly backgrounds",
+  "Watercolor": "soft watercolour children's book illustration with visible brushstrokes, dreamy washes, and gentle colour bleeds",
+  "Bold & Bright": "modern vibrant children's book illustration with thick bold outlines, flat graphic colours, and playful energy",
+  "Cozy & Soft": "gentle pastel children's bedtime book illustration with rounded shapes, soft muted tones, and cozy warmth",
+  "Sketch & Color": "whimsical hand-drawn children's book illustration with visible pencil lines, loose ink outlines, and watercolour wash fills",
 };
-
-// Tone lighting now lives in STORY_TONES[] in constants/data.js
-// toneLighting is passed as a parameter to buildScenePrompt
-
-// ── Quality tags appended to every prompt ─────────────────────────────────────
-const QUALITY_TAGS =
-  "children's picture book quality, highly detailed illustration, award-winning picture book style, no text in image, no words, no letters, no watermarks";
 
 // ── Cost tracking ─────────────────────────────────────────────────────────────
 export function logCost(type, model, success, durationMs, error) {
@@ -53,7 +40,7 @@ export function logCost(type, model, success, durationMs, error) {
       model,
       success,
       durationMs,
-      cost: type === "kontext_max" ? 0.05 :
+      cost: type === "nano_banana" ? 0.045 :
             type === "kontext" ? 0.04 :
             type === "flux" ? 0.04 : 0,
       error: error || null,
@@ -63,9 +50,6 @@ export function logCost(type, model, success, durationMs, error) {
 }
 
 // ── Image URL passthrough ────────────────────────────────────────────────────
-// Previously converted remote URLs to blob: URLs for offline caching, but
-// blob: URLs don't survive page refresh or localStorage persistence.
-// Replicate CDN URLs persist for 48 hours, so just pass them through.
 export async function cacheImageAsBlob(url) {
   return url || null;
 }
@@ -73,17 +57,14 @@ export async function cacheImageAsBlob(url) {
 // ── Image validation ──────────────────────────────────────────────────────────
 async function validateImageUrl(url) {
   if (!url) return false;
-  // Blob URLs and data URIs are already local — always valid
   if (url.startsWith("blob:") || url.startsWith("data:")) return true;
   try {
     const resp = await fetch(url, { method: "HEAD" });
     if (!resp.ok) return false;
     const ct = resp.headers.get("content-type");
     if (ct && !ct.startsWith("image/")) return false;
-    // Skip size check — Replicate images vary widely and the URL existing means it succeeded
     return true;
   } catch {
-    // Network error on HEAD — still try to use the URL (GET may work)
     return true;
   }
 }
@@ -100,63 +81,70 @@ function buildCharacterDescription(cast) {
     .join(", ");
 }
 
-function buildDetailedCharacterPrompt(cast) {
-  return cast
-    .map((character) => {
-      const role = ROLES.find((r) => r.id === character.role)?.label || character.role;
-      const parts = [];
-      const ageDesc = character.age ? `${character.age}-year-old` : "";
+// ── Cover prompt builder ─────────────────────────────────────────────────────
+function buildCoverPrompt(coverScene, styleName, title, heroName, authorName) {
+  const styleDesc = NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
 
-      if (character.role === "pet") {
-        parts.push(`a pet named ${character.name}`);
-      } else if (character.role === "baby") {
-        parts.push(`a baby named ${character.name}`);
-      } else {
-        parts.push(`${ageDesc} ${role.toLowerCase()} named ${character.name}`.trim());
-      }
+  return `Generate a professional children's picture book FRONT COVER.
 
-      if (character.appearanceDescription) {
-        parts.push(`— ${character.appearanceDescription}`);
-      }
+This is a single portrait-oriented book cover, NOT an interior page.
 
-      if (character.isHero) parts.push("(main character)");
-      return parts.join(" ");
-    })
-    .join("; ");
+LAYOUT:
+- Full illustrated background filling the entire cover
+- Title "${title}" in large, warm, hand-lettered storybook style at the top third
+- "A story for ${heroName}" in elegant smaller text below the title
+- "By ${authorName}" at the bottom in small text
+- All text must be clearly legible against the illustration
+
+ILLUSTRATION:
+- Scene: ${coverScene}
+- No characters visible — pure world-building establishing shot
+- Epic cinematic scale, magical and inviting
+
+STYLE:
+- ${styleDesc}
+- The kind of cover that makes a child reach for the book
+- Award-winning picture book cover quality
+- NOT photorealistic — fully illustrated
+
+This sets the art style for the ENTIRE book. Every subsequent page will match this exact illustration style.`;
 }
 
-// ── Build the panoramic spread prompt for a scene ─────────────────────────────
-function buildScenePrompt(sceneDescription, cast, styleName, mood, worldVocab, toneLighting) {
-  const styleData = STYLES.find(s => s.name === styleName);
-  const styleAnchor = styleData?.anchor || STYLES[0].anchor;
-  const lighting = MOOD_LIGHTING[mood] || MOOD_LIGHTING["wonder"];
-  const worldDesc = worldVocab ? `${worldVocab} — ` : "";
-  const toneDesc = toneLighting ? `${toneLighting}, ` : "";
+// ── Page prompt builder ──────────────────────────────────────────────────────
+function buildPagePrompt(sceneDescription, styleName, mood, pageIndex, pageNum, emoji, pageText) {
+  const styleDesc = NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
 
-  const hero = cast.find((c) => c.isHero) || cast[0];
-  const heroAppearance = hero?.appearanceDescription || "";
-  const heroAge = hero?.age ? `${hero.age}-year-old` : "young";
-  const heroName = hero?.name || "the child";
+  const words = sceneDescription.split(/\s+/);
+  const scene = words.length > 40
+    ? words.slice(0, 40).join(" ")
+    : sceneDescription;
 
-  const characterRef = heroAppearance
-    ? `${heroAge} child: ${heroAppearance}`
-    : `a ${heroAge} child named ${heroName}`;
+  return `Create the next page of a children's storybook illustration that perfectly matches the exact art style, colours, lighting, brush style, character design, and page layout of the previously uploaded reference images.
 
-  return [
-    styleAnchor,
-    worldDesc,
-    `Single-page children's picture book illustration in portrait orientation.`,
-    `This fills ONE page of an open storybook.`,
-    `Rich detailed environment fills the entire frame.`,
-    sceneDescription,
-    `The main character is ${characterRef}.`,
-    `The main character is naturally placed within the scene, roughly 30-40% of the frame height, surrounded by the world.`,
-    `Beautiful atmospheric depth — detailed foreground elements, character in middleground, environment extending into background.`,
-    `NEVER a headshot or close-up portrait. ALWAYS show the character within their world, full-body or at least waist-up, with the environment telling the story around them.`,
-    toneDesc,
-    lighting,
-    QUALITY_TAGS,
-  ].join(" ");
+Use the reference images so the main character looks exactly the same as in previous pages. Maintain consistent character proportions, facial features, clothing, and illustration style so the entire book feels like it was illustrated by the same artist.
+
+SCENE: ${scene}
+
+The main character is the person from Image 1 (the uploaded photo). Transform them into an illustrated storybook character — NOT photorealistic. Show them naturally in the scene. Keep their exact facial features and identity from the photo.
+
+STYLE:
+- ${styleDesc}
+- Match the EXACT illustration style of Image 2 (the cover) — same colours, line work, brush style
+- Award-winning children's picture book quality
+- Soft painterly textures, warm lighting, gentle magical atmosphere
+- Same colour palette and illustration style as the previous pages
+
+PAGE TEXT: Leave clear space for story text at the bottom of the page. Render the following text in decorative storybook text boxes with ornate borders, elegant serif font, warm cream/parchment background behind the text. Use the same text box style consistently. Split the text across one or two text boxes as needed for readability:
+
+"${pageText}"
+
+Page ${pageNum}
+
+CONSTRAINTS:
+- The text must be rendered clearly and legibly — no spelling errors
+- Text boxes should feel like a natural part of the page design
+- The illustration fills the full page with the text integrated at the bottom
+- This must look like a page from a real printed children's storybook`;
 }
 
 // ── Analyze character photos ──────────────────────────────────────────────────
@@ -183,7 +171,6 @@ Format as a single flowing paragraph. Do NOT mention clothing. Do NOT use vague 
     );
     return description;
   } catch (err) {
-    // Photo analysis failed — continue without appearance description
     return null;
   }
 }
@@ -290,13 +277,11 @@ Based on the story idea, choose the perfect world setting, character personality
     const cleaned = raw.replace(/```json\s*|```\s*/g, "").trim();
     parsed = JSON.parse(cleaned);
   } catch {
-    // Try to extract JSON from markdown code blocks
     const jsonMatch = raw.match(/```json?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       try {
         parsed = JSON.parse(jsonMatch[1]);
       } catch {
-        // Last resort: retry once
         try {
           const retryRaw = await claudeCall(systemPrompt, userPrompt, maxTokens);
           const retryCleaned = retryRaw.replace(/```json\s*|```\s*/g, "").trim();
@@ -314,7 +299,6 @@ Based on the story idea, choose the perfect world setting, character personality
     throw new Error("Invalid story structure returned. Please try again.");
   }
 
-  // Validate each page has required fields
   parsed.pages = parsed.pages.map((page, i) => ({
     pageNumber: page.pageNumber || i + 1,
     text: page.text || "",
@@ -327,83 +311,36 @@ Based on the story idea, choose the perfect world setting, character personality
   return parsed;
 }
 
-// ── Build a Kontext-optimized prompt (research-backed) ──────────────────────
-// Research-backed Kontext prompting rules (BFL, Replicate, community):
-// 1. Don't describe what Kontext can already see in the photo
-// 2. Style transformation as FIRST instruction (dominant signal)
-// 3. Use "Turn into" not "transform" (BFL: "transform" = complete change)
-// 4. Scene truncated to ~25 words (512 token limit)
-// 5. Face preservation at END (BFL recommended position)
-// 6. Total prompt under 60 words
-function buildKontextPrompt(sceneDescription, styleName, mood) {
-  const styleMap = {
-    "Storybook":     "a classic children's storybook illustration with bold colors and clean outlines",
-    "Watercolor":    "a soft watercolor children's picture book illustration with dreamy washes",
-    "Bold & Bright": "a bright colorful cartoon children's book illustration with thick outlines",
-    "Cozy & Soft":   "a gentle pastel children's bedtime book illustration, cozy and warm",
-    "Sketch & Color":"a hand-drawn children's book illustration with pencil lines and color wash",
-  };
+// ── Generate a single page image (fallback for edits) ────────────────────────
+export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood) {
+  const styleDesc = NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
+  const prompt = `Children's storybook illustration in ${styleDesc} style. ${sceneDescription}. Award-winning picture book quality, no text in image.`;
 
-  const moodMap = {
-    "wonder":     "magical and sparkly",
-    "adventure":  "exciting and dynamic",
-    "cozy":       "warm and cozy",
-    "tense":      "mysterious",
-    "triumphant": "bright and triumphant",
-    "tender":     "soft and heartfelt",
-  };
-
-  const style = styleMap[styleName] || styleMap["Storybook"];
-  const moodStr = moodMap[mood] || "magical";
-
-  // Truncate scene description to max ~25 words
-  const words = sceneDescription.split(/\s+/);
-  const scene = words.length > 25
-    ? words.slice(0, 25).join(" ")
-    : sceneDescription;
-
-  return `Turn this person into ${style}. Scene: ${scene}. ${moodStr} atmosphere. Show full-body, naturally in the scene. Keep their exact face and features from the photo. No text or words.`;
-}
-
-// ── Generate a single page image with fallback chain ────────────────────────
-export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood, worldVocab, toneLighting, tier = "standard") {
   const startTime = Date.now();
-  const errors = [];
 
-  // ATTEMPT 1: With face reference → use Kontext prompt (short, instructional)
   if (heroPhotoUrl) {
-    const kontextPrompt = buildKontextPrompt(sceneDescription, styleName, mood || "wonder");
     try {
-      const url = await generateImage(kontextPrompt, heroPhotoUrl, tier, styleName);
+      const url = await generateImage(prompt, heroPhotoUrl, "standard", styleName);
       if (await validateImageUrl(url)) {
-        logCost(tier === "premium" ? "kontext_max" : "kontext", tier, true, Date.now() - startTime, null);
+        logCost("nano_banana", "standard", true, Date.now() - startTime, null);
         return url;
       }
-      errors.push("Kontext: image URL invalid");
     } catch (err) {
-      errors.push(`Kontext: ${err.message}`);
-      console.error("Kontext generation failed:", err.message);
+      console.warn("Face-ref generation failed:", err.message);
     }
   }
 
-  // ATTEMPT 2: No face ref → use full descriptive prompt for Flux Pro Ultra
-  const fullPrompt = buildScenePrompt(sceneDescription, cast, styleName, mood || "wonder", worldVocab, toneLighting);
   try {
-    const url = await generateImage(fullPrompt, null, tier, styleName);
+    const url = await generateImage(prompt, null, "standard", styleName);
     if (await validateImageUrl(url)) {
       logCost("flux", "no_face", true, Date.now() - startTime, null);
-      if (heroPhotoUrl) imageGenFlags.faceRefLostCount++;
       return url;
     }
-    errors.push("Flux: image URL invalid");
   } catch (err) {
-    errors.push(`Flux: ${err.message}`);
-    console.error("Scene-only generation failed:", err.message);
+    console.error("All image attempts failed:", err.message);
   }
 
-  const errorSummary = errors.join(" | ");
-  console.error("All image attempts failed:", errorSummary);
-  logCost("all", "failed", false, Date.now() - startTime, errorSummary);
+  logCost("all", "failed", false, Date.now() - startTime, "all attempts failed");
   return null;
 }
 
@@ -434,111 +371,159 @@ export async function uploadHeroPhoto(cast) {
   try {
     return await uploadPhoto(bestPhotoUri);
   } catch (err) {
-    // Photo upload failed — falling back to text-only generation
     return null;
   }
 }
 
 // ── Generate cover image ──────────────────────────────────────────────────────
-export async function generateCoverImage(coverScene, styleName, tier = "standard") {
+export async function generateCoverImage(
+  coverScene, styleName, tier, title, heroName, authorName, heroPhotoUrl
+) {
   if (!coverScene) return null;
-  const styleData = STYLES.find(s => s.name === styleName);
-  const styleAnchor = styleData?.anchor || STYLES[0].anchor;
-  const prompt = `${styleAnchor} A breathtaking wide establishing shot of ${coverScene}, cinematic composition, epic scale, no characters visible, pure world-building, evocative and magical, ${QUALITY_TAGS}`;
+
+  const prompt = buildCoverPrompt(
+    coverScene, styleName,
+    title || "My Story",
+    heroName || "a special child",
+    authorName || "A loving family"
+  );
 
   try {
-    const url = await generateImage(prompt, null, tier, styleName);
-    const blobUrl = await cacheImageAsBlob(url);
-    return blobUrl;
+    const url = await generateImage(
+      prompt,
+      heroPhotoUrl || null,
+      tier,
+      styleName,
+      [],
+      "3:4",
+      true
+    );
+    return url;
   } catch (err) {
-    console.error("Cover image generation failed:", err.message);
+    console.warn("Cover generation failed:", err.message);
     return null;
   }
 }
 
-// ── Concurrency-limited helper ──────────────────────────────────────────────
-async function runWithConcurrency(tasks, limit = 2) {
-  const results = new Array(tasks.length).fill(null);
-  let nextIndex = 0;
+// ── Generate ALL page images — sequential chained flow ───────────────────────
+// Each page includes the PREVIOUS page's output as a reference image,
+// creating a chain that maintains consistent style across the entire book.
+// The cover acts as a permanent "style anchor."
+export async function generateAllImagesChained(
+  pages, cast, styleName, heroPhotoUrl,
+  onPageImage, coverImageUrl, tier
+) {
+  if (!heroPhotoUrl) {
+    return generateAllImagesFallback(pages, cast, styleName, tier, onPageImage);
+  }
 
-  async function runNext() {
-    while (nextIndex < tasks.length) {
-      const i = nextIndex++;
+  const pageImages = [];
+  let previousPageUrl = null;
+
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i];
+    const sceneDesc = page.scene_description || page.imagePrompt || page.text;
+    const mood = page.mood || "wonder";
+    const emoji = page.scene_emoji || "✨";
+    const pageNum = i + 1;
+
+    const prompt = buildPagePrompt(
+      sceneDesc, styleName, mood, i, pageNum, emoji,
+      page.text || ""
+    );
+
+    // Build reference images: cover (style anchor) + previous page (local consistency)
+    const referenceImageUrls = [];
+    if (coverImageUrl) referenceImageUrls.push(coverImageUrl);
+    if (previousPageUrl) referenceImageUrls.push(previousPageUrl);
+
+    try {
+      const url = await generateImage(
+        prompt,
+        heroPhotoUrl,
+        tier,
+        styleName,
+        referenceImageUrls,
+        "3:4",
+        false
+      );
+
+      if (url && await validateImageUrl(url)) {
+        pageImages.push(url);
+        previousPageUrl = url;
+        if (onPageImage) onPageImage(i, url);
+        logCost("nano_banana", tier, true, 0, null);
+      } else {
+        throw new Error("Invalid image URL");
+      }
+    } catch (err) {
+      console.warn(`Page ${i + 1} failed:`, err.message);
+
+      // Retry once with 3s delay
       try {
-        results[i] = await tasks[i]();
-      } catch {
-        results[i] = null;
+        await new Promise(r => setTimeout(r, 3000));
+        const retryUrl = await generateImage(
+          prompt, heroPhotoUrl, tier, styleName,
+          referenceImageUrls, "3:4", false
+        );
+        if (retryUrl && await validateImageUrl(retryUrl)) {
+          pageImages.push(retryUrl);
+          previousPageUrl = retryUrl;
+          if (onPageImage) onPageImage(i, retryUrl);
+        } else {
+          pageImages.push(null);
+          if (onPageImage) onPageImage(i, null);
+        }
+      } catch (retryErr) {
+        console.warn(`Page ${i + 1} retry failed:`, retryErr.message);
+        pageImages.push(null);
+        if (onPageImage) onPageImage(i, null);
       }
     }
   }
 
-  const workers = Array.from({ length: Math.min(limit, tasks.length) }, () => runNext());
-  await Promise.all(workers);
-  return results;
-}
-
-// ── Generate ALL page images with concurrency limit ─────────────────────────
-export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, onPageImage, coverScene, worldVocab, toneLighting, tier = "standard") {
-  // Cover runs independently — skip if coverScene is null (already generated externally)
-  const coverPromise = coverScene
-    ? generateCoverImage(coverScene, styleName, tier)
-    : Promise.resolve(null);
-
-  // Collect errors for diagnostics
-  const pageErrors = [];
-
-  // Build task array — each task is a function that returns a promise
-  const tasks = pages.map((page, i) => {
-    return async () => {
-      const sceneDesc = page.scene_description || page.imagePrompt || page.text;
-      const mood = page.mood || "wonder";
-
-      try {
-        const url = await generatePageImage(
-          sceneDesc, cast, styleName, heroPhotoUrl,
-          mood, worldVocab, toneLighting, tier
-        );
-        if (onPageImage) onPageImage(i, url);
-        return url;
-      } catch (err) {
-        console.error(`Page ${i + 1} generation failed:`, err.message);
-        pageErrors.push(`P${i + 1}: ${err.message}`);
-
-        // Retry once after a short delay (catches transient 429s)
-        try {
-          await new Promise((r) => setTimeout(r, 3000));
-          const retryUrl = await generatePageImage(
-            sceneDesc, cast, styleName, heroPhotoUrl,
-            mood, worldVocab, toneLighting, tier
-          );
-          if (onPageImage) onPageImage(i, retryUrl);
-          return retryUrl;
-        } catch (retryErr) {
-          console.error(`Page ${i + 1} retry failed:`, retryErr.message);
-          pageErrors.push(`P${i + 1} retry: ${retryErr.message}`);
-          if (onPageImage) onPageImage(i, null);
-          return null;
-        }
-      }
-    };
-  });
-
-  // Run with concurrency limit of 2:
-  // At most 2 Replicate predictions + 2 polling loops at a time = ~5 Vercel functions (safe)
-  const pageImages = await runWithConcurrency(tasks, 2);
-  const coverImageUrl = await coverPromise;
-
-  const failCount = pageImages.filter((url) => url === null).length;
+  const failCount = pageImages.filter(url => url === null).length;
   if (failCount > 0) {
-    console.error(`${failCount} of ${pages.length} illustrations failed. Errors:`, pageErrors.join(" | "));
+    console.warn(`${failCount} of ${pages.length} illustrations failed`);
   }
-
-  if (pageImages.every((url) => url === null)) {
-    const firstError = pageErrors[0] || "Unknown error";
-    throw new Error(`All illustrations failed (${firstError}). Check browser console for details.`);
+  if (pageImages.every(url => url === null)) {
+    throw new Error("All illustrations failed. Please try again.");
   }
 
   return { pageImages, coverImageUrl };
+}
+
+// ── Fallback: generate without chaining (no hero photo) ──────────────────────
+async function generateAllImagesFallback(pages, cast, styleName, tier, onPageImage) {
+  const styleDesc = NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
+  const pageImages = [];
+
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i];
+    const sceneDesc = page.scene_description || page.text;
+    const prompt = `Children's storybook illustration in ${styleDesc} style. ${sceneDesc}. Full page illustration with story text "${page.text}" rendered in decorative text boxes at the bottom. Award-winning picture book quality.`;
+
+    try {
+      const url = await generateImage(prompt, null, tier, styleName, [], "3:4", false);
+      if (url && await validateImageUrl(url)) {
+        pageImages.push(url);
+        if (onPageImage) onPageImage(i, url);
+      } else {
+        pageImages.push(null);
+        if (onPageImage) onPageImage(i, null);
+      }
+    } catch (err) {
+      console.warn(`Page ${i + 1} fallback failed:`, err.message);
+      pageImages.push(null);
+      if (onPageImage) onPageImage(i, null);
+    }
+  }
+
+  if (pageImages.every(url => url === null)) {
+    throw new Error("All illustrations failed. Please try again.");
+  }
+
+  return { pageImages, coverImageUrl: null };
 }
 
 // ── Edit page text ────────────────────────────────────────────────────────────
