@@ -108,13 +108,29 @@ export async function uploadPhoto(photoDataUri) {
   return data.photoUrl;
 }
 
-export async function generateImage(prompt, referencePhotoUrl = null, tier = "standard", style = null) {
+export async function generateImage(
+  prompt,
+  referencePhotoUrl = null,
+  tier = "standard",
+  style = null,
+  referenceImageUrls = [],
+  aspectRatio = "3:4",
+  isCover = false
+) {
   let response;
   try {
     response = await fetchWithRetry("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, referencePhotoUrl, tier, style }),
+      body: JSON.stringify({
+        prompt,
+        referencePhotoUrl,
+        referenceImageUrls,
+        tier,
+        style,
+        aspectRatio,
+        isCover,
+      }),
     });
   } catch (err) {
     throw new Error("Image generation request failed. Please try again.");

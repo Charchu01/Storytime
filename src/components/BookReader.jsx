@@ -119,54 +119,6 @@ function Sparkles({ count = 16 }) {
   );
 }
 
-// ── Mood-based color palettes for text pages ─────────────────────────────────
-const MOOD_PALETTES = {
-  wonder: {
-    bg: "#FFFBF0", tint: "rgba(255, 215, 120, 0.08)",
-    accent: "#D4A853", textColor: "#2C1810", glow: "rgba(255, 200, 80, 0.06)",
-  },
-  adventure: {
-    bg: "#FFF8F0", tint: "rgba(230, 120, 60, 0.07)",
-    accent: "#C85D2A", textColor: "#2C1810", glow: "rgba(230, 140, 60, 0.05)",
-  },
-  cozy: {
-    bg: "#FFF9F2", tint: "rgba(255, 180, 100, 0.06)",
-    accent: "#B8860B", textColor: "#3D2417", glow: "rgba(255, 190, 90, 0.06)",
-  },
-  tense: {
-    bg: "#F5F3F8", tint: "rgba(100, 80, 160, 0.05)",
-    accent: "#6B5B8A", textColor: "#2A2040", glow: "rgba(120, 100, 180, 0.04)",
-  },
-  triumphant: {
-    bg: "#FFFDF0", tint: "rgba(255, 200, 50, 0.10)",
-    accent: "#D4A020", textColor: "#2C1810", glow: "rgba(255, 220, 80, 0.08)",
-  },
-  tender: {
-    bg: "#FFF5F5", tint: "rgba(220, 140, 160, 0.06)",
-    accent: "#C07080", textColor: "#3D2020", glow: "rgba(220, 160, 180, 0.05)",
-  },
-};
-
-// ── Text page decorative motifs ──────────────────────────────────────────────
-function TextPageDecor({ mood, emoji, pageIndex }) {
-  return (
-    <div className="st-decor-layer">
-      <div className={`st-mood-shape st-mood-${mood}`} />
-      {[0, 1, 2].map(i => (
-        <span key={i} className="st-decor-motif" style={{
-          top: `${20 + i * 25}%`,
-          right: `${10 + (i % 2) * 15}%`,
-          fontSize: `${18 + i * 4}px`,
-          opacity: 0.08 + i * 0.02,
-          transform: `rotate(${-15 + i * 20}deg)`,
-        }}>
-          {emoji}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 // ── Page Components (forwardRef required by react-pageflip) ──────────────────
 
 const CoverPage = React.forwardRef(({ title, heroName, authorName, coverGradient, coverImageUrl }, ref) => (
@@ -197,69 +149,32 @@ const DedicationPage = React.forwardRef(({ dedication, gradient }, ref) => (
   </div>
 ));
 
-// Full illustration page — no text, just the image
-const StoryImagePage = React.forwardRef(({ imageUrl, gradient, emoji, heroPhotoUrl, isRegenerating, onEdit, spineSide }, ref) => {
+// Single full-page story page — image with text baked in by Nano Banana Pro
+const StoryPage = React.forwardRef(({
+  imageUrl, text, pageNum, gradient, emoji,
+  heroPhotoUrl, isRegenerating, onEdit }, ref) => {
   const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
 
   return (
-    <div ref={ref} className="st-page st-story-page st-image-page">
-      <div className="st-illust-container">
-        {isRegenerating ? (
-          <div className="st-illust-fallback" style={{ background: gradient }}>
-            <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
-            <span className="st-illustrating-badge">Illustrating...</span>
-          </div>
-        ) : isSafe ? (
-          <img src={imageUrl} className="st-illust" alt=""
-            onError={(e) => { e.target.style.display = "none"; }} />
-        ) : (
-          <div className="st-illust-fallback" style={{ background: gradient }}>
-            <span className="st-fallback-emoji">{emoji}</span>
-          </div>
-        )}
-      </div>
-      <div className={`st-spine-shadow st-spine-${spineSide}`} />
+    <div ref={ref} className="st-page st-story-page">
+      {isRegenerating ? (
+        <div className="st-illust-fallback" style={{ background: gradient }}>
+          <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
+          <span className="st-illustrating-badge">Illustrating...</span>
+        </div>
+      ) : isSafe ? (
+        <img src={imageUrl} className="st-full-page-img" alt=""
+          onError={(e) => { e.target.style.display = "none"; }} />
+      ) : (
+        <div className="st-illust-fallback" style={{ background: gradient }}>
+          <span className="st-fallback-emoji">{emoji}</span>
+          <p className="st-fallback-text">{text}</p>
+        </div>
+      )}
+      <div className="st-paper-texture" />
       {onEdit && (
         <button className="st-edit-toggle" onClick={(e) => { e.stopPropagation(); onEdit(); }}>✏️</button>
       )}
-    </div>
-  );
-});
-
-// Designed text page — mood colors, decorative motifs, flourishes
-const StoryTextPage = React.forwardRef(({ text, pageNum, mood, emoji, isLastPage, imageOnLeft, narrating, narratingSentence }, ref) => {
-  const palette = MOOD_PALETTES[mood] || MOOD_PALETTES.wonder;
-  const bleedSide = imageOnLeft ? "left" : "right";
-  const sentences = (text || "").match(/[^.!?]+[.!?]+/g) || [text || ""];
-
-  return (
-    <div ref={ref} className="st-page st-text-page" style={{
-      '--tp-bg': palette.bg, '--tp-tint': palette.tint,
-      '--tp-accent': palette.accent, '--tp-text': palette.textColor,
-      '--tp-glow': palette.glow,
-    }}>
-      <div className="st-text-page-bg" />
-      <div className="st-paper-texture" />
-      <div className={`st-spine-shadow st-spine-${bleedSide}`} />
-      <div className={`st-edge-bleed st-bleed-from-${bleedSide}`} />
-      <div className={`st-ambient-glow st-glow-from-${bleedSide}`} />
-      <TextPageDecor mood={mood} emoji={emoji} pageIndex={pageNum} />
-
-      <div className="st-text-page-content">
-        <div className="st-text-flourish-top">✦ ✦ ✦</div>
-        <p className="st-story-text">
-          {narrating && narratingSentence >= 0
-            ? sentences.map((s, i) => (
-                <span key={i} className={`st-sentence${i === narratingSentence ? " st-sentence-active" : ""}`}>{s}</span>
-              ))
-            : text}
-        </p>
-        {isLastPage && <div className="st-text-flourish-end">— ✦ —</div>}
-      </div>
-
-      <span className={`st-text-pagenum st-pagenum-${imageOnLeft ? 'right' : 'left'}`}>
-        {pageNum}
-      </span>
     </div>
   );
 });
@@ -295,7 +210,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const [localPages, setLocalPages] = useState(pages);
   const [regeneratingImage, setRegeneratingImage] = useState(null);
   const [narrating, setNarrating] = useState(false);
-  const [narratingSentence, setNarratingSentence] = useState(-1);
+  const [narratorVoice, setNarratorVoice] = useState("mom");
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const narrationAudio = useRef(null);
   const narrationCache = useRef({});
@@ -305,7 +220,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const gradient = STYLE_GRADIENTS[styleName] || STYLE_GRADIENTS.Storybook;
   const coverGradient = STYLE_COVER_GRADIENTS[styleName] || STYLE_COVER_GRADIENTS.Storybook;
 
-  // Build page array for react-pageflip — alternating image/text sides
+  // Build page array — each story page = ONE flipbook page
   const bookPages = useMemo(() => {
     const result = [];
     result.push({ type: "cover" });
@@ -313,16 +228,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       result.push({ type: "dedication" });
     }
     localPages.forEach((page, i) => {
-      const imageOnLeft = (i % 2 === 0);
-      if (imageOnLeft) {
-        // Even pages: image left, text right
-        result.push({ type: "story-image", page, index: i, spineSide: "right" });
-        result.push({ type: "story-text", page, index: i, imageOnLeft: true });
-      } else {
-        // Odd pages: text left, image right
-        result.push({ type: "story-text", page, index: i, imageOnLeft: false });
-        result.push({ type: "story-image", page, index: i, spineSide: "left" });
-      }
+      result.push({ type: "story", page, index: i });
     });
     result.push({ type: "back-cover" });
     return result;
@@ -331,7 +237,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   // Map flipbook page index to story page index
   function getStoryPageIndex(flipPage) {
     const bp = bookPages[flipPage];
-    if (bp && (bp.type === "story-image" || bp.type === "story-text")) return bp.index;
+    if (bp && bp.type === "story") return bp.index;
     return -1;
   }
 
@@ -391,7 +297,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     setActiveEdit(null);
   }
 
-  // ── Narration (ElevenLabs) ─────────────────────────────────────────────────
+  // ── Narration (server-side proxy) ─────────────────────────────────────────
   async function handleNarrate() {
     const storyIdx = getStoryPageIndex(currentPage);
     if (storyIdx < 0 || !localPages[storyIdx]?.text) return;
@@ -399,31 +305,26 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     if (narrating) {
       narrationAudio.current?.pause();
       setNarrating(false);
-      setNarratingSentence(-1);
       return;
     }
 
     const text = localPages[storyIdx].text;
-    const cacheKey = `page_${storyIdx}`;
+    const cacheKey = `page_${storyIdx}_${narratorVoice}`;
 
     try {
       let audioUrl = narrationCache.current[cacheKey];
 
       if (!audioUrl) {
-        const apiKey = import.meta.env.VITE_ELEVENLABS_KEY;
-        if (!apiKey) { addToast("Audio unavailable — no API key configured", "info"); return; }
-
         setNarrating(true);
-        setNarratingSentence(-1);
         addToast("Preparing narration...", "info", 2000);
 
-        const resp = await fetch("https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM", {
+        const resp = await fetch("/api/narrate", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "xi-api-key": apiKey },
-          body: JSON.stringify({ text, model_id: "eleven_turbo_v2", voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, voiceId: narratorVoice }),
         });
 
-        if (!resp.ok) throw new Error("ElevenLabs API error");
+        if (!resp.ok) throw new Error("Narration failed");
         const blob = await resp.blob();
         audioUrl = URL.createObjectURL(blob);
         narrationCache.current[cacheKey] = audioUrl;
@@ -433,26 +334,8 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       narrationAudio.current = audio;
       setNarrating(true);
 
-      const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-      const sentenceTimers = [];
-
-      function startSentenceHighlighting() {
-        const avgDuration = (audio.duration || 5) / sentences.length;
-        sentences.forEach((_, i) => {
-          sentenceTimers.push(setTimeout(() => setNarratingSentence(i), i * avgDuration * 1000));
-        });
-      }
-
-      function cleanupTimers() {
-        sentenceTimers.forEach(clearTimeout);
-        sentenceTimers.length = 0;
-      }
-
-      audio.addEventListener("playing", () => { cleanupTimers(); startSentenceHighlighting(); });
       audio.addEventListener("ended", () => {
-        cleanupTimers();
         setNarrating(false);
-        setNarratingSentence(-1);
         setTimeout(() => bookRef.current?.pageFlip()?.flipNext(), 1500);
       });
 
@@ -462,7 +345,6 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       });
     } catch {
       setNarrating(false);
-      setNarratingSentence(-1);
       addToast("Audio unavailable — try again later", "info");
     }
   }
@@ -478,7 +360,6 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         narrationAudio.current = null;
       }
       setNarrating(false);
-      setNarratingSentence(-1);
     };
   }, [currentPage]);
 
@@ -580,9 +461,19 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         <button className="st-tool-btn" onClick={() => navigate("/library")}>&larr; Back to Library</button>
         <div className="st-tool-right">
           {storyIdx >= 0 && (
-            <button className="st-tool-icon" onClick={handleNarrate} title={narrating ? "Pause" : "Read to me"}>
-              {narrating ? "⏸ Pause" : "🔊 Read to me"}
-            </button>
+            <>
+              <div className="st-voice-picker">
+                <button className={`st-voice-btn${narratorVoice === "mom" ? " st-voice-active" : ""}`}
+                  onClick={() => setNarratorVoice("mom")} title="Mom voice">👩</button>
+                <button className={`st-voice-btn${narratorVoice === "dad" ? " st-voice-active" : ""}`}
+                  onClick={() => setNarratorVoice("dad")} title="Dad voice">👨</button>
+                <button className={`st-voice-btn${narratorVoice === "grandma" ? " st-voice-active" : ""}`}
+                  onClick={() => setNarratorVoice("grandma")} title="Grandma voice">👵</button>
+              </div>
+              <button className="st-tool-icon" onClick={handleNarrate} title={narrating ? "Pause" : "Read to me"}>
+                {narrating ? "⏸ Pause" : "🔊 Read to me"}
+              </button>
+            </>
           )}
           <button className="st-tool-icon" onClick={handleDownloadPdf} disabled={pdfGenerating} title="Save PDF">
             {pdfGenerating ? "⏳" : "⬇"} Save PDF
@@ -624,25 +515,16 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                 return <DedicationPage key={`ded-${i}`}
                   dedication={dedication}
                   gradient={gradient} />;
-              case "story-image":
-                return <StoryImagePage key={`si-${bp.index}`}
+              case "story":
+                return <StoryPage key={`sp-${bp.index}`}
                   imageUrl={bp.page.imageUrl}
+                  text={bp.page.text}
+                  pageNum={bp.index + 1}
                   gradient={gradient}
                   emoji={bp.page.scene_emoji || "🌟"}
                   heroPhotoUrl={data.heroPhotoUrl}
                   isRegenerating={regeneratingImage === bp.index}
-                  spineSide={bp.spineSide}
                   onEdit={() => setActiveEdit(activeEdit ? null : { index: bp.index, type: "art" })} />;
-              case "story-text":
-                return <StoryTextPage key={`st-${bp.index}`}
-                  text={bp.page.text}
-                  pageNum={bp.index + 1}
-                  mood={bp.page.mood || "wonder"}
-                  emoji={bp.page.scene_emoji || "🌟"}
-                  isLastPage={bp.index === localPages.length - 1}
-                  imageOnLeft={bp.imageOnLeft}
-                  narrating={narrating}
-                  narratingSentence={narratingSentence} />;
               case "back-cover":
                 return <BackCover key={`back-${i}`}
                   onReset={onReset} onShare={handleShare} />;

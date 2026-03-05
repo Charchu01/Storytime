@@ -17,8 +17,11 @@ export default async function handler(req, res) {
     const {
       prompt,
       referencePhotoUrl,
+      referenceImageUrls,
       tier,
       style,
+      aspectRatio,
+      isCover,
     } = req.body || {};
 
     if (!prompt) {
@@ -28,57 +31,57 @@ export default async function handler(req, res) {
     const replicate = new Replicate({ auth: apiKey });
     let prediction;
     let modelUsed;
-    let faceRefUsed = false;
 
-    // ── TIER-BASED MODEL SELECTION WITH FALLBACK CHAIN ──────────────────
-
-    // Premium with face: Kontext Max (highest quality face fidelity)
-    // The prompt is ALREADY optimized for Kontext by the client — pass through.
-    if (tier === "premium" && referencePhotoUrl) {
-      try {
-        modelUsed = "black-forest-labs/flux-kontext-max";
-        prediction = await replicate.predictions.create({
-          model: modelUsed,
-          input: {
-            // The prompt is ALREADY optimized for Kontext by the client.
-            // Do NOT wrap it with additional instructions.
-            prompt: prompt,
-            input_image: referencePhotoUrl,
-            aspect_ratio: "3:4",
-            output_format: "jpg",
-            safety_tolerance: 5,
-          },
-        });
-        faceRefUsed = true;
-      } catch (err) {
-        console.error("Kontext Max failed:", err.message, err.response?.status);
-        prediction = null;
-      }
+    // ── BUILD IMAGE INPUTS ARRAY ────────────────────────────
+    const imageInputs = [];
+    if (referencePhotoUrl) imageInputs.push(referencePhotoUrl);
+    if (referenceImageUrls && Array.isArray(referenceImageUrls)) {
+      imageInputs.push(...referenceImageUrls);
     }
 
-    // Standard with face (or Premium fallback): Kontext Pro
+    // ── PRIMARY: Nano Banana Pro ────────────────────────────
+    try {
+      modelUsed = "google/nano-banana-pro";
+      const input = {
+        prompt: prompt,
+        aspect_ratio: aspectRatio || "3:4",
+        output_format: "jpg",
+        safety_tolerance: 5,
+        allow_fallback_model: true,
+      };
+      if (imageInputs.length > 0) {
+        input.image_input = imageInputs;
+      }
+      prediction = await replicate.predictions.create({
+        model: modelUsed,
+        input,
+      });
+    } catch (err) {
+      console.warn("Nano Banana Pro failed:", err.message);
+      prediction = null;
+    }
+
+    // ── FALLBACK 1: Kontext Pro (face-preserving) ───────────
     if (!prediction && referencePhotoUrl) {
       try {
         modelUsed = "black-forest-labs/flux-kontext-pro";
         prediction = await replicate.predictions.create({
           model: modelUsed,
           input: {
-            prompt: prompt,  // Already optimized — pass through
+            prompt: `Turn this person into a children's storybook illustration. ${prompt}. Keep their exact face from the photo. No text or words.`,
             input_image: referencePhotoUrl,
             aspect_ratio: "3:4",
             output_format: "jpg",
             safety_tolerance: 5,
           },
         });
-        faceRefUsed = true;
       } catch (err) {
-        console.error("Kontext Pro failed:", err.message, err.response?.status);
+        console.warn("Kontext Pro fallback failed:", err.message);
         prediction = null;
       }
     }
 
-    // No face reference OR all face models failed: Flux Pro Ultra
-    // This path gets the full descriptive prompt from the client — wrap minimally.
+    // ── FALLBACK 2: Flux Pro Ultra (no face) ────────────────
     if (!prediction) {
       try {
         modelUsed = "black-forest-labs/flux-1.1-pro-ultra";
@@ -90,27 +93,24 @@ export default async function handler(req, res) {
             output_format: "webp",
             output_quality: 90,
             safety_tolerance: 5,
-            prompt_upsampling: true,
           },
         });
       } catch (err) {
-        console.error("All Flux models failed:", err.message, err.response?.status);
+        console.error("All models failed:", err.message);
         return res.status(500).json({
-          error: `Image generation failed: ${err.message}`,
+          error: "Image generation unavailable. Please try again.",
         });
       }
     }
 
     if (!prediction?.id) {
-      return res.status(500).json({
-        error: "Failed to start image generation",
-      });
+      return res.status(500).json({ error: "Failed to start image generation" });
     }
 
     console.log("IMG_GEN:", JSON.stringify({
       ts: Date.now(),
       model: modelUsed,
-      faceRefUsed,
+      imageCount: imageInputs.length,
       tier: tier || "standard",
       predictionId: prediction.id,
       durationMs: Date.now() - startTime,
@@ -120,12 +120,9 @@ export default async function handler(req, res) {
       predictionId: prediction.id,
       status: prediction.status,
       model: modelUsed,
-      faceRefUsed,
     });
   } catch (err) {
     console.error("generate-image error:", err);
-    res.status(500).json({
-      error: `Image generation failed: ${err.message || "Unknown"}`,
-    });
+    res.status(500).json({ error: `Image generation failed: ${err.message}` });
   }
 }
