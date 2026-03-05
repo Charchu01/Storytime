@@ -1,4 +1,4 @@
-import { claudeCall, generateImage, uploadPhoto } from "./client";
+import { claudeCall, generateImage, uploadPhoto, validateImage } from "./client";
 import { ROLES, STYLES, WORLDS, OCCASIONS, THEMES } from "../constants/data";
 
 // ── Face-ref-lost tracking ───────────────────────────────────────────────────
@@ -647,7 +647,7 @@ export async function generateAllImages(
   });
 
   try {
-    const coverUrl = await generateImage(
+    let coverUrl = await generateImage(
       coverPrompt,
       heroPhotoUrl,
       tier,
@@ -657,6 +657,30 @@ export async function generateAllImages(
       true
     );
     if (coverUrl && await validateImageUrl(coverUrl)) {
+      // Validate cover with Claude Vision
+      const coverValidation = await validateImage(
+        coverUrl,
+        storyPlan.cover.titleText ? [storyPlan.cover.titleText] : [],
+        heroName,
+        artStyle,
+        "cover",
+        storyPlan.cover.sceneDescription
+      );
+      if (!coverValidation.pass) {
+        console.warn("Cover failed validation:", coverValidation.issues?.join(", "));
+        try {
+          const fixPrompt = coverPrompt +
+            `\n\nCRITICAL FIXES FOR THIS RETRY:\n${coverValidation.fixNotes || coverValidation.issues?.join(". ") || "Improve text accuracy and character quality."}`;
+          await new Promise(r => setTimeout(r, 2000));
+          const retryCover = await generateImage(
+            fixPrompt, heroPhotoUrl, tier, null, [],
+            storyPlan.cover.aspectRatio || "3:4", true
+          );
+          if (retryCover && await validateImageUrl(retryCover)) {
+            coverUrl = retryCover;
+          }
+        } catch { /* use original */ }
+      }
       images.cover = coverUrl;
       previousImageUrl = coverUrl;
       logCost("nano_banana", tier, true, 0, null);
@@ -688,8 +712,11 @@ export async function generateAllImages(
       refImages.push(previousImageUrl);
     }
 
+    // Validate cover + first spread always; remaining spreads skip validation for speed
+    const shouldValidate = (i === 0);
+
     try {
-      const url = await generateImage(
+      let url = await generateImage(
         spreadPrompt,
         heroPhotoUrl,
         tier,
@@ -700,6 +727,33 @@ export async function generateAllImages(
       );
 
       if (url && await validateImageUrl(url)) {
+        // Run validation gate if applicable
+        if (shouldValidate) {
+          const validation = await validateImage(
+            url,
+            [spread.leftPageText, spread.rightPageText],
+            heroName,
+            artStyle,
+            "spread",
+            spread.sceneDescription
+          );
+          if (!validation.pass) {
+            console.warn(`Spread ${i + 1} failed validation:`, validation.issues?.join(", "));
+            try {
+              const fixPrompt = spreadPrompt +
+                `\n\nCRITICAL FIXES FOR THIS RETRY:\n${validation.fixNotes || validation.issues?.join(". ") || "Improve text accuracy and character quality."}`;
+              await new Promise(r => setTimeout(r, 2000));
+              const retryUrl = await generateImage(
+                fixPrompt, heroPhotoUrl, tier, null,
+                refImages, spread.aspectRatio || "4:3", false
+              );
+              if (retryUrl && await validateImageUrl(retryUrl)) {
+                url = retryUrl;
+                logCost("nano_banana", tier, true, 0, "retry_after_validation");
+              }
+            } catch { /* use original */ }
+          }
+        }
         images[`spread_${i}`] = url;
         previousImageUrl = url;
         logCost("nano_banana", tier, true, 0, null);

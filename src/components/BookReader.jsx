@@ -401,10 +401,6 @@ export default function BookReader({ data, cast, styleName, onReset }) {
             ) : current.imageUrl && isGeneratedImage(current.imageUrl) ? (
               <img src={current.imageUrl} className="br-page-image" alt="" />
             ) : null}
-            <div className="br-page-text-overlay">
-              <p>{current.text}</p>
-            </div>
-            <span className="br-pagenum">{current.pageNum}</span>
           </div>
         )}
 
@@ -420,10 +416,6 @@ export default function BookReader({ data, cast, styleName, onReset }) {
             ) : current.emoji ? (
               <div className="br-page-emoji">{current.emoji}</div>
             ) : null}
-            <div className="br-page-text-overlay">
-              <p>{current.text}</p>
-            </div>
-            <span className="br-pagenum">{current.pageNum}</span>
           </div>
         )}
 

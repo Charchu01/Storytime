@@ -9,6 +9,13 @@ function loadStoriesFromDisk() {
   catch { return []; }
 }
 
+function findStory(id, stories, locationState) {
+  return stories.find((s) => s.id === id)
+    || locationState?.storyData
+    || loadStoriesFromDisk().find((s) => s.id === id)
+    || null;
+}
+
 export default function BookReaderPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -16,6 +23,32 @@ export default function BookReaderPage() {
   const { stories } = useAppContext();
   const [showPrint, setShowPrint] = useState(false);
   const [demoData, setDemoData] = useState(null);
+  const [resolvedStory, setResolvedStory] = useState(() =>
+    id !== "demo" ? findStory(id, stories, location.state) : null
+  );
+
+  // Keep trying to find the story as React state propagates
+  useEffect(() => {
+    if (id === "demo" || resolvedStory) return;
+    const found = findStory(id, stories, location.state);
+    if (found) {
+      setResolvedStory(found);
+      return;
+    }
+    // Retry a few times for race condition with state propagation
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      const retry = findStory(id, stories, location.state);
+      if (retry) {
+        setResolvedStory(retry);
+        clearInterval(interval);
+      } else if (attempts >= 10) {
+        clearInterval(interval);
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [id, stories, location.state, resolvedStory]);
 
   // Handle demo book
   useEffect(() => {
@@ -32,7 +65,6 @@ export default function BookReaderPage() {
           });
         })
         .catch(() => {
-          // Fallback: construct a minimal demo
           setDemoData({
             story: {
               title: "Mia and the Whispering Forest",
@@ -54,12 +86,7 @@ export default function BookReaderPage() {
     }
   }, [id]);
 
-  // Try context first, then navigation state, then localStorage directly
-  const story = id === "demo"
-    ? demoData
-    : stories.find((s) => s.id === id)
-      || location.state?.storyData
-      || loadStoriesFromDisk().find((s) => s.id === id);
+  const story = id === "demo" ? demoData : resolvedStory;
 
   useEffect(() => {
     if (story && id !== "demo") document.title = `${story.story?.title || "Your Book"} — Storytime`;
@@ -90,11 +117,9 @@ export default function BookReaderPage() {
 
   if (!story) {
     return (
-      <div className="page-404">
-        <div className="p404-book">📖</div>
-        <h1 className="p404-h">Story not found</h1>
-        <p className="p404-p">This story may have been deleted or the link is invalid.</p>
-        <button className="p404-btn" onClick={() => navigate("/library")}>Go to Library →</button>
+      <div className="gen-screen">
+        <div className="gen-emoji">📖</div>
+        <div className="gen-headline">Loading your book...</div>
       </div>
     );
   }
