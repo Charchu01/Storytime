@@ -98,9 +98,7 @@ function buildScenePrompt(sceneDescription, cast, styleName, mood) {
 }
 
 // ── Analyze character photos ──────────────────────────────────────────────────
-async function analyzeCharacterPhoto(character) {
-  if (!character.photo) return null;
-
+async function analyzeCharacterPhotos_single(character, photoDataUri) {
   const role = ROLES.find((r) => r.id === character.role)?.label || character.role;
   const ageNote = character.age ? `, approximately ${character.age} years old` : "";
 
@@ -109,7 +107,7 @@ async function analyzeCharacterPhoto(character) {
       `You are helping create consistent character illustrations for a children's storybook. Analyze this person's photo and write a concise visual description (2-3 sentences) that an illustrator could use to draw them consistently across multiple pages. Focus on: hair color/style, skin tone, eye color, facial features, build/height, and any distinctive features. Do NOT include clothing (they'll wear different outfits in the story). Write in third person. Be specific about colors and features.`,
       `This is ${character.name}, a ${role}${ageNote}. Please describe their physical appearance for an illustrator.`,
       300,
-      character.photo
+      photoDataUri
     );
     return description;
   } catch (err) {
@@ -121,13 +119,47 @@ async function analyzeCharacterPhoto(character) {
 export async function analyzeCharacterPhotos(cast) {
   const enrichedCast = await Promise.all(
     cast.map(async (character) => {
-      if (character.photo) {
-        const description = await analyzeCharacterPhoto(character);
-        if (description) {
-          return { ...character, appearanceDescription: description };
-        }
+      const photos = character.photos?.filter((p) => p.dataUri) || [];
+      // Fall back to single photo field for backward compat
+      if (photos.length === 0 && character.photo) {
+        const description = await analyzeCharacterPhotos_single(character, character.photo);
+        return description ? { ...character, appearanceDescription: description } : character;
       }
-      return character;
+      if (photos.length === 0) return character;
+
+      // Analyze ALL photos for a richer description
+      if (photos.length === 1) {
+        const description = await analyzeCharacterPhotos_single(character, photos[0].dataUri);
+        return description ? { ...character, appearanceDescription: description } : character;
+      }
+
+      // Multiple photos: analyze the best one in detail, note features from others
+      const primaryIdx = character.primaryPhotoIndex || 0;
+      const primaryPhoto = photos[primaryIdx] || photos[0];
+      const otherPhotos = photos.filter((_, i) => i !== primaryIdx);
+
+      // Analyze primary photo
+      const primaryDesc = await analyzeCharacterPhotos_single(character, primaryPhoto.dataUri);
+
+      // Analyze one additional photo for supplementary details (different angle)
+      let supplementDesc = null;
+      if (otherPhotos.length > 0) {
+        // Pick the best quality supplementary photo
+        const bestOther = otherPhotos.find((p) => p.quality === "good") || otherPhotos[0];
+        supplementDesc = await analyzeCharacterPhotos_single(character, bestOther.dataUri);
+      }
+
+      // Merge descriptions
+      let finalDesc = primaryDesc || "";
+      if (supplementDesc && primaryDesc) {
+        finalDesc = await claudeCall(
+          "Merge these two appearance descriptions of the same person into one concise description (3-4 sentences). Combine unique details from both, resolve any contradictions by favoring the first. Write in third person. Return ONLY the merged description.",
+          `Description 1: ${primaryDesc}\n\nDescription 2: ${supplementDesc}`,
+          300
+        ).catch(() => primaryDesc);
+      }
+
+      return finalDesc ? { ...character, appearanceDescription: finalDesc } : character;
     })
   );
   return enrichedCast;
@@ -209,10 +241,32 @@ export async function generatePageImage(sceneDescription, cast, styleName, heroP
 // ── Upload hero photo once ────────────────────────────────────────────────────
 export async function uploadHeroPhoto(cast) {
   const heroChar = cast.find((c) => c.isHero) || cast[0];
-  if (!heroChar?.photo) return null;
+  if (!heroChar) return null;
+
+  // Pick the best photo: prefer primary from photos array, fall back to single photo field
+  let bestPhotoUri = null;
+  const photos = heroChar.photos?.filter((p) => p.dataUri) || [];
+  if (photos.length > 0) {
+    const primaryIdx = heroChar.primaryPhotoIndex || 0;
+    // Prefer good quality, then fair, avoid poor
+    const goodPhotos = photos.filter((p) => p.quality === "good");
+    const fairPhotos = photos.filter((p) => p.quality === "fair");
+    if (goodPhotos.length > 0) {
+      // Use the primary if it's good, otherwise first good
+      bestPhotoUri = (photos[primaryIdx]?.quality === "good" ? photos[primaryIdx] : goodPhotos[0]).dataUri;
+    } else if (fairPhotos.length > 0) {
+      bestPhotoUri = fairPhotos[0].dataUri;
+    } else {
+      bestPhotoUri = photos[primaryIdx]?.dataUri || photos[0].dataUri;
+    }
+  } else if (heroChar.photo) {
+    bestPhotoUri = heroChar.photo;
+  }
+
+  if (!bestPhotoUri) return null;
 
   try {
-    return await uploadPhoto(heroChar.photo);
+    return await uploadPhoto(bestPhotoUri);
   } catch (err) {
     console.error("Failed to upload hero photo, falling back to text-only:", err);
     return null;

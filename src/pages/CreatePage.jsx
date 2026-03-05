@@ -12,7 +12,11 @@ const DRAFT_KEY = "sk_draft";
 function saveDraft(data) {
   try {
     // Don't save photo data URIs to avoid localStorage quota
-    const safe = { ...data, cast: data.cast?.map(c => ({ ...c, photo: c.photo ? "has_photo" : null })) };
+    const safe = { ...data, cast: data.cast?.map(c => ({
+      ...c,
+      photo: c.photo ? "has_photo" : null,
+      photos: c.photos?.length ? c.photos.map(p => ({ quality: p.quality, feedback: p.feedback })) : undefined,
+    })) };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(safe));
   } catch {}
 }

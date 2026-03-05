@@ -80,6 +80,9 @@ export default function CastStep({ onNext, onBack, initialCast }) {
                     {character.isHero && <div className="hero-ring" />}
                     {character.photo ? <img src={character.photo} alt={character.name} /> : character.emoji}
                     {character.isHero && <div className="hero-star">⭐</div>}
+                    {character.photos?.length > 1 && (
+                      <div className="cchar-photo-count">{character.photos.length}</div>
+                    )}
                   </div>
                   <div className="cchar-name">{character.name}</div>
                   <div className="cchar-role">

@@ -90,7 +90,7 @@ function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, erro
       {loadPhase === "photos" && (
         <>
           <div className="gen-emoji">📷</div>
-          <div className="gen-headline">Studying {heroName}'s photo...</div>
+          <div className="gen-headline">Studying {heroName}'s photos...</div>
           <div className="gen-sub">Learning every freckle and curl</div>
         </>
       )}
@@ -332,7 +332,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
     try {
       // Phase 1: Analyze character photos
       setLoadPhase("photos");
-      const hasPhotos = cast.some((c) => c.photo);
+      const hasPhotos = cast.some((c) => c.photos?.length > 0 || c.photo);
       let enrichedCast = cast;
       if (hasPhotos) {
         enrichedCast = await analyzeCharacterPhotos(cast);
