@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import WelcomeScreen from "../components/WelcomeScreen";
+import BookTypePicker from "../components/BookTypePicker";
+import HeroSetup from "../components/HeroSetup";
+import StylePicker from "../components/StylePicker";
 import StoryStudio from "../components/StoryStudio";
+import Paywall from "../components/Paywall";
 import GenerationStep from "../components/GenerationStep";
 import { useAppContext } from "../App";
-import { STYLES } from "../constants/data";
+import { STYLES, BOOK_TYPES } from "../constants/data";
 
 const DRAFT_KEY = "sk_draft";
 
@@ -29,15 +32,16 @@ export default function CreatePage() {
   const [searchParams] = useSearchParams();
   const { addStory } = useAppContext();
 
-  // Flow: welcome → studio → generate → preview
-  const [step, setStep] = useState("welcome");
-  const [heroType, setHeroType] = useState(null);
-  const [isGift, setIsGift] = useState(false);
+  // Flow: bookType → hero → style → studio → payment → generate
+  const [step, setStep] = useState("bookType");
+  const [bookType, setBookType] = useState(null);
+  const [heroData, setHeroData] = useState(null);
+  const [artStyle, setArtStyle] = useState(null);
+  const [wizardData, setWizardData] = useState(null);
   const [tier, setTier] = useState(null);
   const [cast, setCast] = useState([]);
   const [style, setStyle] = useState(null);
   const [length, setLength] = useState(6);
-  const [wizardData, setWizardData] = useState(null);
   const [storySessionId] = useState(() => Date.now().toString(36) + Math.random().toString(36).slice(2));
 
   // Check for vault character from Family Vault
@@ -49,9 +53,16 @@ export default function CreatePage() {
         if (stored) {
           setVaultChar(stored);
           sessionStorage.removeItem("sk_vault_char");
-          setTier("premium");
-          setHeroType("child");
-          setStep("studio");
+          // Pre-fill hero data and jump to style selection
+          setBookType(BOOK_TYPES[0]); // default to adventure
+          setHeroData({
+            heroName: stored.name,
+            heroType: "child",
+            heroAge: "",
+            heroPhoto: stored.photoUrl || null,
+            companions: [],
+          });
+          setStep("style");
         }
       } catch {}
     }
@@ -59,73 +70,114 @@ export default function CreatePage() {
 
   useEffect(() => { document.title = "Create Your Story — Storytime"; }, []);
 
-  function handleWelcomeSelect(selectedHeroType, selectedTier, gift) {
-    setHeroType(selectedHeroType);
-    setTier(selectedTier);
-    setIsGift(gift);
-    setLength(selectedTier === "premium" ? 10 : 6);
+  // Screen 1: Book type selected
+  function handleBookTypeSelect(type) {
+    setBookType(type);
+    setStep("hero");
+  }
+
+  // Screen 2: Hero setup complete
+  function handleHeroComplete(data) {
+    setHeroData(data);
+    setStep("style");
+  }
+
+  // Screen 3: Style + tone selected
+  function handleStyleSelect(styleData) {
+    setArtStyle(styleData);
     setStep("studio");
   }
 
-  function handleStudioComplete(allData) {
-    // Build cast from studio data
-    const heroPhotos = allData.heroPhotos || [];
+  // Screen 4: Studio (chat) complete — has story details
+  function handleStudioComplete(studioData) {
+    // Build cast from heroData
+    const heroPhotos = heroData.heroPhoto
+      ? [{ dataUri: heroData.heroPhoto, quality: "fair", feedback: "" }]
+      : [];
+
     const heroCast = [];
-    if (allData.heroName) {
+    if (heroData.heroName) {
       heroCast.push({
         id: Date.now(),
-        name: allData.heroName,
-        role: allData.heroRole || "child",
-        age: allData.heroAge || "",
+        name: heroData.heroName,
+        role: heroData.heroType === "pet" ? "pet" : "child",
+        age: heroData.heroAge || "",
         isHero: true,
-        emoji: allData.heroRole === "pet" ? "🐾" : "🧒",
-        photo: heroPhotos[0]?.dataUri || null,
+        emoji: heroData.heroType === "pet" ? "🐾" : "🧒",
+        photo: heroData.heroPhoto || null,
         photos: heroPhotos,
         primaryPhotoIndex: 0,
       });
     }
 
-    // Add companions from studio
-    if (allData.cast?.length > 0) {
-      heroCast.push(...allData.cast.map((c) => ({
-        ...c,
+    // Add companions
+    if (heroData.companions?.length > 0) {
+      heroCast.push(...heroData.companions.map((c) => ({
         id: Date.now() + Math.random(),
+        name: c.name,
+        role: c.relationship || "friend",
+        emoji: c.relationship === "pet" ? "🐾" : "🤝",
         isHero: false,
       })));
     }
 
     setCast(heroCast);
 
-    // Set style from studio data
-    const styleName = STYLES.find((s) => s.id === allData.style)?.name || allData.style;
+    // Resolve art style name
+    const selectedStyle = artStyle?.style;
+    const styleName = selectedStyle?.name || "Classic Storybook";
     setStyle(styleName);
 
-    // Set length from studio
-    if (allData.length) setLength(allData.length);
+    // Determine page count from book type
+    const pageCount = bookType?.pageCount?.standard || 6;
+    setLength(pageCount);
 
-    // Build enriched story data for generation
-    const enrichedStoryData = {
-      heroName: allData.heroName,
-      heroAge: allData.heroAge,
-      heroType: allData.heroType || "",
-      storyIdea: allData.storyIdea || "",
-      spark: allData.spark || "custom",
-      storyFormat: allData.format || "classic",
-      personalIngredient: allData.secret || null,
-      dedication: allData.dedication || null,
-      authorName: allData.authorName || "A loving family",
-      tone: allData.tone || null,
-      details: allData.details || null,
+    // Build enriched wizard data for generation
+    const enrichedData = {
+      heroName: heroData.heroName,
+      heroAge: heroData.heroAge,
+      heroType: heroData.heroType || "child",
+      storyIdea: studioData.storyIdea || "",
+      spark: "custom",
+      storyFormat: bookType?.id === "nursery_rhyme" ? "rhyming" :
+                   bookType?.id === "superhero" ? "classic" : "classic",
+      personalIngredient: studioData.personalIngredient || studioData.details || null,
+      dedication: studioData.dedication || null,
+      authorName: studioData.authorName || "A loving family",
+      tone: artStyle?.tone?.label || studioData.tone || null,
+      details: studioData.details || null,
+      bookType: bookType?.id || "adventure",
+      bookTypeFormat: bookType?.claudeFormat || "",
+      world: studioData.world || null,
+      theme: studioData.theme || null,
+      occasion: studioData.occasion || null,
+      language: studioData.language || "en",
+      pageCount,
     };
 
-    setWizardData(enrichedStoryData);
+    setWizardData(enrichedData);
+    setStep("payment");
+  }
+
+  // Screen 5: Payment complete
+  function handlePaid(selectedTier) {
+    setTier(selectedTier);
+
+    // Update length based on tier
+    const newLength = selectedTier === "premium"
+      ? (bookType?.pageCount?.premium || 10)
+      : (bookType?.pageCount?.standard || 6);
+    setLength(newLength);
+
+    // Update wizardData with correct page count
+    setWizardData((prev) => prev ? { ...prev, pageCount: newLength } : prev);
+
     setStep("generate");
   }
 
   function handleStoryComplete(storyResult) {
     clearDraft();
-    // Strip base64 photo data from cast before saving — storing data URIs
-    // in localStorage would exceed the ~5 MB quota and crash the app.
+    // Strip base64 photo data from cast before saving
     const lightCast = cast.map(({ photo, photos, ...rest }) => ({
       ...rest,
       photo: null,
@@ -136,40 +188,63 @@ export default function CreatePage() {
       styleName: style,
       cast: lightCast,
       tier,
-      mode: heroType,
+      mode: heroData?.heroType || "child",
+      bookType: bookType?.id,
     };
     const id = addStory(storyEntry);
-    // Navigate without state — story is already in localStorage.
-    // Passing the full entry as history state would crash the browser
-    // (History API size limit) because cast contains base64 photo data.
     navigate(`/book/${id}`, { replace: true });
   }
 
   function reset() {
     clearDraft();
-    setHeroType(null);
+    setBookType(null);
+    setHeroData(null);
+    setArtStyle(null);
+    setWizardData(null);
     setTier(null);
     setCast([]);
     setStyle(null);
-    setWizardData(null);
-    setStep("welcome");
+    setStep("bookType");
   }
 
   return (
     <div className="create-page">
-      {step === "welcome" && (
-        <WelcomeScreen
-          onSelect={handleWelcomeSelect}
+      {step === "bookType" && (
+        <BookTypePicker
+          onSelect={handleBookTypeSelect}
           onBack={() => navigate("/")}
+        />
+      )}
+      {step === "hero" && (
+        <HeroSetup
+          bookType={bookType}
+          onComplete={handleHeroComplete}
+          onBack={() => setStep("bookType")}
+        />
+      )}
+      {step === "style" && (
+        <StylePicker
+          onSelect={handleStyleSelect}
+          onBack={() => setStep("hero")}
         />
       )}
       {step === "studio" && (
         <StoryStudio
-          heroType={heroType}
-          tier={tier}
-          isGift={isGift}
+          bookType={bookType}
+          heroData={heroData}
+          artStyle={artStyle}
           onComplete={handleStudioComplete}
-          onBack={() => setStep("welcome")}
+          onBack={() => setStep("style")}
+        />
+      )}
+      {step === "payment" && (
+        <Paywall
+          bookType={bookType}
+          artStyle={artStyle}
+          heroData={heroData}
+          wizardData={wizardData}
+          onPaid={handlePaid}
+          storySessionId={storySessionId}
         />
       )}
       {step === "generate" && (

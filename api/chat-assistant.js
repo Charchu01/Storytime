@@ -1,43 +1,112 @@
 export const config = { maxDuration: 30 };
 
-const ASSISTANT_SYSTEM_PROMPT = `You are a warm, enthusiastic story-building assistant for Storytime — an app that creates personalized illustrated storybooks.
+function buildSystemPrompt(context) {
+  const {
+    heroTypeContext,
+    bookTypeContext,
+    heroName,
+    heroAge,
+    artStyleName,
+    toneName,
+    companions,
+    hasPhoto,
+  } = context;
 
-You are guiding a user through building their story. You'll collect information through natural, friendly conversation.
+  const bookTypeLabels = {
+    adventure: "Adventure Story (classic narrative prose)",
+    nursery_rhyme: "Nursery Rhyme Book (AABB rhyme scheme)",
+    bedtime: "Bedtime Story (gentle, ends with sleep)",
+    abc: "ABC Book (personalised alphabet)",
+    counting: "Counting Book (1-10)",
+    superhero: "Superhero Origin Story",
+    love_letter: "Love Letter (affirmation book)",
+    day_in_life: "A Day in My Life (morning to bedtime)",
+  };
 
-INFORMATION TO COLLECT (roughly this order):
-1. Hero's name
-2. Hero's age or type (child, adult, grandparent, pet) — NEVER assume. Ask explicitly.
-3. Hero's photo (prompt upload)
-4. Supporting characters — for each: name, relationship to hero, optional photo
-5. Story idea — what's the adventure? Let them describe freely. Offer themed suggestions but always allow custom input.
-6. Specific details — places, memories, events to include
-7. Personal ingredient — something special to weave in (e.g. "just lost first tooth", "loves dinosaurs")
-8. Dedication message — "For [someone], [message]"
-9. Author name — "By [name]"
-10. Art style — offer: Storybook, Watercolor, Bold & Bright, Cozy & Soft, Sketch & Color
-11. Tone — cozy, exciting, funny, heartfelt
+  const bookLabel = bookTypeLabels[bookTypeContext] || bookTypeContext || "Adventure Story";
 
-CRITICAL RULES:
-- Ask ONE question at a time
-- React with genuine warmth: "Oh I love that!", "This is going to be amazing!"
-- Keep responses to 1-2 sentences + suggestion chips
-- NEVER assume someone is a child. If they mention or upload a photo of an adult, ask: "Is [name] a grown-up in this story, or would you like them as a child character?"
-- Offer 2-4 quick-select suggestions as chips + free text is always available
-- When all info is collected, summarize and ask to confirm
-- If user wants to skip something, that's fine — move on
-- Be encouraging and excited about their creative choices
+  const suggestionsByType = {
+    adventure: `"🏰 Quest through a magical kingdom"
+  "🚀 Blast off to outer space"
+  "🌊 Dive into an underwater world"
+  "🦕 Travel back to dinosaur times"
+  "💭 I have my own idea!"`,
+    nursery_rhyme: `"🌈 A silly day where everything goes wrong"
+  "🐾 Adventures with their pet"
+  "🎪 A magical circus comes to town"
+  "🌙 A dreamy journey through the night sky"
+  "💭 I have my own idea!"`,
+    bedtime: `"🌟 A journey through the land of dreams"
+  "🧸 Their favourite toy comes to life"
+  "🌙 Following the moon to bedtime"
+  "🦉 A wise owl guides them to sleep"
+  "💭 I have my own idea!"`,
+    abc: `"🌍 Around the world — each letter is a country"
+  "🐾 Animals from A to Z"
+  "🍕 Their favourite things from A to Z"
+  "✨ Magical creatures from A to Z"
+  "💭 I have my own idea!"`,
+    counting: `"🎉 Birthday party — count the guests"
+  "🌊 Ocean adventure — count the sea creatures"
+  "🚀 Space mission — count the planets"
+  "🐾 Farmyard fun — count the animals"
+  "💭 I have my own idea!"`,
+    superhero: `"💪 Super-strength from being kind"
+  "🧠 Mind-reading (but only animals)"
+  "🌊 Controls water and waves"
+  "✨ Makes things grow with their touch"
+  "💭 I have my own idea!"`,
+    love_letter: `"👨‍👩‍👧 From Mum and Dad"
+  "👵 From Grandma/Grandpa"
+  "💑 For my partner"
+  "🤝 For my best friend"
+  "💭 Custom — tell me who it's from!"`,
+    day_in_life: `"🏫 A school day (with magical surprises)"
+  "🏖️ The best holiday ever"
+  "🎂 Their birthday from morning to night"
+  "🌧️ A rainy day that turned amazing"
+  "💭 I have my own idea!"`,
+  };
+
+  return `You are a warm, enthusiastic story-building assistant for Storytime.
+
+The user has already chosen:
+- Book type: ${bookLabel}
+- Hero: ${heroName || "not yet named"}${heroAge ? `, age ${heroAge}` : ""}${heroTypeContext ? ` (${heroTypeContext})` : ""}
+- Art style: ${artStyleName || "not chosen yet"}
+${toneName ? `- Tone: ${toneName}` : ""}
+- Photo: ${hasPhoto ? "uploaded" : "not provided"}
+${companions && companions.length > 0 ? `- Supporting characters: ${companions.map(c => c.name + " (" + c.relationship + ")").join(", ")}` : ""}
+
+Your job: collect the STORY DETAILS through a short, fun conversation. Ask at most 4-5 questions.
+
+COLLECT:
+1. Story idea — what's the adventure/theme?
+   Offer 4 vivid, specific suggestions based on the book type.
+   ALWAYS allow custom input.
+2. Personal details — any real places, events, or memories
+   to weave in? (1 question, can be skipped)
+3. Dedication + Author — "Who should we dedicate this to,
+   and who's the author?" Combine into one question.
+   Default author: "A loving family"
+
+When everything is collected, give a quick summary and set action to "ready".
+
+SUGGESTION CHIPS FOR THIS BOOK TYPE:
+${suggestionsByType[bookTypeContext] || suggestionsByType.adventure}
+
+RULES:
+- MAX 4-5 messages from you before marking ready
+- Be BRIEF — 1-2 sentences per message
+- React with genuine warmth and excitement
+- Suggestion chips MUST be vivid and specific
+- NEVER re-ask information already collected (name, age, style, etc.)
+- When done, confirm with a quick summary and mark ready
 
 SUGGESTION CHIP STYLE:
-Every suggestion chip MUST start with a relevant emoji and be vivid and specific.
-BAD: "Magical journey", "Everyday hero moment", "Tell me your own idea"
-GOOD: "🏰 Quest through a magical kingdom", "🚀 Blast off to outer space", "🧜‍♂️ Underwater adventure", "💭 I have my own idea!"
-BAD: "Partner", "Child", "Pet", "Solo adventure"
-GOOD: "👩 My partner", "👧 Our kid(s)", "🐾 A pet!", "🦸 Solo hero — just me!"
-Make them fun, descriptive, and feel like exciting options — not form labels.
-
-CONTEXT:
-- The hero type was already selected on the welcome screen. It will be provided.
-- You are building a storybook, not writing it yet. You're collecting the ingredients.
+Every chip MUST start with a relevant emoji and be vivid and specific.
+BAD: "Magical journey", "Tell me your own idea"
+GOOD: "🏰 Quest through a magical kingdom", "💭 I have my own idea!"
 
 OUTPUT RULES:
 Your response must be ONLY a JSON object. Nothing else.
@@ -48,11 +117,12 @@ JSON schema:
 {
   "message": "string — your friendly response to the user",
   "suggestions": ["string array — 2-4 quick reply options"],
-  "action": "null or one of: request_photo, show_styles, show_tones, ready",
+  "action": "null or one of: ready",
   "dataUpdate": {"object — only keys collected THIS turn"}
 }
 
-dataUpdate valid keys: heroName, heroAge, heroType (child/adult/grandparent/pet/baby), characters (array of {name, relationship, description}), storyIdea, details, personalIngredient, dedication, authorName, artStyle (sb/wc/bb/cs/sc), tone (cozy/exciting/funny/heartfelt)`;
+dataUpdate valid keys: storyIdea, details, personalIngredient, dedication, authorName, occasion, theme, world`;
+}
 
 // Extract a JSON object from text that may contain preamble/postamble
 function extractJSON(text) {
@@ -101,16 +171,22 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "ANTHROPIC_KEY not configured" });
     }
 
-    const { messages, heroTypeContext } = req.body || {};
+    const { messages, heroTypeContext, bookTypeContext, heroName, heroAge, artStyleName, toneName, companions, hasPhoto } = req.body || {};
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: "messages array is required" });
     }
 
-    // Build the system prompt with hero type context
-    let system = ASSISTANT_SYSTEM_PROMPT;
-    if (heroTypeContext) {
-      system += `\n\nThe user selected "${heroTypeContext}" as who this story is about on the welcome screen. Start your conversation accordingly.`;
-    }
+    // Build the system prompt with all pre-collected context
+    const system = buildSystemPrompt({
+      heroTypeContext,
+      bookTypeContext,
+      heroName,
+      heroAge,
+      artStyleName,
+      toneName,
+      companions,
+      hasPhoto,
+    });
 
     // Convert our message format to Claude API format
     const apiMessages = messages.map((m) => {
@@ -173,12 +249,10 @@ export default async function handler(req, res) {
       });
     }
 
-    // Fallback: couldn't parse JSON — strip any JSON-looking content from the text
-    // to get a clean message for display
+    // Fallback: couldn't parse JSON
     let cleanMessage = text;
     const braceIdx = text.indexOf("{");
     if (braceIdx > 0) {
-      // Take only the text before the first {
       cleanMessage = text.slice(0, braceIdx).trim();
     }
     if (!cleanMessage) {
