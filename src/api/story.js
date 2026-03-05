@@ -445,26 +445,75 @@ export async function generateCoverImage(coverScene, styleName, tier = "standard
   }
 }
 
-// ── Generate ALL page images in parallel ──────────────────────────────────────
+// ── Concurrency-limited helper ──────────────────────────────────────────────
+async function runWithConcurrency(tasks, limit = 2) {
+  const results = new Array(tasks.length).fill(null);
+  let nextIndex = 0;
+
+  async function runNext() {
+    while (nextIndex < tasks.length) {
+      const i = nextIndex++;
+      try {
+        results[i] = await tasks[i]();
+      } catch {
+        results[i] = null;
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, () => runNext());
+  await Promise.all(workers);
+  return results;
+}
+
+// ── Generate ALL page images with concurrency limit ─────────────────────────
 export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, onPageImage, coverScene, worldVocab, toneLighting, tier = "standard") {
+  // Cover runs independently (not counted in concurrency limit)
   const coverPromise = generateCoverImage(coverScene, styleName, tier);
 
-  const pagePromises = pages.map((page, i) => {
-    const sceneDesc = page.scene_description || page.imagePrompt || page.text;
-    const mood = page.mood || "wonder";
-    return generatePageImage(sceneDesc, cast, styleName, heroPhotoUrl, mood, worldVocab, toneLighting, tier)
-      .then((url) => {
+  // Build task array — each task is a function that returns a promise
+  const tasks = pages.map((page, i) => {
+    return async () => {
+      const sceneDesc = page.scene_description || page.imagePrompt || page.text;
+      const mood = page.mood || "wonder";
+
+      try {
+        const url = await generatePageImage(
+          sceneDesc, cast, styleName, heroPhotoUrl,
+          mood, worldVocab, toneLighting, tier
+        );
         if (onPageImage) onPageImage(i, url);
         return url;
-      })
-      .catch(() => {
-        if (onPageImage) onPageImage(i, null);
-        return null;
-      });
+      } catch (err) {
+        console.warn(`Page ${i + 1} generation failed:`, err.message);
+
+        // Retry once after a short delay (catches transient 429s)
+        try {
+          await new Promise((r) => setTimeout(r, 3000));
+          const retryUrl = await generatePageImage(
+            sceneDesc, cast, styleName, heroPhotoUrl,
+            mood, worldVocab, toneLighting, tier
+          );
+          if (onPageImage) onPageImage(i, retryUrl);
+          return retryUrl;
+        } catch (retryErr) {
+          console.warn(`Page ${i + 1} retry failed:`, retryErr.message);
+          if (onPageImage) onPageImage(i, null);
+          return null;
+        }
+      }
+    };
   });
 
-  const pageImages = await Promise.all(pagePromises);
+  // Run with concurrency limit of 2:
+  // At most 2 Replicate predictions + 2 polling loops at a time = ~5 Vercel functions (safe)
+  const pageImages = await runWithConcurrency(tasks, 2);
   const coverImageUrl = await coverPromise;
+
+  const failCount = pageImages.filter((url) => url === null).length;
+  if (failCount > 0) {
+    console.warn(`${failCount} of ${pages.length} illustrations failed`);
+  }
 
   if (pageImages.every((url) => url === null)) {
     throw new Error("All illustrations failed. Please try again.");
