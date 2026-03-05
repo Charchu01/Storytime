@@ -1,26 +1,48 @@
-// Generate images using zsxkib/flux-pulid on Replicate (async polling)
+import Replicate from "replicate";
 
-async function pollForResult(apiKey, predictionId, maxAttempts = 60) {
-  let attempts = 0;
-  while (attempts < maxAttempts) {
-    await new Promise((r) => setTimeout(r, 2000));
-    const pollRes = await fetch(
-      `https://api.replicate.com/v1/predictions/${predictionId}`,
-      { headers: { Authorization: `Token ${apiKey}` } }
-    );
-    const result = await pollRes.json();
-    if (result.status === "succeeded") {
-      // output can be a URL string or array of URLs
-      const out = Array.isArray(result.output) ? result.output[0] : result.output;
-      if (typeof out === "string" && out.startsWith("http")) return out;
-      throw new Error("Unexpected output format from model");
+// Retry helper: waits and retries on 429 rate-limit errors
+async function runWithRetry(replicate, model, input, maxRetries = 2) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await replicate.run(model, { input });
+    } catch (err) {
+      const is429 =
+        err.response?.status === 429 ||
+        err.status === 429 ||
+        (err.message && err.message.includes("429"));
+      if (is429 && attempt < maxRetries) {
+        const waitMs = 12000;
+        console.log(
+          `Rate limited (attempt ${attempt + 1}), waiting ${waitMs / 1000}s...`
+        );
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+      throw err;
     }
-    if (result.status === "failed" || result.status === "canceled") {
-      throw new Error("Image generation failed: " + (result.error || "unknown"));
-    }
-    attempts++;
   }
-  throw new Error("Image generation timed out");
+}
+
+// Normalize Replicate output to a URL string.
+function extractUrl(output) {
+  if (Array.isArray(output)) {
+    output = output[0];
+  }
+  if (typeof output === "string") {
+    return output;
+  }
+  if (output) {
+    const str = String(output);
+    if (str.startsWith("http")) return str;
+    if (typeof output.url === "string" && output.url.startsWith("http")) {
+      return output.url;
+    }
+    if (typeof output.url === "function") {
+      const result = output.url();
+      if (typeof result === "string" && result.startsWith("http")) return result;
+    }
+  }
+  return null;
 }
 
 export default async function handler(req, res) {
@@ -34,77 +56,74 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "REPLICATE_KEY not configured" });
     }
 
-    const {
-      prompt,
-      aspectRatio = "16:9",
-      referencePhotoUrl,
-      width = 768,
-      height = 576,
-    } = req.body || {};
-
+    const { prompt, referencePhotoUrl } = req.body || {};
     if (!prompt) {
       return res.status(400).json({ error: "prompt is required" });
     }
 
+    const replicate = new Replicate({ auth: apiKey });
+    let output;
+    let usedModel = "flux-pulid";
+
     // Build input for flux-pulid
     const input = {
       prompt,
-      id_weight: 0.8,
+      width: 768,
+      height: 576,
       num_steps: 20,
+      start_step: 4,
       guidance_scale: 4,
-      width,
-      height,
       output_format: "webp",
       output_quality: 90,
     };
 
-    // Only pass id_image if we have a reference photo
+    // Only pass main_face_image if we have a reference photo
     if (referencePhotoUrl) {
-      input.id_image = referencePhotoUrl;
+      input.main_face_image = referencePhotoUrl;
     }
 
-    // Submit prediction with Prefer: wait (Replicate may return immediately for fast models)
-    const submitRes = await fetch(
-      "https://api.replicate.com/v1/models/zsxkib/flux-pulid/predictions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Token ${apiKey}`,
-          "Content-Type": "application/json",
-          Prefer: "wait",
-        },
-        body: JSON.stringify({ input }),
-      }
-    );
+    try {
+      output = await runWithRetry(replicate, "zsxkib/flux-pulid", input);
+    } catch (err) {
+      const pulIdError = err.message || "flux-pulid failed";
+      console.error("flux-pulid failed:", pulIdError);
 
-    const prediction = await submitRes.json();
-
-    // If Prefer: wait returned a completed result
-    if (prediction.status === "succeeded" && prediction.output) {
-      const out = Array.isArray(prediction.output)
-        ? prediction.output[0]
-        : prediction.output;
-      if (typeof out === "string" && out.startsWith("http")) {
-        return res.json({ imageUrl: out, model: "flux-pulid" });
+      // Fallback to flux-1.1-pro-ultra (text-only, no face preservation)
+      try {
+        console.log("Falling back to flux-1.1-pro-ultra...");
+        output = await runWithRetry(replicate, "black-forest-labs/flux-1.1-pro-ultra", {
+          prompt,
+          aspect_ratio: "4:3",
+          output_format: "webp",
+          output_quality: 90,
+          safety_tolerance: 5,
+          prompt_upsampling: true,
+        });
+        usedModel = "flux-1.1-pro-ultra";
+      } catch (fallbackErr) {
+        const fallbackError = fallbackErr.message || "Fallback also failed";
+        console.error("Fallback flux-1.1-pro-ultra failed:", fallbackError);
+        return res.status(500).json({
+          error: `Image generation failed: ${pulIdError}. Fallback: ${fallbackError}`,
+        });
       }
     }
 
-    // If failed immediately
-    if (prediction.status === "failed" || prediction.status === "canceled") {
+    const imageUrl = extractUrl(output);
+
+    if (!imageUrl) {
+      console.error(
+        "Bad output from model:",
+        usedModel,
+        typeof output,
+        JSON.stringify(output).slice(0, 200)
+      );
       return res.status(500).json({
-        error: `Image generation failed: ${prediction.error || "unknown"}`,
+        error: `Bad output from ${usedModel}: could not extract image URL`,
       });
     }
 
-    // Otherwise poll for result
-    if (!prediction.id) {
-      return res.status(500).json({
-        error: "No prediction ID returned from Replicate",
-      });
-    }
-
-    const imageUrl = await pollForResult(apiKey, prediction.id);
-    res.json({ imageUrl, model: "flux-pulid" });
+    res.json({ imageUrl, model: usedModel });
   } catch (err) {
     console.error("Unhandled error in generate-image:", err);
     res.status(500).json({
