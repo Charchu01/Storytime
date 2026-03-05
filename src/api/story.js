@@ -327,39 +327,42 @@ Based on the story idea, choose the perfect world setting, character personality
   return parsed;
 }
 
-// ── Build a Kontext-optimized prompt (short, instructional) ─────────────────
-// Kontext is image-to-image: you give it a photo and INSTRUCT what to do.
-// Prompts must be under 100 words to stay within Kontext's 512-token limit.
-// NO appearance description (the photo handles identity).
+// ── Build a Kontext-optimized prompt (research-backed) ──────────────────────
+// Research-backed Kontext prompting rules (BFL, Replicate, community):
+// 1. Don't describe what Kontext can already see in the photo
+// 2. Style transformation as FIRST instruction (dominant signal)
+// 3. Use "Turn into" not "transform" (BFL: "transform" = complete change)
+// 4. Scene truncated to ~25 words (512 token limit)
+// 5. Face preservation at END (BFL recommended position)
+// 6. Total prompt under 60 words
 function buildKontextPrompt(sceneDescription, styleName, mood) {
-  const styleKeywords = {
-    "Storybook": "warm painterly children's book illustration, bold outlines, saturated colors",
-    "Watercolor": "soft watercolor children's book illustration, visible brushstrokes, dreamy washes",
-    "Bold & Bright": "vibrant modern children's book illustration, bold flat colors, thick outlines",
-    "Cozy & Soft": "gentle pastel children's book illustration, soft rounded shapes, warm muted tones",
-    "Sketch & Color": "hand-drawn children's book illustration, pencil linework with color wash",
+  const styleMap = {
+    "Storybook":     "a classic children's storybook illustration with bold colors and clean outlines",
+    "Watercolor":    "a soft watercolor children's picture book illustration with dreamy washes",
+    "Bold & Bright": "a bright colorful cartoon children's book illustration with thick outlines",
+    "Cozy & Soft":   "a gentle pastel children's bedtime book illustration, cozy and warm",
+    "Sketch & Color":"a hand-drawn children's book illustration with pencil lines and color wash",
   };
 
-  const moodKeywords = {
-    "wonder": "magical golden light, sparkles in the air",
-    "adventure": "dramatic lighting, energetic atmosphere",
-    "cozy": "warm lamplight, soft gentle glow",
-    "tense": "cool dramatic shadows, atmospheric",
-    "triumphant": "radiant sunlight, everything glowing",
-    "tender": "soft diffused light, gentle and loving",
+  const moodMap = {
+    "wonder":     "magical and sparkly",
+    "adventure":  "exciting and dynamic",
+    "cozy":       "warm and cozy",
+    "tense":      "mysterious",
+    "triumphant": "bright and triumphant",
+    "tender":     "soft and heartfelt",
   };
 
-  const styleStr = styleKeywords[styleName] || styleKeywords["Storybook"];
-  const moodStr = moodKeywords[mood] || moodKeywords["wonder"];
+  const style = styleMap[styleName] || styleMap["Storybook"];
+  const moodStr = moodMap[mood] || "magical";
 
-  return [
-    `Place this person into the following scene as an illustrated storybook character.`,
-    `Scene: ${sceneDescription}`,
-    `Show them full-body at medium distance, about 35% of the frame, naturally part of the world.`,
-    `Render as ${styleStr}, ${moodStr}.`,
-    `Preserve their exact facial features and identity from the photo.`,
-    `No text, no words, no watermarks.`,
-  ].join(" ");
+  // Truncate scene description to max ~25 words
+  const words = sceneDescription.split(/\s+/);
+  const scene = words.length > 25
+    ? words.slice(0, 25).join(" ")
+    : sceneDescription;
+
+  return `Turn this person into ${style}. Scene: ${scene}. Compose as a wide landscape scene, ${moodStr} atmosphere. Show full-body, naturally in the scene. Keep their exact face and features from the photo. No text or words.`;
 }
 
 // ── Generate a single page image with fallback chain ────────────────────────
@@ -468,8 +471,10 @@ async function runWithConcurrency(tasks, limit = 2) {
 
 // ── Generate ALL page images with concurrency limit ─────────────────────────
 export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, onPageImage, coverScene, worldVocab, toneLighting, tier = "standard") {
-  // Cover runs independently (not counted in concurrency limit)
-  const coverPromise = generateCoverImage(coverScene, styleName, tier);
+  // Cover runs independently — skip if coverScene is null (already generated externally)
+  const coverPromise = coverScene
+    ? generateCoverImage(coverScene, styleName, tier)
+    : Promise.resolve(null);
 
   // Build task array — each task is a function that returns a promise
   const tasks = pages.map((page, i) => {

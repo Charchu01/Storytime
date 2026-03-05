@@ -3,6 +3,7 @@ import {
   generateStory,
   generateAllImages,
   generatePageImage,
+  generateCoverImage,
   analyzeCharacterPhotos,
   uploadHeroPhoto,
   STYLE_GRADIENTS,
@@ -212,6 +213,12 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       const story = pendingStory;
       const enrichedCast = pendingEnrichedCast;
 
+      // Generate cover FIRST (fast, no face ref, no competition for API slots)
+      let coverImageUrl = null;
+      if (story.coverScene) {
+        coverImageUrl = await generateCoverImage(story.coverScene, style, tier);
+      }
+
       const remainingPages = story.pages.slice(1);
       const onPageImage = (pageIdx, url) => {
         setPageImages((prev) => {
@@ -221,11 +228,10 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         });
       };
 
-      // Same flow for Standard AND Premium — tier controls which
-      // Kontext model is used on the server side
+      // Pass null coverScene — cover already generated above
       const finalResult = await generateAllImages(
         remainingPages, enrichedCast, style, pendingHeroPhotoUrl,
-        onPageImage, story.coverScene, null, null, tier
+        onPageImage, null, null, null, tier
       );
 
       const allPageImages = [previewImageUrl, ...finalResult.pageImages];
@@ -259,7 +265,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       }
 
       onNext({
-        story: { ...story, pages: pagesWithImages, coverImageUrl: finalResult.coverImageUrl },
+        story: { ...story, pages: pagesWithImages, coverImageUrl: coverImageUrl || finalResult.coverImageUrl },
         dedication: wizardData?.dedication || null,
         authorName: wizardData?.authorName || "A loving family",
         style,
