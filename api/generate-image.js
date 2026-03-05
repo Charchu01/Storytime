@@ -36,8 +36,18 @@ export default async function handler(req, res) {
     const imageInputs = [];
     if (referencePhotoUrl) imageInputs.push(referencePhotoUrl);
     if (referenceImageUrls && Array.isArray(referenceImageUrls)) {
-      imageInputs.push(...referenceImageUrls);
+      imageInputs.push(...referenceImageUrls.filter(Boolean));
     }
+
+    console.log("NANO_BANANA_INPUT:", JSON.stringify({
+      promptLength: prompt.length,
+      promptStart: prompt.substring(0, 120),
+      imageCount: imageInputs.length,
+      hasRefPhoto: !!referencePhotoUrl,
+      refImageCount: referenceImageUrls?.length || 0,
+      imageInputUrls: imageInputs.map(u => u?.substring(0, 60)),
+      aspectRatio: aspectRatio || "3:4",
+    }));
 
     // ── PRIMARY: Nano Banana Pro (with images) ────────────────
     if (imageInputs.length > 0) {

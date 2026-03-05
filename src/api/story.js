@@ -152,6 +152,122 @@ export async function analyzeCharacterPhotos(cast) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PROMPT ASSEMBLY — Code builds structured prompts, Claude writes scenes only
+// ══════════════════════════════════════════════════════════════════════════════
+
+function assembleImagePrompt({
+  sceneDescription,
+  characterAppearances,
+  textBoxDesign,
+  artStyle,
+  pageTexts,
+  isFirstSpread,
+  isCover,
+  isBackCover,
+  heroName,
+}) {
+  const sections = [];
+
+  // ── REFERENCE IMAGES (always first) ──────────────────
+  if (isCover) {
+    sections.push(
+`REFERENCE IMAGES:
+- Image 1: Photograph of ${heroName}. Match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style — NOT photorealistic.`
+    );
+  } else if (isBackCover) {
+    sections.push(
+`REFERENCE IMAGES:
+- Image 1: Photo of ${heroName} — match face identity.
+- Image 2: The COVER of this book — match this EXACT art style, colour palette, and brush technique.`
+    );
+  } else if (isFirstSpread) {
+    sections.push(
+`REFERENCE IMAGES:
+- Image 1: Photo of ${heroName} — match EXACT facial features.
+- Image 2: The COVER of this book — your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and text box design on this page.`
+    );
+  } else {
+    sections.push(
+`REFERENCE IMAGES:
+- Image 1: Photo of ${heroName} — match EXACT facial features.
+- Image 2: The COVER of this book — your STYLE BIBLE. Match this exact art style.
+- Image 3: The PREVIOUS SPREAD. Maintain visual continuity. ${heroName} must look IDENTICAL to this image. Same style, same colour temperature.`
+    );
+  }
+
+  // ── CHARACTER ────────────────────────────────────────
+  sections.push(
+`CHARACTER:
+${characterAppearances.hero}
+${heroName}'s face MUST match Image 1. When in doubt, match the photo. NOT photorealistic — illustrated style.`
+  );
+
+  // Add supporting characters if present
+  if (characterAppearances.supporting) {
+    const supportingText = Object.entries(characterAppearances.supporting)
+      .map(([name, desc]) => `- ${desc}`)
+      .join("\n");
+    if (supportingText) {
+      sections.push(
+`SUPPORTING CHARACTERS:
+${supportingText}
+Must look identical to previous pages.`
+      );
+    }
+  }
+
+  // ── SCENE (from Claude's creative writing) ───────────
+  sections.push(`SCENE:\n${sceneDescription}`);
+
+  // ── TEXT (if page has text boxes) ────────────────────
+  if (pageTexts && pageTexts.length > 0) {
+    const textLines = pageTexts
+      .filter(t => t && t.trim())
+      .map((t, i) => {
+        const label = pageTexts.length === 1 ? "Text box" :
+          i === 0 ? "Left page text box" : "Right page text box";
+        return `${label}: "${t}"`;
+      })
+      .join("\n");
+
+    if (textLines) {
+      sections.push(
+`TEXT:
+Render the following EXACTLY as written. Every word must be correctly spelled. Do not change any words.
+${textLines}`
+      );
+
+      sections.push(
+`TEXT BOX DESIGN (identical on every page):
+${textBoxDesign || "Simple rectangular box, thin dark brown ornate border, small corner flourishes, warm cream fill, dark brown elegant serif text, centred. Same design every page."}`
+      );
+    }
+  }
+
+  // ── STYLE ───────────────────────────────────────────
+  sections.push(
+`STYLE:
+${artStyle || "Classic children's storybook illustration, bold saturated colours, clean outlines, warm painterly backgrounds."}
+Must be IDENTICAL on every page. Match Image 2 exactly.`
+  );
+
+  // ── RULES ───────────────────────────────────────────
+  sections.push(
+`RULES:
+- Illustration fills ENTIRE image edge-to-edge
+- NO borders, frames, or parchment edges
+- NO page numbers
+- NO speech bubbles or word balloons
+- NO text outside the text boxes
+- Character IDENTICAL to Image 1${!isCover && !isFirstSpread ? " and Image 3" : ""}
+- Keep important content 5% from edges (safe zone)
+- NOT photorealistic — illustrated children's book style`
+  );
+
+  return sections.join("\n\n");
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // CLAUDE AS ART DIRECTOR — Story + Visual Plan in ONE call
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -222,62 +338,24 @@ Atmosphere: ${atmosphere}
 ${format === "rhyming" ? "Text boxes should feel whimsical and poetic." : ""}
 ${format === "funny" ? "Text boxes should feel playful and bouncy." : ""}
 
-═══ ILLUSTRATION RULES FOR NANO BANANA PRO ═══
+═══ ART DIRECTION NOTES ═══
+The app handles all technical prompt assembly (reference images, frozen blocks, rules). You focus ONLY on creative scene descriptions.
 
-The following rules MUST be included in EVERY imagePrompt you write. Copy them into every prompt — do NOT summarize or paraphrase. The image model needs to see these exact instructions every single time.
-
-REFERENCE IMAGES (include in EVERY spread prompt):
-- Image 1: Photo of ${heroName} — use ONLY for face identity. Transform into the illustrated art style. Keep their EXACT facial features, head shape, hair (or lack of hair), skin tone, and distinguishing features.
-- Image 2: The COVER of this book — your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and text box style.
-- Image 3 (when available): The PREVIOUS spread — maintain visual continuity. Characters must look IDENTICAL to how they appear in this image.
-
-CHARACTER IDENTITY LOCK (THE #1 MOST IMPORTANT RULE):
-This product FAILS if characters look different across pages. In every imagePrompt you write, you MUST:
-1. Describe ${heroName}'s appearance explicitly: "[name] — [hair description], [skin tone], [build], wearing [specific clothing with colours]." Copy this description WORD FOR WORD into every prompt.
-2. State: "The main character must look IDENTICAL to Image 1 (face) and Image 2 (art style). Same head shape, same hair, same skin tone, same outfit, same proportions."
-3. For supporting characters, describe them explicitly too and repeat their description on every prompt they appear in.
-4. NEVER describe a character differently from one spread to another.
-
-ART STYLE LOCK:
-- Art style must be IDENTICAL across all spreads — same brush strokes, same colour palette, same line weight, same level of detail
-- Match the EXACT illustration style of the cover (Image 2)
-- NOT photorealistic — this is an illustrated children's storybook
-
-TEXT ACCURACY (CRITICAL):
-- Every word in the text boxes MUST be spelled correctly — NO garbled text, NO made-up words, NO letter substitutions
-- Copy the page text EXACTLY as written — do not change, abbreviate, or improvise any words
-- Read back every word before finalising — if any word is not a real, correctly spelled English word, fix it
-- This is a children's book — text errors are unacceptable
-
-TEXT BOX DESIGN (MUST BE IDENTICAL ON EVERY PAGE):
-- ALL text boxes use the EXACT SAME design on every spread: simple rectangular box, thin ornate border with small corner flourishes, warm cream fill, dark serif text, centred
-- Do NOT vary the style — no scrolls on one page, frames on another, ribbons on another. Same box. Every page.
-- Text boxes sit at the BOTTOM of the page, inside the safe zone
-- Text boxes should not cover more than 25-30% of the image
-- No text anywhere EXCEPT inside the text boxes
-
-COMPOSITION:
-- The illustration fills the ENTIRE image edge-to-edge — NO borders, NO frames
-- Do NOT add any decorative border or frame (the app adds these)
-- Do NOT add page numbers (the app adds these)
-- Keep all important content at least 5% inward from all edges (safe zone for cropping)
-
-DO NOT INCLUDE:
-- No page borders, frames, or parchment edges
-- No page numbers
-- No speech bubbles or comic-style word balloons
-- No watermarks or logos
+CHARACTER IDENTITY (IMPORTANT):
+- Create a vivid, specific appearance string for each character
+- Include this appearance in EVERY sceneDescription where that character appears
+- NEVER describe a character differently from one spread to another
+- Include: hair colour/style, skin tone, build, specific clothing with colours
 
 ═══ YOUR TASK ═══
-1. First, create a CHARACTER APPEARANCE STRING for each character — a short, specific visual description (hair, skin, build, clothing) that will be COPIED VERBATIM into every single image prompt. This is how you lock character identity across pages.
+1. First, create a CHARACTER APPEARANCE STRING for each character — a short, specific visual description (hair, skin, build, clothing) that will be COPIED into every scene description.
 2. Write an incredible ${pageCount}-page children's story
 3. Design the visual layout for every single spread
-4. Write the COMPLETE Nano Banana Pro prompt for each image, including the character appearance string in every one
+4. Write a detailed SCENE DESCRIPTION for each image (the app handles technical prompt assembly)
 
 For each spread, YOU decide:
 - How to split the story text between the left and right page
 - Whether the illustration is one continuous scene across both pages, or two distinct panels
-- Where the text boxes go (bottom of spread, bottom of each page, one page only, etc.)
 - The camera angle and composition (wide establishing shot, intimate close-up, dramatic low angle, etc.)
 - The lighting and colour mood for this specific moment
 - Which characters are visible and how they're positioned
@@ -285,9 +363,7 @@ For each spread, YOU decide:
 
 Think like a REAL picture book designer. Vary your layouts:
 - Some spreads: one epic scene spanning both pages, text at bottom
-- Some spreads: distinct left and right panels with their own text boxes
-- Some spreads: illustration dominant with small text box in one corner
-- Some spreads: close-up emotional moment with large text overlay area
+- Some spreads: close-up emotional moment
 - The FINAL spread should be the most emotionally resonant
 
 ═══ OUTPUT FORMAT ═══
@@ -302,8 +378,11 @@ Return ONLY valid JSON with this structure:
       "CharName": "CharName — [hair], [skin tone], wearing [clothing]"
     }
   },
+  "textBoxDesign": "Simple rectangular box, thin dark brown ornate border, small corner flourishes, warm cream fill, dark brown elegant serif text, centred",
+  "artStyle": "[full art style description matching the chosen style]",
   "cover": {
-    "imagePrompt": "COMPLETE prompt including character appearance string...",
+    "sceneDescription": "Detailed description of the cover scene — composition, characters, environment, lighting, mood. Include where the title text should appear. 80-150 words.",
+    "titleText": "The Story Title",
     "aspectRatio": "3:4"
   },
   "spreads": [
@@ -311,24 +390,22 @@ Return ONLY valid JSON with this structure:
       "spreadNumber": 1,
       "leftPageText": "Story text for the left page...",
       "rightPageText": "Story text for the right page...",
-      "imagePrompt": "COMPLETE prompt including character appearance string, text content, layout, reference image instructions, text box rules, and all consistency rules...",
-      "aspectRatio": "4:3",
-      "designNotes": "Brief note on why this layout works"
+      "sceneDescription": "DETAILED description of the spread — this is a two-page illustration. Describe what appears on the left side and right side. Include: characters present and their poses/expressions, environment details, lighting, camera angle (wide/medium/close-up), emotional mood. 80-150 words.",
+      "aspectRatio": "4:3"
     }
   ],
   "backCover": {
-    "imagePrompt": "COMPLETE prompt for the back cover...",
+    "sceneDescription": "Back cover scene description...",
     "aspectRatio": "3:4"
   }
 }
 
-CRITICAL RULES FOR imagePrompt FIELDS:
-1. Each imagePrompt MUST be a COMPLETE standalone prompt — 200-300 words
-2. Each imagePrompt MUST include the full character appearance string from characterAppearances, copied VERBATIM. Every prompt featuring a character must contain their exact appearance string.
-3. Each imagePrompt MUST include the text box design rule: "Text in rectangular boxes with thin ornate border, small corner flourishes, warm cream fill, dark serif text, centred. Same box design on every page."
-4. Each imagePrompt MUST include: "The illustration fills the ENTIRE image edge-to-edge. NO borders, NO frames, NO page numbers. Match the EXACT style of Image 2 (the cover). Character must look IDENTICAL to Image 1 and Image 2."
-5. Each imagePrompt MUST include the exact page text to be rendered, with the instruction: "Render this text EXACTLY as written with no spelling errors."
-6. NEVER describe a character differently from one prompt to another. Use the SAME character appearance string on every prompt.
+CRITICAL:
+- sceneDescription is the ONLY creative writing you do for images. The app handles all technical prompt structure (reference images, frozen blocks, rules).
+- Make each sceneDescription 80-150 words, richly detailed
+- Include character appearance strings in each sceneDescription where that character appears
+- Include camera angle, lighting, character positions, expressions
+- Vary composition across spreads (wide shots, close-ups, etc.)
 
 ${format === "rhyming" ? "Write in strict AABB rhyme scheme. 8-10 syllables per line." : ""}
 ${format === "funny" ? "Make it genuinely funny with surprises and silly moments." : ""}
@@ -399,25 +476,33 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
     spreadNumber: spread.spreadNumber || i + 1,
     leftPageText: spread.leftPageText || "",
     rightPageText: spread.rightPageText || "",
-    imagePrompt: spread.imagePrompt || "",
+    sceneDescription: spread.sceneDescription || spread.imagePrompt || "",
     aspectRatio: spread.aspectRatio || "4:3",
-    designNotes: spread.designNotes || "",
   }));
 
   // Ensure cover and back cover
   parsed.cover = {
-    imagePrompt: parsed.cover.imagePrompt || "",
+    sceneDescription: parsed.cover.sceneDescription || parsed.cover.imagePrompt || "",
+    titleText: parsed.cover.titleText || parsed.title || "",
     aspectRatio: parsed.cover.aspectRatio || "3:4",
   };
   parsed.backCover = parsed.backCover || {
-    imagePrompt: "",
+    sceneDescription: "",
     aspectRatio: "3:4",
   };
+  if (!parsed.backCover.sceneDescription && parsed.backCover.imagePrompt) {
+    parsed.backCover.sceneDescription = parsed.backCover.imagePrompt;
+  }
+
+  // Ensure top-level fields for prompt assembly
+  parsed.characterAppearances = parsed.characterAppearances || { hero: `${heroName}`, supporting: {} };
+  parsed.textBoxDesign = parsed.textBoxDesign || "Simple rectangular box, thin dark brown ornate border, small corner flourishes, warm cream fill, dark brown elegant serif text, centred";
+  parsed.artStyle = parsed.artStyle || NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
 
   return parsed;
 }
 
-// ── Generate ALL images from Claude's prompts ────────────────────────────────
+// ── Generate ALL images using code-assembled prompts ──────────────────────────
 // Sequential chained flow: cover → spread1 → spread2 → ... → back cover
 // Each image references the hero photo + cover (style anchor) + previous image
 export async function generateAllImages(
@@ -426,10 +511,25 @@ export async function generateAllImages(
   const images = {};
   let previousImageUrl = null;
 
-  // 1. Generate cover
+  const { characterAppearances, textBoxDesign, artStyle } = storyPlan;
+  const heroName = characterAppearances?.hero?.split("—")[0]?.trim() || "the character";
+
+  // 1. Generate cover (assembled prompt)
+  const coverPrompt = assembleImagePrompt({
+    sceneDescription: storyPlan.cover.sceneDescription,
+    characterAppearances,
+    textBoxDesign,
+    artStyle,
+    pageTexts: storyPlan.cover.titleText
+      ? [`Title: ${storyPlan.cover.titleText}`]
+      : null,
+    isCover: true,
+    heroName,
+  });
+
   try {
     const coverUrl = await generateImage(
-      storyPlan.cover.imagePrompt,
+      coverPrompt,
       heroPhotoUrl,
       tier,
       null,
@@ -447,24 +547,35 @@ export async function generateAllImages(
   }
   if (onImageReady) onImageReady("cover", images.cover || null);
 
-  // 2. Generate spreads sequentially (chained)
+  // 2. Generate spreads sequentially (chained, assembled prompts)
   for (let i = 0; i < storyPlan.spreads.length; i++) {
     const spread = storyPlan.spreads[i];
+    const isFirst = (i === 0);
 
-    // Reference images: cover (style anchor) + previous spread (local consistency)
-    const referenceImageUrls = [];
-    if (images.cover) referenceImageUrls.push(images.cover);
-    if (previousImageUrl && previousImageUrl !== images.cover) {
-      referenceImageUrls.push(previousImageUrl);
+    const spreadPrompt = assembleImagePrompt({
+      sceneDescription: spread.sceneDescription,
+      characterAppearances,
+      textBoxDesign,
+      artStyle,
+      pageTexts: [spread.leftPageText, spread.rightPageText],
+      isFirstSpread: isFirst,
+      heroName,
+    });
+
+    // Reference images: cover (style anchor) + previous spread (continuity)
+    const refImages = [];
+    if (images.cover) refImages.push(images.cover);
+    if (!isFirst && previousImageUrl && previousImageUrl !== images.cover) {
+      refImages.push(previousImageUrl);
     }
 
     try {
       const url = await generateImage(
-        spread.imagePrompt,
+        spreadPrompt,
         heroPhotoUrl,
         tier,
         null,
-        referenceImageUrls,
+        refImages,
         spread.aspectRatio || "4:3",
         false
       );
@@ -482,14 +593,14 @@ export async function generateAllImages(
       // Retry once with 3s delay
       try {
         await new Promise(r => setTimeout(r, 3000));
-        const referenceImageUrls2 = [];
-        if (images.cover) referenceImageUrls2.push(images.cover);
-        if (previousImageUrl && previousImageUrl !== images.cover) {
-          referenceImageUrls2.push(previousImageUrl);
+        const retryRefs = [];
+        if (images.cover) retryRefs.push(images.cover);
+        if (!isFirst && previousImageUrl && previousImageUrl !== images.cover) {
+          retryRefs.push(previousImageUrl);
         }
         const retryUrl = await generateImage(
-          spread.imagePrompt, heroPhotoUrl, tier, null,
-          referenceImageUrls2, spread.aspectRatio || "4:3", false
+          spreadPrompt, heroPhotoUrl, tier, null,
+          retryRefs, spread.aspectRatio || "4:3", false
         );
         if (retryUrl && await validateImageUrl(retryUrl)) {
           images[`spread_${i}`] = retryUrl;
@@ -506,19 +617,30 @@ export async function generateAllImages(
     if (onImageReady) onImageReady(`spread_${i}`, images[`spread_${i}`] || null);
   }
 
-  // 3. Generate back cover
-  const backRefImages = [];
-  if (images.cover) backRefImages.push(images.cover);
-  if (previousImageUrl) backRefImages.push(previousImageUrl);
+  // 3. Generate back cover (assembled prompt)
+  const backPrompt = assembleImagePrompt({
+    sceneDescription: storyPlan.backCover?.sceneDescription || "A peaceful closing scene with soft warm lighting. 'The End' in elegant hand-lettered text.",
+    characterAppearances,
+    artStyle,
+    isCover: false,
+    isBackCover: true,
+    heroName,
+  });
+
+  const backRefs = [];
+  if (images.cover) backRefs.push(images.cover);
+  if (previousImageUrl && previousImageUrl !== images.cover) {
+    backRefs.push(previousImageUrl);
+  }
 
   try {
     const backUrl = await generateImage(
-      storyPlan.backCover.imagePrompt,
+      backPrompt,
       heroPhotoUrl,
       tier,
       null,
-      backRefImages,
-      storyPlan.backCover.aspectRatio || "3:4",
+      backRefs,
+      storyPlan.backCover?.aspectRatio || "3:4",
       false
     );
     if (backUrl && await validateImageUrl(backUrl)) {
