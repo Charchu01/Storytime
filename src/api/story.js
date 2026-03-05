@@ -62,20 +62,12 @@ export function logCost(type, model, success, durationMs, error) {
   } catch {}
 }
 
-// ── Blob URL caching ──────────────────────────────────────────────────────────
+// ── Image URL passthrough ────────────────────────────────────────────────────
+// Previously converted remote URLs to blob: URLs for offline caching, but
+// blob: URLs don't survive page refresh or localStorage persistence.
+// Replicate CDN URLs persist for 48 hours, so just pass them through.
 export async function cacheImageAsBlob(url) {
-  if (!url || url.startsWith("blob:") || url.startsWith("data:")) return url;
-  try {
-    const resp = await fetch(url);
-    if (!resp.ok) return url;
-    const contentType = resp.headers.get("content-type");
-    if (!contentType?.startsWith("image/")) return url;
-    const blob = await resp.blob();
-    if (blob.size > 15000000) return url;
-    return URL.createObjectURL(blob);
-  } catch {
-    return url;
-  }
+  return url || null;
 }
 
 // ── Image validation ──────────────────────────────────────────────────────────
