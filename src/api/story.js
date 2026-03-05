@@ -30,6 +30,47 @@ const NANO_STYLES = {
   "Sketch & Color": "whimsical hand-drawn children's book illustration with visible pencil lines, loose ink outlines, and watercolour wash fills",
 };
 
+// ── Page layout types ────────────────────────────────────────────────────────
+export const PAGE_LAYOUTS = {
+  "full-portrait": {
+    aspect: "3:4",
+    desc: "ONE full-page portrait illustration filling the entire page. The scene is rich and detailed with the character(s) naturally placed. Text box(es) at the bottom.",
+  },
+  "two-panel": {
+    aspect: "4:3",
+    desc: "TWO side-by-side illustrated panels on an open book spread, divided by a subtle page crease/spine down the centre. Each panel shows a different moment or scene. Each panel has its own text box at the bottom. The left panel is one scene, the right panel is the next moment in the story.",
+  },
+  "wide-cinematic": {
+    aspect: "16:9",
+    desc: "ONE wide cinematic landscape illustration stretching across both open pages of the book. The scene is epic and expansive. Text box(es) at the bottom, spanning the width.",
+  },
+};
+
+// ── System prompt (identical for EVERY generation) ───────────────────────────
+function getSystemPrompt(styleName, heroName) {
+  const styleDesc = NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
+
+  return `You are illustrating a premium children's picture book.
+
+BOOK RULES (apply to EVERY page):
+- This is a real printed storybook. Every page must look like it belongs in a professionally published children's book sold in bookstores.
+- Art style: ${styleDesc}. This style MUST be identical on every single page — same brush strokes, same colour palette, same line weight, same level of detail.
+- The main character is the person from the uploaded photo. Transform them into an illustrated storybook character that matches the art style — NOT photorealistic. Keep their exact facial features and identity.
+- All characters must look IDENTICAL across every page — same proportions, same clothing, same hair, same facial features. The book must feel like one artist drew every page.
+- Match the EXACT illustration style of the cover image (Image 2) — same colours, same line work, same artistic approach.
+- The book has aged parchment-style page edges with slightly rough/torn borders, giving it a classic storybook feel.
+
+TEXT RENDERING RULES (apply to EVERY page that has text):
+- Story text goes in decorative text boxes with ornate scroll/flourish borders
+- Text boxes have warm cream/parchment background
+- Text is in elegant serif font, clearly legible, no spelling errors
+- Text box style must be IDENTICAL on every page — same border design, same font, same cream background
+- Text boxes sit at the bottom of the page, integrated naturally into the composition
+
+PAGE NUMBERING:
+- Include page numbers in small text at the bottom outer corners`;
+}
+
 // ── Cost tracking ─────────────────────────────────────────────────────────────
 export function logCost(type, model, success, durationMs, error) {
   try {
@@ -110,41 +151,37 @@ STYLE:
 This sets the art style for the ENTIRE book. Every subsequent page will match this exact illustration style.`;
 }
 
-// ── Page prompt builder ──────────────────────────────────────────────────────
-function buildPagePrompt(sceneDescription, styleName, mood, pageIndex, pageNum, emoji, pageText) {
-  const styleDesc = NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
+// ── Page prompt builder (layout-aware) ───────────────────────────────────────
+function buildPagePrompt(page, pageIndex, styleName, heroName) {
+  const layout = PAGE_LAYOUTS[page.layout] || PAGE_LAYOUTS["full-portrait"];
+  const scene = page.scene_description || page.text;
 
-  const words = sceneDescription.split(/\s+/);
-  const scene = words.length > 40
-    ? words.slice(0, 40).join(" ")
-    : sceneDescription;
+  const words = scene.split(/\s+/);
+  const shortScene = words.length > 50
+    ? words.slice(0, 50).join(" ")
+    : scene;
 
-  return `Create the next page of a children's storybook illustration that perfectly matches the exact art style, colours, lighting, brush style, character design, and page layout of the previously uploaded reference images.
+  const isPanel = page.layout === "two-panel";
 
-Use the reference images so the main character looks exactly the same as in previous pages. Maintain consistent character proportions, facial features, clothing, and illustration style so the entire book feels like it was illustrated by the same artist.
+  let sceneInstruction;
+  if (isPanel && page.scene_description_left && page.scene_description_right) {
+    sceneInstruction = `LEFT PANEL: ${page.scene_description_left}\nRIGHT PANEL: ${page.scene_description_right}`;
+  } else if (isPanel) {
+    sceneInstruction = `LEFT PANEL scene: ${shortScene}\n(Show the first part of the action)\nRIGHT PANEL scene: (Show the second part / what happens next)`;
+  } else {
+    sceneInstruction = `SCENE: ${shortScene}`;
+  }
 
-SCENE: ${scene}
+  return `PAGE ${pageIndex + 1}
 
-The main character is the person from Image 1 (the uploaded photo). Transform them into an illustrated storybook character — NOT photorealistic. Show them naturally in the scene. Keep their exact facial features and identity from the photo.
+LAYOUT: ${layout.desc}
 
-STYLE:
-- ${styleDesc}
-- Match the EXACT illustration style of Image 2 (the cover) — same colours, line work, brush style
-- Award-winning children's picture book quality
-- Soft painterly textures, warm lighting, gentle magical atmosphere
-- Same colour palette and illustration style as the previous pages
+${sceneInstruction}
 
-PAGE TEXT: Leave clear space for story text at the bottom of the page. Render the following text in decorative storybook text boxes with ornate borders, elegant serif font, warm cream/parchment background behind the text. Use the same text box style consistently. Split the text across one or two text boxes as needed for readability:
+PAGE TEXT: Render this text in the decorative text boxes:
+"${page.text || ""}"
 
-"${pageText}"
-
-Page ${pageNum}
-
-CONSTRAINTS:
-- The text must be rendered clearly and legibly — no spelling errors
-- Text boxes should feel like a natural part of the page design
-- The illustration fills the full page with the text integrated at the bottom
-- This must look like a page from a real printed children's storybook`;
+Page ${pageIndex + 1}`;
 }
 
 // ── Analyze character photos ──────────────────────────────────────────────────
@@ -230,7 +267,7 @@ export async function generateStory(cast, styleName, storyData) {
 
 Generate a complete picture book with this exact JSON structure:
 
-{"title":"Story title (creative, evocative, 3-6 words)","coverScene":"A breathtaking wide establishing shot description of the story world — epic scale, no characters visible, pure world-building","coverEmoji":"Single emoji representing the story world","pages":[{"pageNumber":1,"text":"The story text for this page. 2-4 sentences.","scene_description":"A detailed WIDE or MEDIUM SHOT illustration description with rich environmental details including colors, lighting, textures, and atmosphere that an image generator can use.","scene_emoji":"Single emoji for this scene","mood":"One of: wonder, adventure, cozy, tense, triumphant, tender","characters_present":["Name1","Name2"]}]}
+{"title":"Story title (creative, evocative, 3-6 words)","coverScene":"A breathtaking wide establishing shot description of the story world — epic scale, no characters visible, pure world-building","coverEmoji":"Single emoji representing the story world","pages":[{"pageNumber":1,"text":"The story text for this page. 2-4 sentences.","scene_description":"A detailed illustration description with rich environmental details including colors, lighting, textures, and atmosphere.","scene_description_left":"(Only for two-panel layout) Left panel scene description","scene_description_right":"(Only for two-panel layout) Right panel scene description","scene_emoji":"Single emoji for this scene","mood":"One of: wonder, adventure, cozy, tense, triumphant, tender","layout":"One of: full-portrait, two-panel, wide-cinematic","characters_present":["Name1","Name2"]}]}
 
 Story writing rules:
 * Exactly ${storyData.pageCount || 6} pages
@@ -249,6 +286,15 @@ Illustration rules:
 * Each scene_description MUST include vivid world vocabulary — describe the environment with specific colors, textures, lighting, and atmosphere so the image generator has rich visual context
 * Each page's characters_present must list which characters are visible in that scene
 * The character should be 30-40% of frame height, never filling the whole image
+
+Layout rules — for each page, assign a "layout" field:
+* "full-portrait": One big scene filling the whole page. Use for: emotional close-ups, tender moments, bedtime scenes, single dramatic moments.
+* "two-panel": Two side-by-side panels showing two connected moments. Use for: action sequences, before/after, journey progressions, conversations. For two-panel, also provide "scene_description_left" and "scene_description_right" describing each panel separately.
+* "wide-cinematic": One wide panoramic scene. Use for: epic reveals, establishing new worlds, dramatic vistas, climactic moments.
+* Vary layouts for visual rhythm — never the same layout 3 times in a row
+* Use "two-panel" for at least 40% of pages
+* A typical 6-page book: two-panel, full-portrait, two-panel, wide-cinematic, two-panel, full-portrait
+* A typical 10-page book: two-panel, full-portrait, two-panel, wide-cinematic, two-panel, full-portrait, two-panel, wide-cinematic, full-portrait, full-portrait
 
 Based on the story idea provided, choose the perfect world setting, character personality traits, emotional tone, and story arc. The user has given you creative freedom — make it magical.
 
@@ -303,8 +349,11 @@ Based on the story idea, choose the perfect world setting, character personality
     pageNumber: page.pageNumber || i + 1,
     text: page.text || "",
     scene_description: page.scene_description || page.text || "",
+    scene_description_left: page.scene_description_left || null,
+    scene_description_right: page.scene_description_right || null,
     scene_emoji: page.scene_emoji || "🌟",
     mood: page.mood || "wonder",
+    layout: page.layout || "full-portrait",
     characters_present: page.characters_present || [],
   }));
 
@@ -381,12 +430,14 @@ export async function generateCoverImage(
 ) {
   if (!coverScene) return null;
 
-  const prompt = buildCoverPrompt(
+  const sysPrompt = getSystemPrompt(styleName, heroName || "a special child");
+  const coverPrompt = buildCoverPrompt(
     coverScene, styleName,
     title || "My Story",
     heroName || "a special child",
     authorName || "A loving family"
   );
+  const prompt = `${sysPrompt}\n\n---\n\n${coverPrompt}`;
 
   try {
     const url = await generateImage(
@@ -417,20 +468,21 @@ export async function generateAllImagesChained(
     return generateAllImagesFallback(pages, cast, styleName, tier, onPageImage);
   }
 
+  const heroName = cast.find(c => c.isHero)?.name || cast[0]?.name || "the hero";
   const pageImages = [];
   let previousPageUrl = null;
 
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i];
-    const sceneDesc = page.scene_description || page.imagePrompt || page.text;
-    const mood = page.mood || "wonder";
-    const emoji = page.scene_emoji || "✨";
-    const pageNum = i + 1;
 
-    const prompt = buildPagePrompt(
-      sceneDesc, styleName, mood, i, pageNum, emoji,
-      page.text || ""
-    );
+    // Build system prompt + layout-aware page prompt
+    const sysPrompt = getSystemPrompt(styleName, heroName);
+    const pagePrompt = buildPagePrompt(page, i, styleName, heroName);
+    const prompt = `${sysPrompt}\n\n---\n\n${pagePrompt}`;
+
+    // Aspect ratio depends on layout type
+    const layout = PAGE_LAYOUTS[page.layout] || PAGE_LAYOUTS["full-portrait"];
+    const aspectRatio = layout.aspect;
 
     // Build reference images: cover (style anchor) + previous page (local consistency)
     const referenceImageUrls = [];
@@ -444,7 +496,7 @@ export async function generateAllImagesChained(
         tier,
         styleName,
         referenceImageUrls,
-        "3:4",
+        aspectRatio,
         false
       );
 
@@ -464,7 +516,7 @@ export async function generateAllImagesChained(
         await new Promise(r => setTimeout(r, 3000));
         const retryUrl = await generateImage(
           prompt, heroPhotoUrl, tier, styleName,
-          referenceImageUrls, "3:4", false
+          referenceImageUrls, aspectRatio, false
         );
         if (retryUrl && await validateImageUrl(retryUrl)) {
           pageImages.push(retryUrl);
@@ -500,11 +552,12 @@ async function generateAllImagesFallback(pages, cast, styleName, tier, onPageIma
 
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i];
+    const layout = PAGE_LAYOUTS[page.layout] || PAGE_LAYOUTS["full-portrait"];
     const sceneDesc = page.scene_description || page.text;
     const prompt = `Children's storybook illustration in ${styleDesc} style. ${sceneDesc}. Full page illustration with story text "${page.text}" rendered in decorative text boxes at the bottom. Award-winning picture book quality.`;
 
     try {
-      const url = await generateImage(prompt, null, tier, styleName, [], "3:4", false);
+      const url = await generateImage(prompt, null, tier, styleName, [], layout.aspect, false);
       if (url && await validateImageUrl(url)) {
         pageImages.push(url);
         if (onPageImage) onPageImage(i, url);

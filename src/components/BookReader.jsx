@@ -149,12 +149,10 @@ const DedicationPage = React.forwardRef(({ dedication, gradient }, ref) => (
   </div>
 ));
 
-// Single full-page story page — image with text baked in by Nano Banana Pro
-const StoryPage = React.forwardRef(({
-  imageUrl, text, pageNum, gradient, emoji,
-  heroPhotoUrl, isRegenerating, onEdit }, ref) => {
+// Single full-page image (for full-portrait layout)
+const StoryPageFull = React.forwardRef(({
+  imageUrl, text, gradient, emoji, heroPhotoUrl, isRegenerating, onEdit }, ref) => {
   const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
-
   return (
     <div ref={ref} className="st-page st-story-page">
       {isRegenerating ? (
@@ -172,9 +170,55 @@ const StoryPage = React.forwardRef(({
         </div>
       )}
       <div className="st-paper-texture" />
-      {onEdit && (
-        <button className="st-edit-toggle" onClick={(e) => { e.stopPropagation(); onEdit(); }}>✏️</button>
+      {onEdit && <button className="st-edit-toggle" onClick={(e) => { e.stopPropagation(); onEdit(); }}>✏️</button>}
+    </div>
+  );
+});
+
+// Left half of a two-panel or wide-cinematic spread
+const StorySpreadLeft = React.forwardRef(({ imageUrl, gradient, emoji, heroPhotoUrl, isRegenerating }, ref) => {
+  const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
+  return (
+    <div ref={ref} className="st-page st-story-page">
+      {isRegenerating ? (
+        <div className="st-illust-fallback" style={{ background: gradient }}>
+          <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
+          <span className="st-illustrating-badge">Illustrating...</span>
+        </div>
+      ) : isSafe ? (
+        <img src={imageUrl} className="st-spread-img st-spread-left" alt=""
+          onError={(e) => { e.target.style.display = "none"; }} />
+      ) : (
+        <div className="st-illust-fallback" style={{ background: gradient }}>
+          <span className="st-fallback-emoji">{emoji}</span>
+        </div>
       )}
+      <div className="st-paper-texture" />
+      <div className="st-spine-shadow st-spine-right" />
+    </div>
+  );
+});
+
+// Right half of a spread
+const StorySpreadRight = React.forwardRef(({ imageUrl, gradient, emoji, heroPhotoUrl, isRegenerating, onEdit }, ref) => {
+  const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
+  return (
+    <div ref={ref} className="st-page st-story-page">
+      {isRegenerating ? (
+        <div className="st-illust-fallback" style={{ background: gradient }}>
+          <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
+        </div>
+      ) : isSafe ? (
+        <img src={imageUrl} className="st-spread-img st-spread-right" alt=""
+          onError={(e) => { e.target.style.display = "none"; }} />
+      ) : (
+        <div className="st-illust-fallback" style={{ background: gradient }}>
+          <span className="st-fallback-emoji">{emoji}</span>
+        </div>
+      )}
+      <div className="st-paper-texture" />
+      <div className="st-spine-shadow st-spine-left" />
+      {onEdit && <button className="st-edit-toggle" onClick={(e) => { e.stopPropagation(); onEdit(); }}>✏️</button>}
     </div>
   );
 });
@@ -220,7 +264,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const gradient = STYLE_GRADIENTS[styleName] || STYLE_GRADIENTS.Storybook;
   const coverGradient = STYLE_COVER_GRADIENTS[styleName] || STYLE_COVER_GRADIENTS.Storybook;
 
-  // Build page array — each story page = ONE flipbook page
+  // Build page array — layout-aware: full-portrait = 1 page, two-panel/wide-cinematic = 2 pages
   const bookPages = useMemo(() => {
     const result = [];
     result.push({ type: "cover" });
@@ -228,7 +272,14 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       result.push({ type: "dedication" });
     }
     localPages.forEach((page, i) => {
-      result.push({ type: "story", page, index: i });
+      const layout = page.layout || "full-portrait";
+      if (layout === "full-portrait") {
+        result.push({ type: "story-full", page, index: i });
+      } else {
+        // two-panel or wide-cinematic → split into two flipbook pages
+        result.push({ type: "story-spread-left", page, index: i });
+        result.push({ type: "story-spread-right", page, index: i });
+      }
     });
     result.push({ type: "back-cover" });
     return result;
@@ -237,7 +288,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   // Map flipbook page index to story page index
   function getStoryPageIndex(flipPage) {
     const bp = bookPages[flipPage];
-    if (bp && bp.type === "story") return bp.index;
+    if (bp && (bp.type === "story-full" || bp.type === "story-spread-left" || bp.type === "story-spread-right")) return bp.index;
     return -1;
   }
 
@@ -515,16 +566,26 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                 return <DedicationPage key={`ded-${i}`}
                   dedication={dedication}
                   gradient={gradient} />;
-              case "story":
-                return <StoryPage key={`sp-${bp.index}`}
-                  imageUrl={bp.page.imageUrl}
-                  text={bp.page.text}
-                  pageNum={bp.index + 1}
-                  gradient={gradient}
-                  emoji={bp.page.scene_emoji || "🌟"}
+              case "story-full":
+                return <StoryPageFull key={`sf-${bp.index}`}
+                  imageUrl={bp.page.imageUrl} text={bp.page.text}
+                  gradient={gradient} emoji={bp.page.scene_emoji || "🌟"}
                   heroPhotoUrl={data.heroPhotoUrl}
                   isRegenerating={regeneratingImage === bp.index}
-                  onEdit={() => setActiveEdit(activeEdit ? null : { index: bp.index, type: "art" })} />;
+                  onEdit={() => setActiveEdit({ index: bp.index, type: "art" })} />;
+              case "story-spread-left":
+                return <StorySpreadLeft key={`sl-${bp.index}`}
+                  imageUrl={bp.page.imageUrl}
+                  gradient={gradient} emoji={bp.page.scene_emoji || "🌟"}
+                  heroPhotoUrl={data.heroPhotoUrl}
+                  isRegenerating={regeneratingImage === bp.index} />;
+              case "story-spread-right":
+                return <StorySpreadRight key={`sr-${bp.index}`}
+                  imageUrl={bp.page.imageUrl}
+                  gradient={gradient} emoji={bp.page.scene_emoji || "🌟"}
+                  heroPhotoUrl={data.heroPhotoUrl}
+                  isRegenerating={regeneratingImage === bp.index}
+                  onEdit={() => setActiveEdit({ index: bp.index, type: "art" })} />;
               case "back-cover":
                 return <BackCover key={`back-${i}`}
                   onReset={onReset} onShare={handleShare} />;

@@ -39,29 +39,52 @@ export default async function handler(req, res) {
       imageInputs.push(...referenceImageUrls);
     }
 
-    // ── PRIMARY: Nano Banana Pro ────────────────────────────
-    try {
-      modelUsed = "google/nano-banana-pro";
-      const input = {
-        prompt: prompt,
-        aspect_ratio: aspectRatio || "3:4",
-        output_format: "jpg",
-        safety_tolerance: 5,
-        allow_fallback_model: true,
-      };
-      if (imageInputs.length > 0) {
-        input.image_input = imageInputs;
+    // ── PRIMARY: Nano Banana Pro (with images) ────────────────
+    if (imageInputs.length > 0) {
+      try {
+        modelUsed = "google/nano-banana-pro";
+        prediction = await replicate.predictions.create({
+          model: modelUsed,
+          input: {
+            prompt: prompt,
+            image_input: imageInputs,
+            aspect_ratio: aspectRatio || "3:4",
+            output_format: "jpg",
+            safety_tolerance: 5,
+            allow_fallback_model: true,
+          },
+        });
+      } catch (err) {
+        console.warn("Nano Banana Pro failed:", err.message);
+        prediction = null;
       }
-      prediction = await replicate.predictions.create({
-        model: modelUsed,
-        input,
-      });
-    } catch (err) {
-      console.warn("Nano Banana Pro failed:", err.message);
-      prediction = null;
     }
 
-    // ── FALLBACK 1: Kontext Pro (face-preserving) ───────────
+    // ── FALLBACK 1: Nano Banana Pro without images ──────────
+    if (!prediction) {
+      try {
+        modelUsed = "google/nano-banana-pro";
+        const input = {
+          prompt: prompt,
+          aspect_ratio: aspectRatio || "3:4",
+          output_format: "jpg",
+          safety_tolerance: 5,
+          allow_fallback_model: true,
+        };
+        if (imageInputs.length > 0) {
+          input.image_input = imageInputs;
+        }
+        prediction = await replicate.predictions.create({
+          model: modelUsed,
+          input,
+        });
+      } catch (err) {
+        console.warn("Nano Banana Pro (no images) failed:", err.message);
+        prediction = null;
+      }
+    }
+
+    // ── FALLBACK 2: Kontext Pro (face-preserving) ───────────
     if (!prediction && referencePhotoUrl) {
       try {
         modelUsed = "black-forest-labs/flux-kontext-pro";
@@ -81,7 +104,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── FALLBACK 2: Flux Pro Ultra (no face) ────────────────
+    // ── FALLBACK 3: Flux Pro Ultra (no face) ────────────────
     if (!prediction) {
       try {
         modelUsed = "black-forest-labs/flux-1.1-pro-ultra";
