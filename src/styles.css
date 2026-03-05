@@ -4090,6 +4090,51 @@
   cursor: pointer;
 }
 
+/* Companion photo upload */
+.hs-companion-photo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.hs-companion-photo-upload {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hs-companion-photo-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px dashed var(--ghost);
+  background: var(--tpal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color 0.2s;
+}
+.hs-companion-photo-btn:hover {
+  border-color: var(--tlt);
+}
+.hs-companion-photo-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hs-companion-photo-placeholder {
+  font-size: 20px;
+  opacity: 0.6;
+}
+.hs-companion-photo-label {
+  font-size: 12px;
+  color: var(--mid);
+  font-weight: 600;
+}
+
 .hs-continue { margin-top: 12px; }
 
 /* ══════════════════════════════════════════════════════════════════════════════ */

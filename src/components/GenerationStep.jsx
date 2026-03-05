@@ -4,6 +4,7 @@ import {
   generateAllImages,
   analyzeCharacterPhotos,
   uploadHeroPhoto,
+  uploadCompanionPhotos,
   STYLE_GRADIENTS,
   imageGenFlags,
 } from "../api/story";
@@ -241,8 +242,9 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         enrichedCast = await analyzeCharacterPhotos(cast);
       }
 
-      // Phase 2: Upload hero photo (one upload, used for all images)
+      // Phase 2: Upload hero photo + companion photos
       let heroPhotoUrl = null;
+      let companionPhotoUrls = {};
       if (hasPhotos) {
         heroPhotoUrl = await uploadHeroPhoto(enrichedCast);
         if (!heroPhotoUrl) {
@@ -251,6 +253,9 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
           );
         }
         console.log("Hero photo uploaded:", heroPhotoUrl.substring(0, 60));
+
+        // Upload companion photos
+        companionPhotoUrls = await uploadCompanionPhotos(enrichedCast);
       }
 
       // Phase 3: Claude writes story + designs all visual spreads
@@ -288,7 +293,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       };
 
       const images = await generateAllImages(
-        storyPlan, heroPhotoUrl, onImageReady, tier
+        storyPlan, heroPhotoUrl, onImageReady, tier, companionPhotoUrls
       );
 
       // Phase 5: Assemble final result

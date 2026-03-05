@@ -15,11 +15,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "text is required" });
   }
 
+  // Premium narration voices (warm, expressive storytelling voices)
   const VOICES = {
-    mom: "EXAVITQu4vr4xnSDxMaL",
-    dad: "ErXwobaYiN019PkySvjV",
-    grandma: "MF3mGyEYCl7XYWbV9V6O",
-    default: "EXAVITQu4vr4xnSDxMaL",
+    mom: "XrExE9yKIg1WjnnlVkGX",      // Matilda — warm, friendly, narration
+    dad: "N2lVS1w4EtoT3dr4eOWO",      // Callum — dramatic, character, storytelling
+    grandma: "pFZP5JQG7iQjIQuC4Bku",  // Lily — warm British narration
+    default: "XrExE9yKIg1WjnnlVkGX",  // Matilda
   };
 
   const voice = VOICES[voiceId] || VOICES.default;
@@ -37,9 +38,9 @@ export default async function handler(req, res) {
           text,
           model_id: "eleven_multilingual_v2",
           voice_settings: {
-            stability: 0.65,
-            similarity_boost: 0.75,
-            style: 0.4,
+            stability: 0.55,
+            similarity_boost: 0.80,
+            style: 0.6,
             use_speaker_boost: true,
           },
         }),
