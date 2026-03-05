@@ -220,17 +220,28 @@ const BlankPage = React.forwardRef((_, ref) => (
   </div>
 ));
 
-const BackCover = React.forwardRef(({ onReset, onShare }, ref) => (
+const BackCover = React.forwardRef(({ onReset, onShare, imageUrl }, ref) => (
   <div ref={ref} className="st-page st-back-cover" data-density="hard">
-    <div className="st-back-inner">
-      <h2 className="st-back-title">The End</h2>
-      <div className="st-back-line" />
-      <p className="st-back-sub">A Storytime Original</p>
-      <div className="st-back-actions">
-        <button className="st-back-btn" onClick={onShare}>Share</button>
-        <button className="st-back-btn" onClick={onReset}>New Story</button>
+    {imageUrl ? (
+      <>
+        <img src={imageUrl} className="st-full-page-img" alt="Back cover" />
+        <div className="st-back-actions st-back-actions-overlay">
+          <button className="st-back-btn" onClick={onShare}>Share</button>
+          <button className="st-back-btn" onClick={onReset}>New Story</button>
+        </div>
+        <div className="st-page-border" />
+      </>
+    ) : (
+      <div className="st-back-inner">
+        <h2 className="st-back-title">The End</h2>
+        <div className="st-back-line" />
+        <p className="st-back-sub">A Storytime Original</p>
+        <div className="st-back-actions">
+          <button className="st-back-btn" onClick={onShare}>Share</button>
+          <button className="st-back-btn" onClick={onReset}>New Story</button>
+        </div>
       </div>
-    </div>
+    )}
   </div>
 ));
 
@@ -626,7 +637,8 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                 return <BlankPage key={`blank-${i}`} />;
               case "back-cover":
                 return <BackCover key={`back-${i}`}
-                  onReset={onReset} onShare={handleShare} />;
+                  onReset={onReset} onShare={handleShare}
+                  imageUrl={backCoverImageUrl} />;
               default:
                 return null;
             }
