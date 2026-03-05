@@ -2,6 +2,21 @@ import Replicate from "replicate";
 
 export const config = { maxDuration: 30 };
 
+// Resolve a model to its latest version hash, then create a prediction.
+// The /models/{owner}/{name}/predictions shortcut only works for official models.
+// Community models (like zsxkib/flux-pulid) require a version hash.
+async function createPrediction(replicate, modelRef, input) {
+  const [owner, name] = modelRef.split("/");
+  const model = await replicate.models.get(owner, name);
+  const version = model.latest_version?.id;
+
+  if (!version) {
+    throw new Error(`No version found for model ${modelRef}`);
+  }
+
+  return replicate.predictions.create({ version, input });
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method !== "POST") {
@@ -19,12 +34,12 @@ export default async function handler(req, res) {
     }
 
     const replicate = new Replicate({ auth: apiKey });
-    let model;
+    let modelRef;
     let input;
 
     if (loraUrl && triggerWord) {
       // Premium LoRA path — trained model for perfect face consistency
-      model = "black-forest-labs/flux-dev-lora";
+      modelRef = "black-forest-labs/flux-dev-lora";
       input = {
         prompt: `${triggerWord} child, ${prompt}`,
         hf_loras: [loraUrl],
@@ -36,7 +51,7 @@ export default async function handler(req, res) {
         output_quality: 90,
       };
     } else if (referencePhotoUrl) {
-      model = "zsxkib/flux-pulid";
+      modelRef = "zsxkib/flux-pulid";
       input = {
         prompt,
         width: 768,
@@ -49,7 +64,7 @@ export default async function handler(req, res) {
         main_face_image: referencePhotoUrl,
       };
     } else {
-      model = "black-forest-labs/flux-1.1-pro-ultra";
+      modelRef = "black-forest-labs/flux-1.1-pro-ultra";
       input = {
         prompt,
         aspect_ratio: "4:3",
@@ -60,11 +75,26 @@ export default async function handler(req, res) {
       };
     }
 
-    // Create prediction WITHOUT waiting — returns immediately
-    const prediction = await replicate.predictions.create({
-      model,
-      input,
-    });
+    let prediction;
+    try {
+      prediction = await createPrediction(replicate, modelRef, input);
+    } catch (err) {
+      // If flux-pulid fails (404/removed), fall back to flux-1.1-pro-ultra without face ref
+      if (referencePhotoUrl && !loraUrl) {
+        console.warn(`${modelRef} failed (${err.message}), falling back to flux-1.1-pro-ultra`);
+        modelRef = "black-forest-labs/flux-1.1-pro-ultra";
+        prediction = await createPrediction(replicate, modelRef, {
+          prompt,
+          aspect_ratio: "4:3",
+          output_format: "webp",
+          output_quality: 90,
+          safety_tolerance: 5,
+          prompt_upsampling: true,
+        });
+      } else {
+        throw err;
+      }
+    }
 
     if (!prediction?.id) {
       console.error("No prediction ID returned:", JSON.stringify(prediction).slice(0, 300));
@@ -74,7 +104,7 @@ export default async function handler(req, res) {
     res.json({
       predictionId: prediction.id,
       status: prediction.status,
-      model,
+      model: modelRef,
     });
   } catch (err) {
     console.error("generate-image error:", err);
