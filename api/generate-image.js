@@ -46,7 +46,7 @@ export default async function handler(req, res) {
         lora_scales: [0.85],
         num_inference_steps: 28,
         guidance_scale: 3.5,
-        aspect_ratio: "4:3",
+        aspect_ratio: "21:9",
         output_format: "webp",
         output_quality: 90,
       };
@@ -54,7 +54,7 @@ export default async function handler(req, res) {
       modelRef = "zsxkib/flux-pulid";
       input = {
         prompt,
-        width: 768,
+        width: 1344,
         height: 576,
         num_steps: 20,
         start_step: 4,
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
       modelRef = "black-forest-labs/flux-1.1-pro-ultra";
       input = {
         prompt,
-        aspect_ratio: "4:3",
+        aspect_ratio: "21:9",
         output_format: "webp",
         output_quality: 90,
         safety_tolerance: 5,
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
         modelRef = "black-forest-labs/flux-1.1-pro-ultra";
         prediction = await createPrediction(replicate, modelRef, {
           prompt,
-          aspect_ratio: "4:3",
+          aspect_ratio: "21:9",
           output_format: "webp",
           output_quality: 90,
           safety_tolerance: 5,

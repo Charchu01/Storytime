@@ -83,20 +83,22 @@ function buildDetailedCharacterPrompt(cast) {
     .join("; ");
 }
 
-// ── Build the 6-part prompt for a scene ───────────────────────────────────────
+// ── Build the panoramic spread prompt for a scene ─────────────────────────────
 function buildScenePrompt(sceneDescription, cast, styleName, mood) {
   const styleAnchor = STYLE_ANCHORS[styleName] || STYLE_ANCHORS["Storybook"];
   const characterDesc = buildDetailedCharacterPrompt(cast);
   const lighting = MOOD_LIGHTING[mood] || MOOD_LIGHTING["wonder"];
 
-  // STRUCTURE: Style → Composition → Scene → Character (small in frame) → Lighting → Quality
-  // Leading with scene/composition prevents the model from generating close-up portraits
+  // Ultra-wide panoramic composition for double-page spread
+  // Scene/environment FIRST, character secondary, explicit anti-portrait
   return [
     styleAnchor,
-    `WIDE SHOT illustration showing a full scene with rich environment:`,
+    `Ultra-wide cinematic panoramic illustration for a double-page picture book spread.`,
+    `Rich detailed environment filling the entire frame:`,
     sceneDescription,
-    `The character (${characterDesc}) is shown at medium distance, occupying roughly 30% of the frame height, fully surrounded by the environment.`,
-    `NOT a close-up, NOT a portrait, NOT a headshot — show the full scene with foreground, middleground, and background.`,
+    `The character (${characterDesc}) is shown full-body at medium distance in the left-center of the frame, roughly 25-35% of the frame height, naturally placed within the scene.`,
+    `The right half of the image continues the same rich environment with beautiful atmospheric depth, environmental storytelling, lush detailed scenery.`,
+    `NEVER a close-up, NEVER a portrait, NEVER a headshot. Show expansive landscape with detailed foreground, middleground, and deep background.`,
     lighting,
     QUALITY_TAGS,
   ].join(" ");
