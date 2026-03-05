@@ -59,7 +59,7 @@ export default async function handler(req, res) {
         lora_scales: [0.85],
         num_inference_steps: 28,
         guidance_scale: 3.5,
-        aspect_ratio: "21:9",
+        aspect_ratio: "3:4",
         output_format: "webp",
         output_quality: 90,
       };
@@ -77,8 +77,8 @@ export default async function handler(req, res) {
         id_start: 0,        // CRITICAL: 0 for illustrated styles
         num_outputs: isMaleCharacter ? 2 : 1, // Generate 2 for males due to known PuLID fidelity issues
         output_format: "png",
-        width: 1024,
-        height: 768,
+        width: 768,
+        height: 1024,
       };
     } else {
       // Primary path — flux-1.1-pro-ultra for highest quality illustrations
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
       costType = "pulid";
       input = {
         prompt,
-        aspect_ratio: "21:9",
+        aspect_ratio: "3:4",
         output_format: "webp",
         output_quality: 90,
         safety_tolerance: 5,
@@ -105,7 +105,7 @@ export default async function handler(req, res) {
         modelRef = "black-forest-labs/flux-1.1-pro-ultra";
         prediction = await createPrediction(replicate, modelRef, {
           prompt,
-          aspect_ratio: "21:9",
+          aspect_ratio: "3:4",
           output_format: "webp",
           output_quality: 90,
           safety_tolerance: 5,

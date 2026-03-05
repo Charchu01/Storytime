@@ -11,15 +11,15 @@ export const ROLES = [
 
 export const STYLES = [
   { id: "sb", name: "Storybook", tagline: "Warm, timeless — like the books you grew up with", mood: "Classic", emoji: "✨", className: "sc-sb",
-    anchor: "Classic children's picture book illustration, flat graphic style, bold outlines, vibrant colours, warm palette, professional children's book art" },
+    anchor: "Classic children's picture book illustration, flat graphic style, bold clean outlines, warm saturated colors, expressive simplified cartoon face with large eyes, soft painterly background, professional picture book art quality, NOT photorealistic, NOT 3D rendered —" },
   { id: "wc", name: "Watercolor", tagline: "Soft, dreamy — painterly and poetic", mood: "Dreamy", emoji: "🎨", className: "sc-wc",
-    anchor: "Soft watercolour children's book illustration, hand-painted texture, gentle colour washes, warm diffused lighting, painterly strokes" },
+    anchor: "Watercolor children's book illustration, loose painterly style, soft edges, visible brushstrokes, vibrant watercolor washes, expressive simplified character, white paper showing through, professional picture book watercolor art, NOT photorealistic, NOT digital-looking —" },
   { id: "bb", name: "Bold & Bright", tagline: "Vibrant, modern — big personality on every page", mood: "Vibrant", emoji: "🌈", className: "sc-bb",
-    anchor: "Bold bright digital illustration, vivid saturated colours, clean lines, high contrast, playful energy, modern picture book style" },
+    anchor: "Modern children's book illustration, bold flat vector style, extremely vibrant colors, strong graphic shapes, thick outlines, highly expressive cartoon character, contemporary picture book aesthetic, inspired by modern award-winning picture books, NOT photorealistic, NOT muted —" },
   { id: "cs", name: "Cozy & Soft", tagline: "Gentle pastel tones — perfect for bedtime stories", mood: "Gentle", emoji: "🧸", className: "sc-cs",
-    anchor: "Cozy warmly-lit illustration, muted earth tones, soft textured brushwork, gentle shadows, intimate homey feeling, picture book quality" },
+    anchor: "Soft cozy children's book illustration, rounded gentle shapes, pastel color palette, warm muted tones, plush toy aesthetic, soft lighting, gentle textures, expressive sweet character with rosy cheeks, professional bedtime storybook art, NOT harsh, NOT bright, NOT photorealistic —" },
   { id: "sc", name: "Sketch & Color", tagline: "Whimsical hand-drawn feel — like it was made just for them", mood: "Whimsical", emoji: "✏️", className: "sc-sc",
-    anchor: "Hand-sketched illustration with selective colour washes, visible pencil linework, whimsical art journal quality, warm paper texture" },
+    anchor: "Hand-drawn children's book illustration, pencil sketch style with color wash, visible linework, slightly rough edges, whimsical and charming character, loose ink outlines, watercolor color fills, professional picture book illustration quality, NOT digital-looking, NOT clean vectors —" },
 ];
 
 export const SPARKS = [
