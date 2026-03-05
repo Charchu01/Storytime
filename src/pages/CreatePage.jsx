@@ -124,10 +124,17 @@ export default function CreatePage() {
 
   function handleStoryComplete(storyResult) {
     clearDraft();
+    // Strip base64 photo data from cast before saving — storing data URIs
+    // in localStorage would exceed the ~5 MB quota and crash the app.
+    const lightCast = cast.map(({ photo, photos, ...rest }) => ({
+      ...rest,
+      photo: null,
+      photos: (photos || []).map(({ dataUri, ...p }) => ({ ...p, dataUri: null })),
+    }));
     const storyEntry = {
       ...storyResult,
       styleName: style,
-      cast,
+      cast: lightCast,
       tier,
       mode: heroType,
     };

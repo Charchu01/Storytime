@@ -30,7 +30,20 @@ function loadStories() {
   catch { return []; }
 }
 function saveStories(stories) {
-  localStorage.setItem("sk_stories", JSON.stringify(stories));
+  try {
+    localStorage.setItem("sk_stories", JSON.stringify(stories));
+  } catch (e) {
+    // localStorage quota exceeded — prune oldest stories and retry once
+    console.warn("localStorage quota exceeded, pruning old stories", e);
+    try {
+      const trimmed = stories.slice(0, Math.max(1, stories.length - 2));
+      localStorage.setItem("sk_stories", JSON.stringify(trimmed));
+    } catch (_) {
+      // Still failing — clear sk_stories entirely so the app doesn't crash
+      console.warn("localStorage still full, clearing sk_stories");
+      localStorage.removeItem("sk_stories");
+    }
+  }
 }
 
 // ── App Context for global state ─────────────────────────────────────────────
