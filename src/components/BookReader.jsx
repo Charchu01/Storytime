@@ -83,9 +83,10 @@ function spawnConfetti(container) {
 }
 
 
-// Helper: check if a URL is a raw photo (data URI) vs generated image (http URL)
+// Helper: check if a URL is a generated illustration (not a raw uploaded photo)
 function isGeneratedImage(url) {
-  return url && typeof url === "string" && url.startsWith("http");
+  if (!url || typeof url !== "string") return false;
+  return url.startsWith("http") || url.startsWith("blob:");
 }
 
 // SAFETY: Never display the uploaded reference photo on a book page
