@@ -1,6 +1,6 @@
 import Replicate from "replicate";
 
-export const config = { maxDuration: 30 };
+export const config = { maxDuration: 60 };
 
 async function createPrediction(replicate, modelRef, input) {
   const [owner, name] = modelRef.split("/");
@@ -96,8 +96,10 @@ export default async function handler(req, res) {
 
     let prediction;
     try {
+      console.log(`Creating prediction with model: ${modelRef}`);
       prediction = await createPrediction(replicate, modelRef, input);
     } catch (err) {
+      console.error(`Model ${modelRef} failed:`, err.message);
       if (modelRef === "zsxkib/flux-pulid") {
         console.warn(`flux-pulid failed (${err.message}), falling back to flux-1.1-pro-ultra`);
         modelRef = "black-forest-labs/flux-1.1-pro-ultra";
