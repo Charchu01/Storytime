@@ -11,71 +11,171 @@ import {
   saveToVault,
 } from "../api/client";
 
-const WRITING_PHRASES = [
-  "Crafting the perfect adventure...",
-  "Adding just the right amount of magic...",
-  "Making sure the hero saves the day...",
-  "Choosing the most exciting moments...",
-  "Sprinkling in some wonder...",
-  "Building a world worth exploring...",
-  "Designing every illustration...",
-  "Planning the perfect page layouts...",
-];
+const PHASE_CONFIG = {
+  photos: {
+    emoji: "📷",
+    phrases: [
+      "Studying every freckle and curl...",
+      "Memorising that smile...",
+      "Learning what makes them unique...",
+      "Capturing the details...",
+    ],
+  },
+  writing: {
+    emoji: "✍️",
+    phrases: [
+      "Crafting the perfect adventure...",
+      "Adding just the right amount of magic...",
+      "Making sure the hero saves the day...",
+      "Choosing the most exciting moments...",
+      "Sprinkling in some wonder...",
+      "Building a world worth exploring...",
+      "Designing every illustration...",
+      "Planning the perfect page layouts...",
+    ],
+  },
+  illustrating: {
+    emoji: "🎨",
+    phrases: [
+      "Mixing the perfect colours...",
+      "Painting the scenery...",
+      "Bringing characters to life...",
+      "Adding tiny details you'll love...",
+      "Making the magic visible...",
+    ],
+  },
+  finishing: {
+    emoji: "✨",
+    phrases: [
+      "Binding the pages together...",
+      "One last sprinkle of magic...",
+    ],
+  },
+};
+
+const HEADLINE = {
+  photos: (name) => `Getting to know ${name}`,
+  writing: (name) => `Writing ${name}'s story`,
+  illustrating: (name) => `Illustrating every page`,
+  finishing: (name) => `Almost there!`,
+};
+
+function ProgressRing({ progress, size = 120, stroke = 5 }) {
+  const radius = (size - stroke) / 2;
+  const circ = 2 * Math.PI * radius;
+  const offset = circ - (progress / 100) * circ;
+
+  return (
+    <svg className="gen-ring" width={size} height={size}>
+      <circle
+        cx={size / 2} cy={size / 2} r={radius}
+        fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={stroke}
+      />
+      <circle
+        cx={size / 2} cy={size / 2} r={radius}
+        fill="none" stroke="url(#gen-ring-grad)" strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={circ} strokeDashoffset={offset}
+        style={{ transition: "stroke-dashoffset 0.8s ease" }}
+      />
+      <defs>
+        <linearGradient id="gen-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#E07B3C" />
+          <stop offset="100%" stopColor="#FFD700" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
 
 function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, error, onRetry }) {
   const [phraseIdx, setPhraseIdx] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const gradient = STYLE_GRADIENTS[style] || STYLE_GRADIENTS["Storybook"];
   const completedCount = pageImages.filter((url) => url !== undefined).length;
+  const config = PHASE_CONFIG[loadPhase] || PHASE_CONFIG.writing;
 
+  // Rotate phrases
   useEffect(() => {
-    if (loadPhase !== "writing") return;
     const interval = setInterval(() => {
-      setPhraseIdx((prev) => (prev + 1) % WRITING_PHRASES.length);
-    }, 3000);
+      setPhraseIdx((prev) => (prev + 1) % config.phrases.length);
+    }, 3500);
     return () => clearInterval(interval);
-  }, [loadPhase]);
+  }, [loadPhase, config.phrases.length]);
+
+  // Elapsed timer
+  useEffect(() => {
+    const interval = setInterval(() => setElapsed((p) => p + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Progress percentage
+  const progress =
+    loadPhase === "photos" ? 5 :
+    loadPhase === "writing" ? 20 :
+    loadPhase === "illustrating" ? 20 + Math.round((completedCount / Math.max(pageCount, 1)) * 65) :
+    loadPhase === "finishing" ? 95 : 0;
+
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = elapsed % 60;
+  const timeStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 
   if (error) {
     return (
       <div className="gen-screen">
-        <div style={{ fontSize: 56 }}>😔</div>
-        <div className="gen-headline">Something went wrong</div>
-        <div style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", marginBottom: 16, lineHeight: 1.6, maxWidth: 400, textAlign: "center", wordBreak: "break-word" }}>
-          {error}
+        <div className="gen-bg" />
+        <div className="gen-content">
+          <div className="gen-error-icon">😔</div>
+          <h2 className="gen-headline">Something went wrong</h2>
+          <p className="gen-error-msg">{error}</p>
+          <button className="gen-retry-btn" onClick={onRetry}>Try Again</button>
         </div>
-        <button className="st-back-btn" onClick={onRetry}>Try Again</button>
       </div>
     );
   }
 
   return (
     <div className="gen-screen">
-      {loadPhase === "photos" && (
-        <>
-          <div className="gen-emoji">📷</div>
-          <div className="gen-headline">Studying {heroName}'s photos...</div>
-          <div className="gen-sub">Learning every freckle and curl</div>
-        </>
-      )}
+      <div className="gen-bg" />
+      <div className="gen-orb gen-orb-1" />
+      <div className="gen-orb gen-orb-2" />
+      <div className="gen-orb gen-orb-3" />
 
-      {loadPhase === "writing" && (
-        <>
-          <div className="gen-emoji gen-spin">📖</div>
-          <div className="gen-headline">Writing {heroName}'s story and designing every page...</div>
-          <div className="gen-sub gen-phrase-fade" key={phraseIdx}>{WRITING_PHRASES[phraseIdx]}</div>
-        </>
-      )}
+      <div className="gen-content">
+        {/* Progress ring with emoji */}
+        <div className="gen-ring-wrap">
+          <ProgressRing progress={progress} />
+          <span className="gen-ring-emoji">{config.emoji}</span>
+        </div>
 
-      {loadPhase === "illustrating" && (
-        <>
-          <div className="gen-emoji">🎨</div>
-          <div className="gen-headline">Now illustrating...</div>
+        <h2 className="gen-headline">{HEADLINE[loadPhase](heroName)}</h2>
+        <p className="gen-sub gen-phrase-fade" key={`${loadPhase}-${phraseIdx}`}>
+          {config.phrases[phraseIdx]}
+        </p>
 
+        {/* Step pills */}
+        <div className="gen-steps">
+          {["photos", "writing", "illustrating", "finishing"].map((step, i) => {
+            const done = ["photos", "writing", "illustrating", "finishing"].indexOf(loadPhase) > i;
+            const active = loadPhase === step;
+            return (
+              <div key={step} className={`gen-step${done ? " gen-step-done" : ""}${active ? " gen-step-active" : ""}`}>
+                <span className="gen-step-dot">{done ? "✓" : i + 1}</span>
+                <span className="gen-step-label">
+                  {step === "photos" ? "Analyze" : step === "writing" ? "Write" : step === "illustrating" ? "Illustrate" : "Finish"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Illustration thumbnails */}
+        {loadPhase === "illustrating" && pageCount > 0 && (
           <div className="gen-thumbs">
             {Array.from({ length: pageCount }).map((_, i) => {
               const imageUrl = pageImages[i];
               const hasImage = imageUrl && imageUrl !== "pending";
-              const labels = ["Cover", ...Array.from({ length: pageCount - 2 }, (_, j) => `Spread ${j + 1}`), "Back"];
+              const labels = ["Cover", ...Array.from({ length: pageCount - 2 }, (_, j) => `Pg ${(j + 1) * 2}-${(j + 1) * 2 + 1}`), "Back"];
               return (
                 <div key={i} className="gen-thumb-slot">
                   {hasImage ? (
@@ -83,26 +183,26 @@ function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, erro
                   ) : (
                     <div className="gen-thumb-placeholder" style={{ background: gradient }}>
                       <div className="gen-thumb-shimmer" />
-                      <span className="gen-thumb-num">{labels[i] || i + 1}</span>
+                      <span className="gen-thumb-num">{labels[i]}</span>
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
+        )}
 
-          <div className="gen-progress-text">
-            {completedCount} of {pageCount} illustrations complete
+        {/* Progress bar + time */}
+        <div className="gen-bar-wrap">
+          <div className="gen-bar">
+            <div className="gen-bar-fill" style={{ width: `${progress}%` }} />
           </div>
-        </>
-      )}
-
-      {loadPhase === "finishing" && (
-        <>
-          <div className="gen-emoji">✨</div>
-          <div className="gen-headline">Adding the finishing touches...</div>
-        </>
-      )}
+          <div className="gen-bar-meta">
+            <span className="gen-bar-pct">{progress}%</span>
+            <span className="gen-bar-time">{timeStr}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
