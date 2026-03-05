@@ -50,7 +50,6 @@ export default async function handler(req, res) {
             image_input: imageInputs,
             aspect_ratio: aspectRatio || "3:4",
             output_format: "jpg",
-            safety_tolerance: 5,
             allow_fallback_model: true,
           },
         });
@@ -68,7 +67,6 @@ export default async function handler(req, res) {
           prompt: prompt,
           aspect_ratio: aspectRatio || "3:4",
           output_format: "jpg",
-          safety_tolerance: 5,
           allow_fallback_model: true,
         };
         if (imageInputs.length > 0) {

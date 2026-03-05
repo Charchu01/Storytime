@@ -223,6 +223,12 @@ const StorySpreadRight = React.forwardRef(({ imageUrl, gradient, emoji, heroPhot
   );
 });
 
+const BlankPage = React.forwardRef((_, ref) => (
+  <div ref={ref} className="st-page st-blank-page">
+    <div className="st-paper-texture" />
+  </div>
+));
+
 const BackCover = React.forwardRef(({ onReset, onShare }, ref) => (
   <div ref={ref} className="st-page st-back-cover" data-density="hard">
     <div className="st-back-inner">
@@ -281,6 +287,10 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         result.push({ type: "story-spread-right", page, index: i });
       }
     });
+    // Pad with blank page if needed so back cover lands on a left (even) page
+    if (result.length % 2 !== 0) {
+      result.push({ type: "blank" });
+    }
     result.push({ type: "back-cover" });
     return result;
   }, [localPages, dedication]);
@@ -586,6 +596,8 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                   heroPhotoUrl={data.heroPhotoUrl}
                   isRegenerating={regeneratingImage === bp.index}
                   onEdit={() => setActiveEdit({ index: bp.index, type: "art" })} />;
+              case "blank":
+                return <BlankPage key={`blank-${i}`} />;
               case "back-cover":
                 return <BackCover key={`back-${i}`}
                   onReset={onReset} onShare={handleShare} />;

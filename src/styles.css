@@ -2649,10 +2649,12 @@
 
 /* Full page image — text is baked in by Nano Banana Pro (full-portrait layout) */
 .st-full-page-img {
+  position: absolute; top: 0; left: 0;
   width: 100%; height: 100%;
   object-fit: cover; object-position: center center;
   display: block;
 }
+.st-blank-page { background: #FFF9F2; }
 
 /* Spread image split — two-panel / wide-cinematic layouts split across two flipbook pages */
 .st-spread-img {
