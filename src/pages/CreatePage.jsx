@@ -100,10 +100,10 @@ export default function CreatePage() {
       heroCast.push({
         id: Date.now(),
         name: heroData.heroName,
-        role: heroData.heroType === "pet" ? "pet" : "child",
+        role: heroData.heroType || "child",
         age: heroData.heroAge || "",
         isHero: true,
-        emoji: heroData.heroType === "pet" ? "🐾" : "🧒",
+        emoji: heroData.heroType === "pet" ? "🐾" : heroData.heroType === "adult" ? "🧑" : "🧒",
         photo: heroData.heroPhoto || null,
         photos: heroPhotos,
         primaryPhotoIndex: 0,
