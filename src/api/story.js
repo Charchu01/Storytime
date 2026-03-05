@@ -1,19 +1,10 @@
 import { claudeCall, generateImage, generateLoraImage, uploadPhoto } from "./client";
-import { ROLES } from "../constants/data";
+import { ROLES, STYLES } from "../constants/data";
 
-// ── Style anchors — prepended to EVERY prompt for that style ──────────────────
-const STYLE_ANCHORS = {
-  Storybook:
-    "Classic children's picture book illustration, flat graphic style, bold clean outlines, warm saturated colors, expressive simplified cartoon face with large eyes, soft painterly background, professional picture book art quality, NOT photorealistic, NOT 3D rendered —",
-  Watercolor:
-    "Watercolor children's book illustration, loose painterly style, soft edges, visible brushstrokes, vibrant watercolor washes, expressive simplified character, white paper showing through, professional picture book watercolor art, NOT photorealistic, NOT digital-looking —",
-  "Bold & Bright":
-    "Modern children's book illustration, bold flat vector style, extremely vibrant colors, strong graphic shapes, thick outlines, highly expressive cartoon character, contemporary picture book aesthetic, inspired by modern award-winning picture books, NOT photorealistic, NOT muted —",
-  "Cozy & Soft":
-    "Soft cozy children's book illustration, rounded gentle shapes, pastel color palette, warm muted tones, plush toy aesthetic, soft lighting, gentle textures, expressive sweet character with rosy cheeks, professional bedtime storybook art, NOT harsh, NOT bright, NOT photorealistic —",
-  "Sketch & Color":
-    "Hand-drawn children's book illustration, pencil sketch style with color wash, visible linework, slightly rough edges, whimsical and charming character, loose ink outlines, watercolor color fills, professional picture book illustration quality, NOT digital-looking, NOT clean vectors —",
-};
+// Style anchors now live in STYLES[] in constants/data.js (single source of truth)
+
+// ── Face-ref-lost tracking ───────────────────────────────────────────────────
+export const imageGenFlags = { faceRefLostCount: 0 };
 
 // ── Left page gradients for each style ────────────────────────────────────────
 export const STYLE_GRADIENTS = {
@@ -32,21 +23,8 @@ export const STYLE_COVER_GRADIENTS = {
   "Sketch & Color": "linear-gradient(160deg, #A16207, #854D0E, #713F12)",
 };
 
-// ── World visual vocabularies ────────────────────────────────────────────────
-const WORLD_VOCABULARY = {
-  "Magical Forest": "ancient twisted trees, dappled golden sunlight, glowing mushrooms, fireflies, moss-covered stones, emerald greens and warm ambers",
-  "Space Explorer": "cosmic purple and deep blue, stars and nebulae, metallic surfaces, curved futuristic architecture, lens flares",
-  "Ocean Discovery": "turquoise and coral palette, underwater caustic light, bubbles, colourful fish, coral reef, bioluminescence",
-  "Dragon Friends": "dramatic cliff faces, ember-glowing caves, vast skies with silhouetted wings, warm amber and deep crimson",
-  "The Kingdom": "castle spires, banners, cobblestone paths, rolling green hills, golden crowns, royal purple and stone grey",
-  "Enchanted Garden": "oversized flowers, hidden pathways, soft pastel petals, dew drops, butterfly wings, gentle morning light",
-  "Dinosaur Island": "volcanic peaks, lush prehistoric jungle, massive fern fronds, ancient eggs, earth tones and vibrant greens",
-  "Robot City": "gleaming chrome buildings, neon accent lights, friendly rounded robots, circuit patterns, cool blue and warm orange",
-  "Magical Circus": "striped tent peaks, floating stars, trapeze silhouettes, confetti, bold red and gold and deep purple",
-  "The Great Mountain": "snow-capped peaks, winding trails, alpine meadows, crystal-clear streams, sunrise golds and deep blues",
-  "Dream World": "floating islands, impossible staircases, cotton-candy clouds, soft rainbow gradients, surreal gentle lighting",
-  "Baking Kingdom": "candy-coloured buildings, frosting rivers, cookie paths, sugar crystal trees, warm pinks and creamy whites",
-};
+// World vocabularies now live in STORY_WORLDS[] in constants/data.js
+// worldVocab is passed as a parameter to buildScenePrompt
 
 // ── Mood → lighting presets ───────────────────────────────────────────────────
 const MOOD_LIGHTING = {
@@ -58,12 +36,8 @@ const MOOD_LIGHTING = {
   tender: "soft diffused light, pastel tones, gentle and loving",
 };
 
-const TONE_LIGHTING = {
-  "Cozy & Calming": "warm golden hour lighting, soft shadows, sunset palette",
-  "Exciting & Dramatic": "dynamic lighting, high contrast, dramatic sky",
-  "Warm & Heartfelt": "soft warm light, gentle tones, tender atmosphere",
-  "Funny & Chaotic": "bright saturated colours, playful energy, exaggerated expressions",
-};
+// Tone lighting now lives in STORY_TONES[] in constants/data.js
+// toneLighting is passed as a parameter to buildScenePrompt
 
 // ── Quality tags appended to every prompt ─────────────────────────────────────
 const QUALITY_TAGS =
@@ -161,7 +135,8 @@ function buildDetailedCharacterPrompt(cast) {
 
 // ── Build the panoramic spread prompt for a scene ─────────────────────────────
 function buildScenePrompt(sceneDescription, cast, styleName, mood, worldVocab, toneLighting) {
-  const styleAnchor = STYLE_ANCHORS[styleName] || STYLE_ANCHORS["Storybook"];
+  const styleData = STYLES.find(s => s.name === styleName);
+  const styleAnchor = styleData?.anchor || STYLES[0].anchor;
   const lighting = MOOD_LIGHTING[mood] || MOOD_LIGHTING["wonder"];
   const worldDesc = worldVocab ? `${worldVocab} — ` : "";
   const toneDesc = toneLighting ? `${toneLighting}, ` : "";
@@ -178,13 +153,14 @@ function buildScenePrompt(sceneDescription, cast, styleName, mood, worldVocab, t
   return [
     styleAnchor,
     worldDesc,
-    `Ultra-wide cinematic panoramic illustration for a double-page picture book spread.`,
-    `Rich detailed environment filling the entire frame:`,
+    `Single-page children's picture book illustration in portrait orientation.`,
+    `This fills ONE page of an open storybook.`,
+    `Rich detailed environment fills the entire frame.`,
     sceneDescription,
     `The main character is ${characterRef}.`,
-    `Show the character full-body at medium distance in the left-center of the frame, roughly 25-35% of the frame height, naturally placed within the scene.`,
-    `The right half of the image continues the same rich environment with beautiful atmospheric depth, environmental storytelling, lush detailed scenery.`,
-    `NEVER a close-up, NEVER a portrait, NEVER a headshot. Show expansive landscape with detailed foreground, middleground, and deep background.`,
+    `The main character is naturally placed within the scene, roughly 30-40% of the frame height, surrounded by the world.`,
+    `Beautiful atmospheric depth — detailed foreground elements, character in middleground, environment extending into background.`,
+    `NEVER a headshot or close-up portrait. ALWAYS show the character within their world, full-body or at least waist-up, with the environment telling the story around them.`,
     toneDesc,
     lighting,
     QUALITY_TAGS,
@@ -357,9 +333,13 @@ export async function generatePageImage(sceneDescription, cast, styleName, heroP
   const prompt = buildScenePrompt(sceneDescription, cast, styleName, mood || "wonder", worldVocab, toneLighting);
   const startTime = Date.now();
 
+  // Detect if hero is male for PuLID multi-output
+  const hero = cast.find(c => c.isHero) || cast[0];
+  const isMale = hero?.role === "dad" || hero?.role === "grandpa";
+
   // ATTEMPT 1: Primary model
   try {
-    const url = await generateImage(prompt, heroPhotoUrl, !!heroPhotoUrl);
+    const url = await generateImage(prompt, heroPhotoUrl, !!heroPhotoUrl, isMale);
     if (await validateImageUrl(url)) {
       const blobUrl = await cacheImageAsBlob(url);
       logCost("pulid", "primary", true, Date.now() - startTime, null);
@@ -369,12 +349,13 @@ export async function generatePageImage(sceneDescription, cast, styleName, heroP
     // Primary attempt failed — trying fallback
   }
 
-  // ATTEMPT 2: Retry with different approach (no face ref)
+  // ATTEMPT 2: Retry without face reference
   try {
     const url = await generateImage(prompt, null, false);
     if (await validateImageUrl(url)) {
       const blobUrl = await cacheImageAsBlob(url);
       logCost("pulid", "retry_no_face", true, Date.now() - startTime, null);
+      if (heroPhotoUrl) imageGenFlags.faceRefLostCount++;
       return blobUrl;
     }
   } catch (err) {
@@ -441,7 +422,8 @@ export async function uploadHeroPhoto(cast) {
 // ── Generate cover image ──────────────────────────────────────────────────────
 export async function generateCoverImage(coverScene, styleName) {
   if (!coverScene) return null;
-  const styleAnchor = STYLE_ANCHORS[styleName] || STYLE_ANCHORS["Storybook"];
+  const styleData = STYLES.find(s => s.name === styleName);
+  const styleAnchor = styleData?.anchor || STYLES[0].anchor;
   const prompt = `${styleAnchor} A breathtaking wide establishing shot of ${coverScene}, cinematic composition, epic scale, no characters visible, pure world-building, evocative and magical, ${QUALITY_TAGS}`;
 
   try {

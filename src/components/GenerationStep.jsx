@@ -8,6 +8,7 @@ import {
   analyzeCharacterPhotos,
   uploadHeroPhoto,
   STYLE_GRADIENTS,
+  imageGenFlags,
 } from "../api/story";
 import {
   uploadPhoto,
@@ -16,6 +17,7 @@ import {
   checkTraining,
   saveToVault,
 } from "../api/client";
+import { STORY_WORLDS, STORY_TONES } from "../constants/data";
 import Paywall from "./Paywall";
 
 const WRITING_PHRASES = [
@@ -144,6 +146,8 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
   const [pendingStory, setPendingStory] = useState(null);
   const [pendingEnrichedCast, setPendingEnrichedCast] = useState(null);
   const [pendingHeroPhotoUrl, setPendingHeroPhotoUrl] = useState(null);
+  const [pendingWorldVocab, setPendingWorldVocab] = useState(null);
+  const [pendingToneLighting, setPendingToneLighting] = useState(null);
 
   // LoRA training state
   const loraUrlRef = useRef(vaultChar?.loraUrl || null);
@@ -190,7 +194,8 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         const { trainingId, triggerWord: tw } = await trainLora(
           zipUrl,
           heroChar.name,
-          storySessionId
+          storySessionId,
+          style
         );
 
         triggerWordRef.current = tw;
@@ -267,6 +272,16 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       setPageCount(story.pages.length);
       setPageImages(new Array(story.pages.length).fill(undefined));
 
+      // Look up world vocabulary and tone lighting for image prompts
+      const worldData = STORY_WORLDS.find(w =>
+        w.label === wizardData?.storyWorld || w.id === wizardData?.world
+      );
+      const worldVocab = worldData?.vocab || null;
+      const toneData = STORY_TONES.find(t =>
+        t.label === wizardData?.storyTone || t.id === wizardData?.tone
+      );
+      const toneLighting = toneData?.lighting || null;
+
       let heroPhotoUrl = null;
       if (!useLoRA) {
         heroPhotoUrl = await uploadHeroPhoto(enrichedCast);
@@ -278,9 +293,9 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
 
       let page1Url;
       if (useLoRA && loraUrlRef.current) {
-        page1Url = await generatePremiumPageImage(sceneDesc, enrichedCast, style, loraUrlRef.current, triggerWordRef.current, mood);
+        page1Url = await generatePremiumPageImage(sceneDesc, enrichedCast, style, loraUrlRef.current, triggerWordRef.current, mood, worldVocab, toneLighting);
       } else {
-        page1Url = await generatePageImage(sceneDesc, enrichedCast, style, heroPhotoUrl, mood);
+        page1Url = await generatePageImage(sceneDesc, enrichedCast, style, heroPhotoUrl, mood, worldVocab, toneLighting);
       }
 
       setPageImages((prev) => {
@@ -293,6 +308,8 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       setPendingStory(story);
       setPendingEnrichedCast(enrichedCast);
       setPendingHeroPhotoUrl(heroPhotoUrl);
+      setPendingWorldVocab(worldVocab);
+      setPendingToneLighting(toneLighting);
 
       // Show paywall
       setShowPaywall(true);
@@ -328,12 +345,12 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       if (tier === "premium" && loraUrlRef.current && triggerWordRef.current) {
         finalResult = await generateAllPremiumImages(
           remainingPages, enrichedCast, style, loraUrlRef.current, triggerWordRef.current,
-          onPageImage, story.coverScene
+          onPageImage, story.coverScene, pendingWorldVocab, pendingToneLighting
         );
       } else {
         finalResult = await generateAllImages(
           remainingPages, enrichedCast, style, pendingHeroPhotoUrl,
-          onPageImage, story.coverScene
+          onPageImage, story.coverScene, pendingWorldVocab, pendingToneLighting
         );
       }
 
@@ -360,6 +377,12 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         } catch {
           // Vault save is non-critical
         }
+      }
+
+      // Notify if face reference was lost on some pages
+      if (imageGenFlags.faceRefLostCount > 0) {
+        console.warn(`Face reference lost on ${imageGenFlags.faceRefLostCount} page(s)`);
+        imageGenFlags.faceRefLostCount = 0;
       }
 
       onNext({

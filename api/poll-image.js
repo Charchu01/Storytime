@@ -43,6 +43,24 @@ export default async function handler(req, res) {
       console.error("Prediction failed:", prediction.error);
     }
 
+    // Validate the image URL is actually an image before returning
+    if (prediction.status === "succeeded" && imageUrl) {
+      try {
+        const check = await fetch(imageUrl, { method: "HEAD" });
+        const contentType = check.headers.get("content-type") || "";
+        if (!check.ok || !contentType.startsWith("image/")) {
+          return res.json({
+            status: "failed",
+            imageUrl: null,
+            error: "Generated image was invalid (not an image file)",
+          });
+        }
+      } catch (err) {
+        // HEAD check failed — still return the URL, client will validate
+        console.warn("Image URL validation failed:", err.message);
+      }
+    }
+
     res.json({
       status: prediction.status, // "starting" | "processing" | "succeeded" | "failed" | "canceled"
       imageUrl,

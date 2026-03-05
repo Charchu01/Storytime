@@ -437,6 +437,24 @@ export default function BookReader({ data, cast, styleName, onReset }) {
 
   return (
     <div className="br-scene" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      {/* Desk environment layers */}
+      <div className="br-desk-vignette" />
+      <div className="br-desk-glow" />
+      <div className="br-desk-sparkles">
+        {Array.from({ length: 18 }).map((_, i) => (
+          <div
+            key={i}
+            className="br-sparkle"
+            style={{
+              left: `${8 + Math.random() * 84}%`,
+              top: `${5 + Math.random() * 90}%`,
+              '--dur': `${6 + Math.random() * 6}s`,
+              '--delay': `${Math.random() * 8}s`,
+            }}
+          />
+        ))}
+      </div>
+
       {/* Toolbar */}
       <div className="br-toolbar">
         <button className="br-tool-btn" onClick={() => navigate("/library")}>← Back to Library</button>
@@ -527,57 +545,69 @@ export default function BookReader({ data, cast, styleName, onReset }) {
             );
           })()}
 
-          {/* Story pages — panoramic spread */}
+          {/* Story pages — text left, illustration right */}
           {current.type === "page" && (() => {
             const imgUrl = current.page.imageUrl;
-            // SAFETY: never display the raw reference photo
             const isSafeImage = isGeneratedImage(imgUrl) && !isReferencePhoto(imgUrl, data.heroPhotoUrl);
             const pageEmoji = current.page.scene_emoji || current.page.emoji || "🌟";
+
+            const moodColors = {
+              wonder:     { bg: "#FFF8ED", accent: "#D4A76A" },
+              adventure:  { bg: "#FFF5F0", accent: "#E8845A" },
+              cozy:       { bg: "#FEF7ED", accent: "#C8956C" },
+              tense:      { bg: "#F0F4FF", accent: "#7C8CC8" },
+              triumphant: { bg: "#FFFFF0", accent: "#D4A020" },
+              tender:     { bg: "#FFF0F5", accent: "#C87C95" },
+            };
+            const colors = moodColors[current.page.mood] || moodColors.wonder;
+
             return (
-              <div className="br-spread br-spread-pano">
-                {/* Full-bleed panoramic background spanning both pages */}
-                {regeneratingImage === current.pageIdx ? (
-                  <div className="br-pano-bg" style={{ background: gradient }}>
-                    <div className="br-pl-inner">
+              <div className="br-spread">
+                {/* LEFT — Text page */}
+                <div className="br-page-left br-text-page" style={{ background: colors.bg }}>
+                  <div className="br-noise" />
+                  <div className="br-text-decor-top" style={{ color: colors.accent }}>&#10087;</div>
+                  <div className="br-text-spot" style={{ color: colors.accent }}>{pageEmoji}</div>
+                  <div className="br-text-block">
+                    <p className="br-page-text">
+                      {renderTextWithDropCap(current.page.text, current.pageIdx, narrating, narratingSentence)}
+                    </p>
+                  </div>
+                  <div className="br-text-decor-bot" style={{ color: colors.accent }}>&#10022;</div>
+                  <div className="br-text-pagenum" style={{ color: colors.accent }}>
+                    &mdash; {current.pageIdx + 1} &mdash;
+                  </div>
+                  <button className="br-edit-toggle" onClick={() => setActiveEdit(activeEdit ? null : { index: current.pageIdx, type: "story" })}>
+                    &#9999;&#65039;
+                  </button>
+                </div>
+
+                {/* SPINE */}
+                <div className="br-spine" />
+
+                {/* RIGHT — Illustration page */}
+                <div className="br-page-right br-illust-page">
+                  {regeneratingImage === current.pageIdx ? (
+                    <div className="br-illust-loading" style={{ background: gradient }}>
                       <div className="br-pl-emoji br-emoji-pulse">{pageEmoji}</div>
                       <div className="br-illustrating-badge">Illustrating...</div>
                     </div>
-                  </div>
-                ) : isSafeImage ? (
-                  <div className="br-pano-bg">
+                  ) : isSafeImage ? (
                     <img
-                      className="br-pano-img br-img-fadein"
+                      className="br-illust-img br-img-fadein"
                       src={imgUrl}
-                      alt={`Page ${current.pageIdx + 1}`}
+                      alt={current.page.scene_description || `Page ${current.pageIdx + 1}`}
                       onError={(e) => {
                         e.target.style.display = "none";
                         e.target.parentElement.style.background = gradient;
                       }}
                     />
-                  </div>
-                ) : (
-                  <div className="br-pano-bg" style={{ background: gradient }}>
-                    <div className="br-pl-inner">
+                  ) : (
+                    <div className="br-illust-fallback" style={{ background: gradient }}>
                       <div className="br-pl-emoji br-emoji-pulse">{pageEmoji}</div>
                     </div>
-                  </div>
-                )}
-
-                {/* Text overlay on right side */}
-                <div className="br-pano-text-panel">
-                  <div className="br-pr-inner">
-                    <p className="br-pr-text">
-                      {renderTextWithDropCap(current.page.text, current.pageIdx, narrating, narratingSentence)}
-                    </p>
-                    <div className="br-pr-pagenum">{current.pageIdx + 1}</div>
-                  </div>
-                  <button className="br-edit-toggle" onClick={() => setActiveEdit(activeEdit ? null : { index: current.pageIdx, type: "story" })}>
-                    Edit
-                  </button>
+                  )}
                 </div>
-
-                {/* Spine divider */}
-                <div className="br-spine br-spine-pano" />
               </div>
             );
           })()}

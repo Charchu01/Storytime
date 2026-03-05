@@ -108,13 +108,13 @@ export async function uploadPhoto(photoDataUri) {
   return data.photoUrl;
 }
 
-export async function generateImage(prompt, referencePhotoUrl = null, useFaceRef = false) {
+export async function generateImage(prompt, referencePhotoUrl = null, useFaceRef = false, isMaleCharacter = false) {
   let response;
   try {
     response = await fetchWithRetry("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, referencePhotoUrl, useFaceRef }),
+      body: JSON.stringify({ prompt, referencePhotoUrl, useFaceRef, isMaleCharacter }),
     });
   } catch (err) {
     throw new Error(`Image generation request failed: ${err.message}`);
