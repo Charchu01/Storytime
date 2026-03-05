@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.61.3",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
     "@stripe/react-stripe-js": "^5.6.1",
     "@stripe/stripe-js": "^8.9.0",
     "@vercel/kv": "^3.0.0",
@@ -20,7 +22,8 @@
     "react-pageflip": "^2.0.3",
     "react-router-dom": "^7.13.1",
     "replicate": "^1.4.0",
-    "stripe": "^20.4.0"
+    "stripe": "^20.4.0",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
