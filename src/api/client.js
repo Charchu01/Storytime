@@ -264,23 +264,30 @@ export async function validateImage(
   imageUrl, expectedTexts, heroName,
   artStyle, pageType, sceneDescription
 ) {
-  try {
-    const response = await fetch("/api/validate-image", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        imageUrl,
-        expectedTexts,
-        heroName,
-        artStyle,
-        pageType,
-        sceneDescription,
-      }),
-    });
-    const data = await response.json();
-    return data;
-  } catch {
-    // Never block on validation failure
-    return { pass: true, reason: "network_error" };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch("/api/validate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageUrl,
+          expectedTexts,
+          heroName,
+          artStyle,
+          pageType,
+          sceneDescription,
+        }),
+      });
+      const data = await response.json();
+      return data;
+    } catch (err) {
+      console.warn(`Validation fetch error (attempt ${attempt + 1}):`, err.message);
+      if (attempt === 0) {
+        await new Promise(r => setTimeout(r, 2000));
+        continue;
+      }
+      // Final attempt — fail open but log
+      return { pass: true, reason: "network_error", issues: ["Validation network error"] };
+    }
   }
 }

@@ -263,7 +263,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       </div>
 
       {/* Page display */}
-      <div className="br-page-display" key={fadeKey}>
+      <div className={`br-page-display ${current.type === "spread" || current.type === "page" ? "br-landscape" : "br-portrait"}`} key={fadeKey}>
         {current.type === "cover" && (
           <div className="br-page-content br-page-cover">
             {current.imageUrl ? (
