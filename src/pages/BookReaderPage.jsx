@@ -1,7 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAppContext } from "../App";
-const BookReader = lazy(() => import("../components/BookReader"));
+const Book3DReader = lazy(() => import("../components/Book3DReader"));
 const PrintUpsell = lazy(() => import("../components/PrintUpsell"));
 
 function loadStoriesFromDisk() {
@@ -101,7 +101,7 @@ export default function BookReaderPage() {
 
   return (
     <Suspense fallback={<div className="gen-screen"><div className="gen-emoji gen-spin">📖</div><div className="gen-headline">Loading your book...</div></div>}>
-      <BookReader
+      <Book3DReader
         data={story}
         cast={story.cast || []}
         styleName={story.styleName || "Watercolor"}
