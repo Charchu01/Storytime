@@ -257,3 +257,30 @@ export async function deleteFromVault(characterId, userId = "anonymous") {
     throw new Error(err.message || "Failed to delete character.");
   }
 }
+
+// ── Image Validation (Claude Vision) ─────────────────────────────────────────
+
+export async function validateImage(
+  imageUrl, expectedTexts, heroName,
+  artStyle, pageType, sceneDescription
+) {
+  try {
+    const response = await fetch("/api/validate-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageUrl,
+        expectedTexts,
+        heroName,
+        artStyle,
+        pageType,
+        sceneDescription,
+      }),
+    });
+    const data = await response.json();
+    return data;
+  } catch {
+    // Never block on validation failure
+    return { pass: true, reason: "network_error" };
+  }
+}
