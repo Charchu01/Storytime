@@ -31,23 +31,56 @@ CONTEXT:
 - The hero type was already selected on the welcome screen. It will be provided.
 - You are building a storybook, not writing it yet. You're collecting the ingredients.
 
-RESPONSE FORMAT:
-Your ENTIRE response must be a single JSON object — nothing before it, nothing after it.
-Do NOT write any text outside the JSON. Do NOT repeat the message outside the JSON.
-Do NOT wrap in markdown code fences.
+OUTPUT RULES:
+Your response must be ONLY a JSON object. Nothing else.
+No text before the JSON. No text after the JSON. No markdown fences.
+Start your response with { and end it with }.
 
-The JSON object must have exactly these keys:
-{"message":"Your response text","suggestions":["Option 1","Option 2"],"action":null,"dataUpdate":{}}
+JSON schema:
+{
+  "message": "string — your friendly response to the user",
+  "suggestions": ["string array — 2-4 quick reply options"],
+  "action": "null or one of: request_photo, show_styles, show_tones, ready",
+  "dataUpdate": {"object — only keys collected THIS turn"}
+}
 
-"action" values: null, "request_photo", "show_styles", "show_tones", "ready"
+dataUpdate valid keys: heroName, heroAge, heroType (child/adult/grandparent/pet/baby), characters (array of {name, relationship, description}), storyIdea, details, personalIngredient, dedication, authorName, artStyle (sb/wc/bb/cs/sc), tone (cozy/exciting/funny/heartfelt)`;
 
-"dataUpdate" valid keys (only include what was collected THIS exchange):
-heroName, heroAge, heroType ("child"/"adult"/"grandparent"/"pet"/"baby"),
-characters (array of {name, relationship, description}),
-storyIdea, details, personalIngredient, dedication, authorName,
-artStyle ("sb"/"wc"/"bb"/"cs"/"sc"), tone ("cozy"/"exciting"/"funny"/"heartfelt")
+// Extract a JSON object from text that may contain preamble/postamble
+function extractJSON(text) {
+  // Strip markdown fences
+  let cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
 
-IMPORTANT: Output ONLY the JSON object. No preamble, no extra text.`;
+  // Try direct parse first
+  try {
+    return JSON.parse(cleaned);
+  } catch {}
+
+  // Find the outermost balanced { } pair
+  let depth = 0;
+  let start = -1;
+  let end = -1;
+  for (let i = 0; i < cleaned.length; i++) {
+    if (cleaned[i] === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (cleaned[i] === "}") {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        end = i;
+        break;
+      }
+    }
+  }
+
+  if (start !== -1 && end !== -1) {
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    } catch {}
+  }
+
+  return null;
+}
 
 export default async function handler(req, res) {
   try {
@@ -120,47 +153,35 @@ export default async function handler(req, res) {
 
     const text = data.content.map((block) => block.text || "").join("").trim();
 
-    // Extract JSON from Claude's response — handle cases where Claude
-    // outputs text before/after the JSON or wraps in code fences
-    let parsed = null;
+    // Extract JSON from Claude's response
+    const parsed = extractJSON(text);
 
-    // Strip markdown code fences first
-    let cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-
-    // Try direct parse
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      // Find the first { and last } to extract embedded JSON
-      const firstBrace = cleaned.indexOf("{");
-      const lastBrace = cleaned.lastIndexOf("}");
-      if (firstBrace !== -1 && lastBrace > firstBrace) {
-        try {
-          parsed = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
-        } catch {
-          // JSON still invalid
-        }
-      }
-    }
-
-    if (parsed && parsed.message) {
-      // Return the raw JSON string too so client can use it for conversation history
+    if (parsed && typeof parsed.message === "string") {
       return res.json({
         message: parsed.message,
-        suggestions: parsed.suggestions || [],
+        suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
         action: parsed.action || null,
         dataUpdate: parsed.dataUpdate || {},
-        _raw: JSON.stringify(parsed),
       });
     }
 
-    // Fallback: couldn't parse JSON at all
+    // Fallback: couldn't parse JSON — strip any JSON-looking content from the text
+    // to get a clean message for display
+    let cleanMessage = text;
+    const braceIdx = text.indexOf("{");
+    if (braceIdx > 0) {
+      // Take only the text before the first {
+      cleanMessage = text.slice(0, braceIdx).trim();
+    }
+    if (!cleanMessage) {
+      cleanMessage = "I'm here to help build your story! What should we work on next?";
+    }
+
     return res.json({
-      message: text,
+      message: cleanMessage,
       suggestions: [],
       action: null,
       dataUpdate: {},
-      _raw: null,
     });
   } catch (err) {
     console.error("Chat assistant error:", err);
