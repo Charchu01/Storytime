@@ -52,7 +52,9 @@ export default function HeroSetup({ bookType, onComplete, onBack }) {
   const [showAddChar, setShowAddChar] = useState(false);
   const [newCharName, setNewCharName] = useState("");
   const [newCharRelation, setNewCharRelation] = useState("friend");
+  const [newCharPhoto, setNewCharPhoto] = useState(null);
   const fileRef = useRef();
+  const companionFileRef = useRef();
 
   async function handlePhotoUpload(e) {
     const file = e.target.files?.[0];
@@ -65,11 +67,27 @@ export default function HeroSetup({ bookType, onComplete, onBack }) {
     } catch {}
   }
 
+  async function handleCompanionPhotoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    if (file.size > MAX_PHOTO_SIZE) return;
+    try {
+      const compressed = await compressPhoto(file);
+      setNewCharPhoto(compressed);
+    } catch {}
+  }
+
   function addCompanion() {
     if (!newCharName.trim()) return;
-    setCompanions([...companions, { name: newCharName.trim(), relationship: newCharRelation }]);
+    setCompanions([...companions, {
+      name: newCharName.trim(),
+      relationship: newCharRelation,
+      photo: newCharPhoto,
+    }]);
     setNewCharName("");
     setNewCharRelation("friend");
+    setNewCharPhoto(null);
     setShowAddChar(false);
   }
 
@@ -177,6 +195,7 @@ export default function HeroSetup({ bookType, onComplete, onBack }) {
             <div className="hs-companions">
               {companions.map((c, i) => (
                 <div key={i} className="hs-companion-chip">
+                  {c.photo && <img src={c.photo} alt={c.name} className="hs-companion-photo" />}
                   <span>{c.name} ({c.relationship})</span>
                   <button className="hs-companion-remove" onClick={() => removeCompanion(i)}>×</button>
                 </div>
@@ -186,6 +205,31 @@ export default function HeroSetup({ bookType, onComplete, onBack }) {
 
           {showAddChar ? (
             <div className="hs-add-char-form">
+              {/* Companion photo upload */}
+              <div className="hs-companion-photo-upload">
+                <button
+                  className="hs-companion-photo-btn"
+                  type="button"
+                  onClick={() => companionFileRef.current?.click()}
+                >
+                  {newCharPhoto ? (
+                    <img src={newCharPhoto} alt="Character" className="hs-companion-photo-preview" />
+                  ) : (
+                    <span className="hs-companion-photo-placeholder">📷</span>
+                  )}
+                </button>
+                <span className="hs-companion-photo-label">
+                  {newCharPhoto ? "Change photo" : "Add photo (optional)"}
+                </span>
+                <input
+                  ref={companionFileRef}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  style={{ display: "none" }}
+                  onChange={handleCompanionPhotoUpload}
+                />
+              </div>
               <input
                 className="hs-input"
                 value={newCharName}
@@ -204,7 +248,7 @@ export default function HeroSetup({ bookType, onComplete, onBack }) {
               </select>
               <div className="hs-add-char-actions">
                 <button className="hs-add-confirm" onClick={addCompanion}>Add</button>
-                <button className="hs-add-cancel" onClick={() => setShowAddChar(false)}>Cancel</button>
+                <button className="hs-add-cancel" onClick={() => { setShowAddChar(false); setNewCharPhoto(null); }}>Cancel</button>
               </div>
             </div>
           ) : (

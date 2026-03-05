@@ -196,33 +196,40 @@ function assembleImagePrompt({
   isCover,
   isBackCover,
   heroName,
+  companionNames = [],
 }) {
   const sections = [];
 
   // ── REFERENCE IMAGES (always first) ──────────────────
+  // Build companion reference lines
+  const companionRefLines = companionNames.map((name, i) => {
+    const imgNum = isCover ? i + 2 : isBackCover ? i + 3 : isFirstSpread ? i + 3 : i + 4;
+    return `- Image ${imgNum}: Photo of ${name} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`;
+  }).join("\n");
+
   if (isCover) {
     sections.push(
 `REFERENCE IMAGES:
-- Image 1: Photograph of ${heroName}. Match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style — NOT photorealistic.`
+- Image 1: Photograph of ${heroName}. Match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style — NOT photorealistic.${companionRefLines ? "\n" + companionRefLines : ""}`
     );
   } else if (isBackCover) {
     sections.push(
 `REFERENCE IMAGES:
 - Image 1: Photo of ${heroName} — match face identity.
-- Image 2: The COVER of this book — match this EXACT art style, colour palette, and brush technique.`
+- Image 2: The COVER of this book — match this EXACT art style, colour palette, and brush technique.${companionRefLines ? "\n" + companionRefLines : ""}`
     );
   } else if (isFirstSpread) {
     sections.push(
 `REFERENCE IMAGES:
 - Image 1: Photo of ${heroName} — match EXACT facial features.
-- Image 2: The COVER of this book — your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and text box design on this page.`
+- Image 2: The COVER of this book — your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and text box design on this page.${companionRefLines ? "\n" + companionRefLines : ""}`
     );
   } else {
     sections.push(
 `REFERENCE IMAGES:
 - Image 1: Photo of ${heroName} — match EXACT facial features.
 - Image 2: The COVER of this book — your STYLE BIBLE. Match this exact art style.
-- Image 3: The PREVIOUS SPREAD. Maintain visual continuity. ${heroName} must look IDENTICAL to this image. Same style, same colour temperature.`
+- Image 3: The PREVIOUS SPREAD. Maintain visual continuity. ${heroName} must look IDENTICAL to this image. Same style, same colour temperature.${companionRefLines ? "\n" + companionRefLines : ""}`
     );
   }
 
@@ -634,13 +641,15 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
 // Sequential chained flow: cover → spread1 → spread2 → ... → back cover
 // Each image references the hero photo + cover (style anchor) + previous image
 export async function generateAllImages(
-  storyPlan, heroPhotoUrl, onImageReady, tier
+  storyPlan, heroPhotoUrl, onImageReady, tier, companionPhotoUrls = {}
 ) {
   const images = {};
   let previousImageUrl = null;
 
   const { characterAppearances, textBoxDesign, artStyle } = storyPlan;
   const heroName = characterAppearances?.hero?.split("—")[0]?.trim() || "the character";
+  const companionNames = Object.keys(companionPhotoUrls);
+  const companionUrls = Object.values(companionPhotoUrls);
 
   // 1. Generate cover (assembled prompt)
   const coverPrompt = assembleImagePrompt({
@@ -653,6 +662,7 @@ export async function generateAllImages(
       : null,
     isCover: true,
     heroName,
+    companionNames,
   });
 
   try {
@@ -661,7 +671,7 @@ export async function generateAllImages(
       heroPhotoUrl,
       tier,
       null,
-      [],
+      [...companionUrls],
       storyPlan.cover.aspectRatio || "3:4",
       true
     );
@@ -682,7 +692,7 @@ export async function generateAllImages(
             `\n\nCRITICAL FIXES FOR THIS RETRY:\n${coverValidation.fixNotes || coverValidation.issues?.join(". ") || "Improve text accuracy and character quality."}`;
           await new Promise(r => setTimeout(r, 2000));
           const retryCover = await generateImage(
-            fixPrompt, heroPhotoUrl, tier, null, [],
+            fixPrompt, heroPhotoUrl, tier, null, [...companionUrls],
             storyPlan.cover.aspectRatio || "3:4", true
           );
           if (retryCover && await validateImageUrl(retryCover)) {
@@ -712,14 +722,16 @@ export async function generateAllImages(
       pageTexts: [spread.leftPageText, spread.rightPageText],
       isFirstSpread: isFirst,
       heroName,
+      companionNames,
     });
 
-    // Reference images: cover (style anchor) + previous spread (continuity)
+    // Reference images: cover (style anchor) + previous spread (continuity) + companion photos
     const refImages = [];
     if (images.cover) refImages.push(images.cover);
     if (!isFirst && previousImageUrl && previousImageUrl !== images.cover) {
       refImages.push(previousImageUrl);
     }
+    refImages.push(...companionUrls);
 
     // Validate cover + first spread always; remaining spreads skip validation for speed
     const shouldValidate = (i === 0);
@@ -807,6 +819,7 @@ export async function generateAllImages(
     isCover: false,
     isBackCover: true,
     heroName,
+    companionNames,
   });
 
   const backRefs = [];
@@ -814,6 +827,7 @@ export async function generateAllImages(
   if (previousImageUrl && previousImageUrl !== images.cover) {
     backRefs.push(previousImageUrl);
   }
+  backRefs.push(...companionUrls);
 
   try {
     const backUrl = await generateImage(
@@ -873,6 +887,31 @@ export async function uploadHeroPhoto(cast) {
   } catch (err) {
     return null;
   }
+}
+
+// ── Upload companion photos ──────────────────────────────────────────────────
+export async function uploadCompanionPhotos(cast) {
+  const urls = {};
+  const companions = cast.filter((c) => !c.isHero && (c.photo || c.photos?.some((p) => p.dataUri)));
+  await Promise.all(
+    companions.map(async (c) => {
+      let photoUri = null;
+      const photos = c.photos?.filter((p) => p.dataUri) || [];
+      if (photos.length > 0) {
+        photoUri = photos[0].dataUri;
+      } else if (c.photo) {
+        photoUri = c.photo;
+      }
+      if (!photoUri) return;
+      try {
+        const url = await uploadPhoto(photoUri);
+        if (url) urls[c.name] = url;
+      } catch {
+        // Non-critical — companion photo upload failure doesn't block generation
+      }
+    })
+  );
+  return urls;
 }
 
 // ── Generate a single page image (fallback for edits) ────────────────────────

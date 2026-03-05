@@ -110,7 +110,7 @@ export default function CreatePage() {
       });
     }
 
-    // Add companions
+    // Add companions (with photos if uploaded)
     if (heroData.companions?.length > 0) {
       heroCast.push(...heroData.companions.map((c) => ({
         id: Date.now() + Math.random(),
@@ -118,6 +118,8 @@ export default function CreatePage() {
         role: c.relationship || "friend",
         emoji: c.relationship === "pet" ? "🐾" : "🤝",
         isHero: false,
+        photo: c.photo || null,
+        photos: c.photo ? [{ dataUri: c.photo, quality: "fair", feedback: "" }] : [],
       })));
     }
 
