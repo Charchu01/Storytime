@@ -151,13 +151,13 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [showTraining, setShowTraining] = useState(false);
 
-  // Auto-start generation on mount
+  // Auto-start generation on mount or after retry
   useEffect(() => {
     if (!started) {
       setStarted(true);
       handleGenerate();
     }
-  }, []);
+  }, [started]);
 
   // ── Premium LoRA training ───────────────────────────────────────────────────
   function startLoraTraining(enrichedCast) {
@@ -298,7 +298,9 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       setShowPaywall(true);
       setLoading(false);
     } catch (err) {
+      console.error("Generation error:", err);
       setError(err.message || "Something went wrong. Please try again.");
+      setLoading(false);
     }
   }
 
@@ -370,7 +372,9 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         tier,
       });
     } catch (err) {
+      console.error("Post-payment generation error:", err);
       setError(err.message || "Something went wrong generating the remaining pages.");
+      setLoading(false);
     }
   }
 

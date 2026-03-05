@@ -34,8 +34,13 @@ export default async function handler(req, res) {
       } else if (Array.isArray(output) && output.length > 0) {
         imageUrl = typeof output[0] === "string" ? output[0] : String(output[0]);
       } else if (output?.url) {
-        imageUrl = output.url;
+        imageUrl = typeof output.url === "function" ? output.url() : output.url;
       }
+      if (!imageUrl) {
+        console.warn("Could not extract imageUrl from output:", JSON.stringify(output).slice(0, 500));
+      }
+    } else if (prediction.status === "failed") {
+      console.error("Prediction failed:", prediction.error);
     }
 
     res.json({

@@ -34,18 +34,18 @@ export async function claudeCall(system, userMsg, maxTokens = 1400, imageDataUrl
       body: JSON.stringify({ system, userMsg, maxTokens, imageDataUrl }),
     });
   } catch (err) {
-    throw new Error("Something went wrong. Let's try again.");
+    throw new Error(`Story generation request failed: ${err.message}`);
   }
 
   let data;
   try {
     data = await response.json();
   } catch {
-    throw new Error(friendlyError(response.status, "Received an unexpected response. Please try again."));
+    throw new Error(`Story API returned non-JSON response (status ${response.status}). Check that API routes are accessible.`);
   }
 
   if (!response.ok) {
-    throw new Error(friendlyError(response.status, data.error));
+    throw new Error(data.error || friendlyError(response.status));
   }
 
   return data.text;
@@ -117,18 +117,18 @@ export async function generateImage(prompt, referencePhotoUrl = null, useFaceRef
       body: JSON.stringify({ prompt, referencePhotoUrl, useFaceRef }),
     });
   } catch (err) {
-    throw new Error("Something went wrong. Let's try again.");
+    throw new Error(`Image generation request failed: ${err.message}`);
   }
 
   let data;
   try {
     data = await response.json();
   } catch {
-    throw new Error(friendlyError(response.status));
+    throw new Error(`Image API returned non-JSON response (status ${response.status}). Check that API routes are accessible.`);
   }
 
   if (!response.ok) {
-    throw new Error(friendlyError(response.status, data.error));
+    throw new Error(data.error || friendlyError(response.status));
   }
 
   const { predictionId } = data;
@@ -180,18 +180,18 @@ export async function generateLoraImage(prompt, loraUrl, triggerWord) {
       body: JSON.stringify({ prompt, loraUrl, triggerWord }),
     });
   } catch (err) {
-    throw new Error("Something went wrong. Let's try again.");
+    throw new Error(`LoRA image generation request failed: ${err.message}`);
   }
 
   let data;
   try {
     data = await response.json();
   } catch {
-    throw new Error(friendlyError(response.status));
+    throw new Error(`Image API returned non-JSON response (status ${response.status}). Check that API routes are accessible.`);
   }
 
   if (!response.ok) {
-    throw new Error(friendlyError(response.status, data.error));
+    throw new Error(data.error || friendlyError(response.status));
   }
 
   const { predictionId } = data;
