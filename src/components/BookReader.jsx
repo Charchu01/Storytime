@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import HTMLFlipBook from "react-pageflip";
 import { useToast } from "../App";
 import EditDrawer from "./EditDrawer";
 import { editPageText, generatePageImage, STYLE_GRADIENTS, STYLE_COVER_GRADIENTS } from "../api/story";
@@ -82,46 +83,159 @@ function spawnConfetti(container) {
   }
 }
 
-
-// Helper: check if a URL is a generated illustration (not a raw uploaded photo)
+// Helper: check if a URL is a generated illustration
 function isGeneratedImage(url) {
   if (!url || typeof url !== "string") return false;
   return url.startsWith("http") || url.startsWith("blob:");
 }
 
-// SAFETY: Never display the uploaded reference photo on a book page
 function isReferencePhoto(url, heroPhotoUrl) {
   if (!url || !heroPhotoUrl) return false;
-  // Check against both data URIs and uploaded URLs
   if (url === heroPhotoUrl) return true;
   if (url.startsWith("data:")) return true;
   return false;
 }
 
-// Render text with drop cap on first letter
-function renderTextWithDropCap(text, pageIdx, narrating, narratingSentence) {
-  if (!text) return null;
-
-  if (narrating && narratingSentence >= 0) {
-    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-    return sentences.map((sentence, i) => {
-      if (i === 0) {
-        const first = sentence.charAt(0);
-        const rest = sentence.slice(1);
-        return (
-          <span key={i} className={`br-sentence${i === narratingSentence ? " br-sentence-active" : ""}`}>
-            <span className="br-drop-cap">{first}</span>{rest}
-          </span>
-        );
-      }
-      return <span key={i} className={`br-sentence${i === narratingSentence ? " br-sentence-active" : ""}`}>{sentence}</span>;
-    });
-  }
-
-  const first = text.charAt(0);
-  const rest = text.slice(1);
-  return <><span className="br-drop-cap">{first}</span>{rest}</>;
+// ── Sparkles ─────────────────────────────────────────────────────────────────
+function Sparkles({ count = 16 }) {
+  const sparkles = useMemo(() =>
+    Array.from({ length: count }, (_, i) => ({
+      id: i,
+      left: `${8 + Math.random() * 84}%`,
+      top: `${5 + Math.random() * 90}%`,
+      dur: `${6 + Math.random() * 6}s`,
+      delay: `${Math.random() * 8}s`,
+    })), [count]
+  );
+  return (
+    <div className="st-sparkles">
+      {sparkles.map(s => (
+        <div key={s.id} className="st-sparkle" style={{
+          left: s.left, top: s.top,
+          '--dur': s.dur, '--delay': s.delay
+        }} />
+      ))}
+    </div>
+  );
 }
+
+// ── Page Components (forwardRef required by react-pageflip) ──────────────────
+
+const CoverPage = React.forwardRef(({ title, heroName, authorName, coverGradient, coverImageUrl }, ref) => (
+  <div ref={ref} className="st-page st-cover" data-density="hard">
+    <div className="st-cover-inner" style={{ background: coverImageUrl ? '#000' : coverGradient }}>
+      {coverImageUrl && <img src={coverImageUrl} className="st-cover-img" alt="" />}
+      {coverImageUrl && <div className="st-cover-overlay" />}
+      <div className="st-cover-content">
+        <h1 className="st-cover-title">{title}</h1>
+        <div className="st-cover-line" />
+        <p className="st-cover-for">A story for {heroName}</p>
+        <p className="st-cover-author">By {authorName}</p>
+      </div>
+    </div>
+  </div>
+));
+
+const DedicationPage = React.forwardRef(({ dedication, gradient }, ref) => (
+  <div ref={ref} className="st-page st-ded-page">
+    <div className="st-ded-inner" style={{ background: gradient }}>
+      <div className="st-paper-texture" />
+      <div className="st-ded-flourish">&#10022;</div>
+      <div className="st-ded-label">Dedication</div>
+      <p className="st-ded-text">{dedication}</p>
+      <div className="st-ded-heart">&hearts;</div>
+    </div>
+  </div>
+));
+
+const StoryPageLeft = React.forwardRef(({ imageUrl, text, pageNum, gradient, emoji, heroPhotoUrl, isRegenerating, onEdit, narrating, narratingSentence }, ref) => {
+  const sentences = (text || "").match(/[^.!?]+[.!?]+/g) || [text || ""];
+  const mid = Math.ceil(sentences.length / 2);
+  const leftText = sentences.slice(0, mid).join(" ");
+  const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
+
+  return (
+    <div ref={ref} className="st-page st-story-page">
+      <div className="st-illust-container">
+        {isRegenerating ? (
+          <div className="st-illust-fallback" style={{ background: gradient }}>
+            <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
+            <span className="st-illustrating-badge">Illustrating...</span>
+          </div>
+        ) : isSafe ? (
+          <img src={imageUrl} className="st-illust st-illust-left" alt=""
+            onError={(e) => { e.target.style.display = "none"; }} />
+        ) : (
+          <div className="st-illust-fallback" style={{ background: gradient }}>
+            <span className="st-fallback-emoji">{emoji}</span>
+          </div>
+        )}
+      </div>
+      <div className="st-paper-texture" />
+      <div className="st-spine-shadow st-spine-right" />
+      <div className="st-text-wash st-wash-left">
+        <p className="st-page-text">
+          {narrating && narratingSentence >= 0
+            ? sentences.slice(0, mid).map((s, i) => (
+                <span key={i} className={`st-sentence${i === narratingSentence ? " st-sentence-active" : ""}`}>{s}</span>
+              ))
+            : leftText}
+        </p>
+      </div>
+      <span className="st-pagenum st-pagenum-left">{pageNum}</span>
+      {onEdit && (
+        <button className="st-edit-toggle" onClick={(e) => { e.stopPropagation(); onEdit(); }}>&#9999;&#65039;</button>
+      )}
+    </div>
+  );
+});
+
+const StoryPageRight = React.forwardRef(({ imageUrl, text, pageNum, gradient, emoji, heroPhotoUrl, isRegenerating }, ref) => {
+  const sentences = (text || "").match(/[^.!?]+[.!?]+/g) || [text || ""];
+  const mid = Math.ceil(sentences.length / 2);
+  const rightText = sentences.slice(mid).join(" ");
+  const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
+
+  return (
+    <div ref={ref} className="st-page st-story-page">
+      <div className="st-illust-container">
+        {isRegenerating ? (
+          <div className="st-illust-fallback" style={{ background: gradient }}>
+            <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
+          </div>
+        ) : isSafe ? (
+          <img src={imageUrl} className="st-illust st-illust-right" alt=""
+            onError={(e) => { e.target.style.display = "none"; }} />
+        ) : (
+          <div className="st-illust-fallback" style={{ background: gradient }}>
+            <span className="st-fallback-emoji">{emoji}</span>
+          </div>
+        )}
+      </div>
+      <div className="st-paper-texture" />
+      <div className="st-spine-shadow st-spine-left" />
+      {rightText.trim() && (
+        <div className="st-text-wash st-wash-right">
+          <p className="st-page-text">{rightText}</p>
+        </div>
+      )}
+    </div>
+  );
+});
+
+const BackCover = React.forwardRef(({ onReset, onShare }, ref) => (
+  <div ref={ref} className="st-page st-back-cover" data-density="hard">
+    <div className="st-back-inner">
+      <h2 className="st-back-title">The End</h2>
+      <div className="st-back-line" />
+      <p className="st-back-sub">A Storytime Original</p>
+      <div className="st-back-actions">
+        <button className="st-back-btn" onClick={onShare}>Share</button>
+        <button className="st-back-btn" onClick={onReset}>New Story</button>
+      </div>
+    </div>
+  </div>
+));
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function BookReader({ data, cast, styleName, onReset }) {
@@ -134,10 +248,8 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const heroName = cast.find((c) => c.isHero)?.name || cast[0]?.name || "your little one";
   const authorName = data.authorName || "A loving family";
 
-  // State
-  const [phase, setPhase] = useState("reveal"); // reveal | opening | reading
-  const [currentPage, setCurrentPage] = useState(0); // 0 = cover, 1 = ded, 2+ = pages
-  const [isFlipping, setIsFlipping] = useState(false);
+  const [phase, setPhase] = useState("reveal");
+  const [currentPage, setCurrentPage] = useState(0);
   const [activeEdit, setActiveEdit] = useState(null);
   const [localPages, setLocalPages] = useState(pages);
   const [regeneratingImage, setRegeneratingImage] = useState(null);
@@ -146,25 +258,32 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const narrationAudio = useRef(null);
   const narrationCache = useRef({});
-
   const bookRef = useRef();
   const confettiRef = useRef();
-  const bookRotation = useMemo(() => (Math.random() * 2 - 1).toFixed(2), []);
 
   const gradient = STYLE_GRADIENTS[styleName] || STYLE_GRADIENTS.Storybook;
   const coverGradient = STYLE_COVER_GRADIENTS[styleName] || STYLE_COVER_GRADIENTS.Storybook;
 
-  const hasDedication = !!dedication;
-  const totalPages = 1 + (hasDedication ? 1 : 0) + localPages.length; // cover + ded? + pages
-  const isLastPage = currentPage >= totalPages - 1;
+  // Build page array for react-pageflip
+  const bookPages = useMemo(() => {
+    const result = [];
+    result.push({ type: "cover" });
+    if (dedication) {
+      result.push({ type: "dedication" });
+    }
+    localPages.forEach((page, i) => {
+      result.push({ type: "story-left", page, index: i });
+      result.push({ type: "story-right", page, index: i });
+    });
+    result.push({ type: "back-cover" });
+    return result;
+  }, [localPages, dedication]);
 
-  // Get page content for a given index
-  function getPageData(idx) {
-    if (idx === 0) return { type: "cover" };
-    if (hasDedication && idx === 1) return { type: "dedication" };
-    const pageIdx = idx - 1 - (hasDedication ? 1 : 0);
-    if (pageIdx >= 0 && pageIdx < localPages.length) return { type: "page", page: localPages[pageIdx], pageIdx };
-    return { type: "end" };
+  // Map flipbook page index to story page index
+  function getStoryPageIndex(flipPage) {
+    const bp = bookPages[flipPage];
+    if (bp && (bp.type === "story-left" || bp.type === "story-right")) return bp.index;
+    return -1;
   }
 
   // ── Open book ──────────────────────────────────────────────────────────────
@@ -178,50 +297,29 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     }, 1200);
   }
 
-  // ── Navigation ─────────────────────────────────────────────────────────────
-  function goNext() {
-    if (isFlipping || isLastPage) return;
-    setIsFlipping(true);
+  // ── Page flip handler ──────────────────────────────────────────────────────
+  function handleFlip(e) {
     playPageTurn();
-    setTimeout(() => {
-      setCurrentPage((p) => p + 1);
-      setIsFlipping(false);
-      setActiveEdit(null);
-    }, 500);
-  }
-
-  function goPrev() {
-    if (isFlipping || currentPage <= 0) return;
-    setIsFlipping(true);
-    playPageTurn();
-    setTimeout(() => {
-      setCurrentPage((p) => p - 1);
-      setIsFlipping(false);
-      setActiveEdit(null);
-    }, 500);
+    setCurrentPage(e.data);
+    setActiveEdit(null);
   }
 
   // Keyboard nav
   useEffect(() => {
     if (phase !== "reading") return;
     function handleKey(e) {
-      if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); goNext(); }
-      if (e.key === "ArrowLeft") { e.preventDefault(); goPrev(); }
+      if (e.key === "ArrowRight" || e.key === " ") {
+        e.preventDefault();
+        bookRef.current?.pageFlip()?.flipNext();
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        bookRef.current?.pageFlip()?.flipPrev();
+      }
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [phase, currentPage, isFlipping, isLastPage]);
-
-  // Touch/swipe
-  const touchStart = useRef(null);
-  function handleTouchStart(e) { touchStart.current = e.touches[0].clientX; }
-  function handleTouchEnd(e) {
-    if (touchStart.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStart.current;
-    touchStart.current = null;
-    if (dx < -40) goNext();
-    else if (dx > 40) goPrev();
-  }
+  }, [phase]);
 
   // ── Edit handlers ──────────────────────────────────────────────────────────
   async function handleEditSave(pageIndex, instruction, type) {
@@ -244,21 +342,20 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     setActiveEdit(null);
   }
 
-  // ── Narration (ElevenLabs) ───────────────────────────────────────────
+  // ── Narration (ElevenLabs) ─────────────────────────────────────────────────
   async function handleNarrate() {
-    const current = getPageData(currentPage);
-    if (current.type !== "page" || !current.page?.text) return;
+    const storyIdx = getStoryPageIndex(currentPage);
+    if (storyIdx < 0 || !localPages[storyIdx]?.text) return;
 
     if (narrating) {
-      // Pause
       narrationAudio.current?.pause();
       setNarrating(false);
       setNarratingSentence(-1);
       return;
     }
 
-    const text = current.page.text;
-    const cacheKey = `page_${current.pageIdx}`;
+    const text = localPages[storyIdx].text;
+    const cacheKey = `page_${storyIdx}`;
 
     try {
       let audioUrl = narrationCache.current[cacheKey];
@@ -287,7 +384,6 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       narrationAudio.current = audio;
       setNarrating(true);
 
-      // Sentence highlighting — wait for metadata so duration is accurate
       const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
       const sentenceTimers = [];
 
@@ -303,21 +399,13 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         sentenceTimers.length = 0;
       }
 
-      function handlePlaying() {
-        cleanupTimers();
-        startSentenceHighlighting();
-      }
-
-      function handleEnded() {
+      audio.addEventListener("playing", () => { cleanupTimers(); startSentenceHighlighting(); });
+      audio.addEventListener("ended", () => {
         cleanupTimers();
         setNarrating(false);
         setNarratingSentence(-1);
-        // Auto-advance after 1.5s
-        setTimeout(() => { if (!isLastPage) goNext(); }, 1500);
-      }
-
-      audio.addEventListener("playing", handlePlaying);
-      audio.addEventListener("ended", handleEnded);
+        setTimeout(() => bookRef.current?.pageFlip()?.flipNext(), 1500);
+      });
 
       audio.play().catch(() => {
         setNarrating(false);
@@ -330,14 +418,14 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     }
   }
 
-  // Stop narration on page change — clean up audio and event listeners
+  // Stop narration on page change
   useEffect(() => {
     return () => {
       const audio = narrationAudio.current;
       if (audio) {
         audio.pause();
         audio.removeAttribute("src");
-        audio.load(); // release resources
+        audio.load();
         narrationAudio.current = null;
       }
       setNarrating(false);
@@ -345,21 +433,20 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     };
   }, [currentPage]);
 
-  // ── PDF Download ───────────────────────────────────────────────────────
+  // ── PDF Download ───────────────────────────────────────────────────────────
   async function handleDownloadPdf() {
     setPdfGenerating(true);
     addToast("Preparing your book...", "info", 3000);
 
     try {
-      // Dynamic import to avoid bundling unless needed
       const { default: html2canvas } = await import("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/+esm");
       const { jsPDF } = await import("https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm");
 
       const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-      const bookEl = bookRef.current;
-      if (!bookEl) throw new Error("Book element not found");
+      const flipbook = document.querySelector(".st-flipbook");
+      if (!flipbook) throw new Error("Book element not found");
 
-      const canvas = await html2canvas(bookEl, { scale: 2, useCORS: true, backgroundColor: null });
+      const canvas = await html2canvas(flipbook, { scale: 2, useCORS: true, backgroundColor: null });
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
       const pdfW = pdf.internal.pageSize.getWidth();
       const pdfH = pdf.internal.pageSize.getHeight();
@@ -368,16 +455,14 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       const title = story.title || "My Storytime Book";
       pdf.save(`${title} - Storytime.pdf`);
 
-      // Log activity
       try {
         const history = JSON.parse(localStorage.getItem("sk_activity") || "[]");
         history.unshift({ date: new Date().toISOString(), title, action: "PDF Download", status: "Complete" });
         localStorage.setItem("sk_activity", JSON.stringify(history.slice(0, 50)));
       } catch {}
 
-      addToast("📚 Your book is saved! Check your downloads.", "magic");
+      addToast("Your book is saved! Check your downloads.", "magic");
     } catch (err) {
-      // PDF generation failed — toast already shown
       addToast("PDF generation failed — try again", "error");
     }
     setPdfGenerating(false);
@@ -390,263 +475,166 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       const encoded = btoa(encodeURIComponent(JSON.stringify(shareData)));
       const url = `${window.location.origin}/shared?d=${encoded}`;
       navigator.clipboard.writeText(url);
-      addToast("Link copied! Send it to grandma 👵", "magic");
+      addToast("Link copied! Send it to grandma", "magic");
     } catch { addToast("Failed to copy link", "error"); }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════════
   // RENDER: Cover Reveal Phase
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════════
   if (phase === "reveal" || phase === "opening") {
     return (
-      <div className={`br-reveal ${phase === "opening" ? "br-reveal-opening" : ""}`}>
-        <div className="br-reveal-bg" />
-        <div ref={confettiRef} className="br-confetti-layer" />
+      <div className={`st-scene st-reveal-scene ${phase === "opening" ? "st-reveal-opening" : ""}`}>
+        <div className="st-desk-vignette" />
+        <div className="st-desk-glow" />
+        <Sparkles count={16} />
+        <div ref={confettiRef} className="st-confetti-layer" />
 
-        <div className={`br-closed-book ${phase === "opening" ? "br-book-flip" : "br-book-enter"}`}>
-          {/* Spine */}
-          <div className="br-cb-spine" style={{ background: `linear-gradient(to right, rgba(0,0,0,0.5), rgba(0,0,0,0.2))` }} />
-
-          {/* Cover face */}
-          <div className="br-cb-face" style={{ background: coverGradient }}>
-            <h1 className="br-cb-title">{story.title}</h1>
-            <div className="br-cb-line" />
-            <p className="br-cb-for">A story for {heroName}</p>
-            <p className="br-cb-author">By {authorName}</p>
+        <div className={`st-closed-book ${phase === "opening" ? "st-book-flip" : "st-book-enter"}`}>
+          <div className="st-cb-spine" />
+          <div className="st-cb-face" style={{ background: coverGradient }}>
+            {coverImageUrl && <img src={coverImageUrl} className="st-cb-img" alt="" />}
+            {coverImageUrl && <div className="st-cb-overlay" />}
+            <h1 className="st-cb-title">{story.title}</h1>
+            <div className="st-cb-line" />
+            <p className="st-cb-for">A story for {heroName}</p>
+            <p className="st-cb-author">By {authorName}</p>
           </div>
-
-          {/* Page stack */}
-          <div className="br-cb-pages">
-            <div className="br-cb-pg" style={{ right: 2 }} />
-            <div className="br-cb-pg" style={{ right: 4 }} />
-            <div className="br-cb-pg" style={{ right: 6 }} />
-            <div className="br-cb-pg" style={{ right: 8 }} />
+          <div className="st-cb-pages">
+            <div className="st-cb-pg" style={{ right: 2 }} />
+            <div className="st-cb-pg" style={{ right: 4 }} />
+            <div className="st-cb-pg" style={{ right: 6 }} />
+            <div className="st-cb-pg" style={{ right: 8 }} />
           </div>
         </div>
 
         {phase === "reveal" && (
-          <button className="br-open-btn" onClick={handleOpen}>Open Your Book</button>
+          <button className="st-open-btn" onClick={handleOpen}>Open Your Book</button>
         )}
       </div>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // RENDER: Reading Phase
-  // ═══════════════════════════════════════════════════════════════════════════
-  const current = getPageData(currentPage);
+  // ═════════════════════════════════════════════════════════════════════════════
+  // RENDER: Reading Phase — react-pageflip
+  // ═════════════════════════════════════════════════════════════════════════════
+  const storyIdx = getStoryPageIndex(currentPage);
 
   return (
-    <div className="br-scene" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      {/* Desk environment layers */}
-      <div className="br-desk-vignette" />
-      <div className="br-desk-glow" />
-      <div className="br-desk-sparkles">
-        {Array.from({ length: 18 }).map((_, i) => (
-          <div
-            key={i}
-            className="br-sparkle"
-            style={{
-              left: `${8 + Math.random() * 84}%`,
-              top: `${5 + Math.random() * 90}%`,
-              '--dur': `${6 + Math.random() * 6}s`,
-              '--delay': `${Math.random() * 8}s`,
-            }}
-          />
-        ))}
-      </div>
+    <div className="st-scene">
+      <div className="st-desk-vignette" />
+      <div className="st-desk-glow" />
+      <Sparkles count={16} />
 
       {/* Toolbar */}
-      <div className="br-toolbar">
-        <button className="br-tool-btn" onClick={() => navigate("/library")}>← Back to Library</button>
-        <div className="br-tool-right">
-          {current.type === "page" && (
-            <button className="br-tool-icon" onClick={handleNarrate} title={narrating ? "Pause" : "Read to me"}>
-              {narrating ? "⏸ Pause" : "🔊 Read to me"}
+      <div className="st-toolbar">
+        <button className="st-tool-btn" onClick={() => navigate("/library")}>&larr; Back to Library</button>
+        <div className="st-tool-right">
+          {storyIdx >= 0 && (
+            <button className="st-tool-icon" onClick={handleNarrate} title={narrating ? "Pause" : "Read to me"}>
+              {narrating ? "\u23F8 Pause" : "\uD83D\uDD0A Read to me"}
             </button>
           )}
-          <button className="br-tool-icon" onClick={handleDownloadPdf} disabled={pdfGenerating} title="Save PDF">
-            {pdfGenerating ? "⏳" : "⬇"} Save PDF
+          <button className="st-tool-icon" onClick={handleDownloadPdf} disabled={pdfGenerating} title="Save PDF">
+            {pdfGenerating ? "\u23F3" : "\u2B07"} Save PDF
           </button>
-          <button className="br-tool-icon" onClick={handleShare} title="Share">🔗</button>
-          <button className="br-tool-icon" onClick={onReset} title="New Story">✨</button>
+          <button className="st-tool-icon" onClick={handleShare} title="Share">\uD83D\uDD17</button>
+          <button className="st-tool-icon" onClick={onReset} title="New Story">\u2728</button>
         </div>
       </div>
 
-      {/* The book */}
-      <div className="br-book-area">
-        {/* Nav arrows */}
-        <button className="br-nav-arrow br-nav-prev" onClick={goPrev} disabled={currentPage <= 0 || isFlipping} aria-label="Previous page">‹</button>
-        <button className="br-nav-arrow br-nav-next" onClick={goNext} disabled={isLastPage || isFlipping} aria-label="Next page">›</button>
-
-        <div
-          className={`br-book ${isFlipping ? "br-flipping" : ""}`}
+      {/* Physical book wrapper */}
+      <div className="st-book-wrapper">
+        <HTMLFlipBook
           ref={bookRef}
-          style={{ transform: `rotate(${bookRotation}deg)` }}
+          width={550}
+          height={733}
+          size="stretch"
+          minWidth={280}
+          maxWidth={700}
+          minHeight={373}
+          maxHeight={933}
+          showCover={true}
+          maxShadowOpacity={0.6}
+          drawShadow={true}
+          flippingTime={800}
+          usePortrait={true}
+          mobileScrollSupport={false}
+          swipeDistance={30}
+          className="st-flipbook"
+          onFlip={handleFlip}
         >
-          {/* Cover page (full spread with cover image) */}
-          {current.type === "cover" && (
-            <div className="br-spread br-cover-spread" style={{ background: coverImageUrl ? '#000' : gradient }}>
-              {coverImageUrl && (
-                <>
-                  <img className="br-cover-bg-img" src={coverImageUrl} alt="" />
-                  <div className="br-cover-overlay" />
-                </>
-              )}
-              <div className="br-noise" />
-              <div className="br-cover-content">
-                <h1 className="br-cc-title">{story.title}</h1>
-                <div className="br-cc-line" />
-                <p className="br-cc-for">A story written for</p>
-                <p className="br-cc-name">{heroName}</p>
-                <p className="br-cc-author">By {authorName}</p>
-                <div className="br-cc-watermark">Storytime</div>
-              </div>
-            </div>
-          )}
+          {bookPages.map((bp, i) => {
+            switch (bp.type) {
+              case "cover":
+                return <CoverPage key={`cover-${i}`} title={story.title}
+                  heroName={heroName} authorName={authorName}
+                  coverGradient={coverGradient}
+                  coverImageUrl={coverImageUrl} />;
+              case "dedication":
+                return <DedicationPage key={`ded-${i}`}
+                  dedication={dedication}
+                  gradient={gradient} />;
+              case "story-left":
+                return <StoryPageLeft key={`sl-${bp.index}`}
+                  imageUrl={bp.page.imageUrl}
+                  text={bp.page.text}
+                  pageNum={bp.index + 1}
+                  gradient={gradient}
+                  emoji={bp.page.scene_emoji || "\uD83C\uDF1F"}
+                  heroPhotoUrl={data.heroPhotoUrl}
+                  isRegenerating={regeneratingImage === bp.index}
+                  onEdit={() => setActiveEdit(activeEdit ? null : { index: bp.index, type: "story" })}
+                  narrating={narrating}
+                  narratingSentence={narratingSentence} />;
+              case "story-right":
+                return <StoryPageRight key={`sr-${bp.index}`}
+                  imageUrl={bp.page.imageUrl}
+                  text={bp.page.text}
+                  pageNum={bp.index + 1}
+                  gradient={gradient}
+                  emoji={bp.page.scene_emoji || "\uD83C\uDF1F"}
+                  heroPhotoUrl={data.heroPhotoUrl}
+                  isRegenerating={regeneratingImage === bp.index} />;
+              case "back-cover":
+                return <BackCover key={`back-${i}`}
+                  onReset={onReset} onShare={handleShare} />;
+              default:
+                return null;
+            }
+          })}
+        </HTMLFlipBook>
 
-          {/* Dedication page */}
-          {current.type === "dedication" && (() => {
-            const coverEmoji = story.coverEmoji || story.pages?.[0]?.scene_emoji || "✨";
-            const floatingEmojis = ["🌟", "💫", "✨", "🌙", "⭐", "💖", "🦋", "🌸", "🍃", "🌺"];
-            return (
-              <div className="br-spread">
-                <div className="br-page-left br-ded-left" style={{ background: gradient }}>
-                  <div className="br-noise" />
-                  <div className="br-ded-hero-emoji">{coverEmoji}</div>
-                  {floatingEmojis.map((em, i) => (
-                    <div
-                      key={i}
-                      className="br-ded-float-emoji"
-                      style={{
-                        left: `${10 + Math.random() * 75}%`,
-                        top: `${8 + Math.random() * 78}%`,
-                        fontSize: `${20 + Math.random() * 16}px`,
-                        opacity: 0.3 + Math.random() * 0.35,
-                        animationDuration: `${3 + Math.random() * 4}s`,
-                        animationDelay: `${Math.random() * 3}s`,
-                      }}
-                    >
-                      {em}
-                    </div>
-                  ))}
-                  <div className="br-pl-bottom" style={{ color: "rgba(255,255,255,0.25)" }}>✦</div>
-                </div>
-                <div className="br-spine" />
-                <div className="br-page-right">
-                  <div className="br-pr-inner br-ded-right-inner">
-                    <div className="br-ded-flourish">✦</div>
-                    <div className="br-ded-label">Dedication</div>
-                    <p className="br-ded-text">{dedication}</p>
-                    <div className="br-ded-heart">♥</div>
-                    <div className="br-pr-pagenum">~ ♥ ~</div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+        {/* Hardcover binding */}
+        <div className="st-binding" />
+        {/* Page stack edges */}
+        <div className="st-page-stack" />
+      </div>
 
-          {/* Story pages — text left, illustration right */}
-          {current.type === "page" && (() => {
-            const imgUrl = current.page.imageUrl;
-            const isSafeImage = isGeneratedImage(imgUrl) && !isReferencePhoto(imgUrl, data.heroPhotoUrl);
-            const pageEmoji = current.page.scene_emoji || current.page.emoji || "🌟";
+      {/* Nav arrows */}
+      <div className="st-nav-arrows">
+        <button className="st-nav-arrow st-nav-prev"
+          onClick={() => bookRef.current?.pageFlip()?.flipPrev()}
+          aria-label="Previous page">&lsaquo;</button>
+        <button className="st-nav-arrow st-nav-next"
+          onClick={() => bookRef.current?.pageFlip()?.flipNext()}
+          aria-label="Next page">&rsaquo;</button>
+      </div>
 
-            const moodColors = {
-              wonder:     { bg: "#FFF8ED", accent: "#D4A76A" },
-              adventure:  { bg: "#FFF5F0", accent: "#E8845A" },
-              cozy:       { bg: "#FEF7ED", accent: "#C8956C" },
-              tense:      { bg: "#F0F4FF", accent: "#7C8CC8" },
-              triumphant: { bg: "#FFFFF0", accent: "#D4A020" },
-              tender:     { bg: "#FFF0F5", accent: "#C87C95" },
-            };
-            const colors = moodColors[current.page.mood] || moodColors.wonder;
-
-            return (
-              <div className="br-spread">
-                {/* LEFT — Text page */}
-                <div className="br-page-left br-text-page" style={{ background: colors.bg }}>
-                  <div className="br-noise" />
-                  <div className="br-text-decor-top" style={{ color: colors.accent }}>&#10087;</div>
-                  <div className="br-text-spot" style={{ color: colors.accent }}>{pageEmoji}</div>
-                  <div className="br-text-block">
-                    <p className="br-page-text">
-                      {renderTextWithDropCap(current.page.text, current.pageIdx, narrating, narratingSentence)}
-                    </p>
-                  </div>
-                  <div className="br-text-decor-bot" style={{ color: colors.accent }}>&#10022;</div>
-                  <div className="br-text-pagenum" style={{ color: colors.accent }}>
-                    &mdash; {current.pageIdx + 1} &mdash;
-                  </div>
-                  <button className="br-edit-toggle" onClick={() => setActiveEdit(activeEdit ? null : { index: current.pageIdx, type: "story" })}>
-                    &#9999;&#65039;
-                  </button>
-                </div>
-
-                {/* SPINE */}
-                <div className="br-spine" />
-
-                {/* RIGHT — Illustration page */}
-                <div className="br-page-right br-illust-page">
-                  {regeneratingImage === current.pageIdx ? (
-                    <div className="br-illust-loading" style={{ background: gradient }}>
-                      <div className="br-pl-emoji br-emoji-pulse">{pageEmoji}</div>
-                      <div className="br-illustrating-badge">Illustrating...</div>
-                    </div>
-                  ) : isSafeImage ? (
-                    <img
-                      className="br-illust-img br-img-fadein"
-                      src={imgUrl}
-                      alt={current.page.scene_description || `Page ${current.pageIdx + 1}`}
-                      onError={(e) => {
-                        e.target.style.display = "none";
-                        e.target.parentElement.style.background = gradient;
-                      }}
-                    />
-                  ) : (
-                    <div className="br-illust-fallback" style={{ background: gradient }}>
-                      <div className="br-pl-emoji br-emoji-pulse">{pageEmoji}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* End page */}
-          {current.type === "end" && (
-            <div className="br-spread br-cover-spread" style={{ background: '#0C0A09' }}>
-              <div className="br-noise" />
-              <div className="br-cover-content" style={{ justifyContent: 'center' }}>
-                <h1 className="br-cc-title" style={{ fontSize: 32, opacity: 0.9 }}>The End</h1>
-                <div className="br-cc-line" />
-                <p className="br-cc-for">A Storytime Original</p>
-                <div className="br-end-actions">
-                  <button className="br-end-btn" onClick={handleShare}>Share</button>
-                  <button className="br-end-btn" onClick={onReset}>New Story</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+      {/* Page indicator */}
+      <div className="st-page-indicator">
+        Page {Math.floor(currentPage / 2) + 1} of {Math.ceil(bookPages.length / 2)}
       </div>
 
       {/* Edit drawer */}
       {activeEdit && (
-        <div className="br-edit-area">
+        <div className="st-edit-area">
           <EditDrawer
             type={activeEdit.type}
             onSave={(instruction) => handleEditSave(activeEdit.index, instruction, activeEdit.type)}
           />
         </div>
       )}
-
-      {/* Progress dots */}
-      <div className="br-dots" role="tablist" aria-label="Page navigation">
-        {Array.from({ length: totalPages }).map((_, i) => (
-          <div key={i} className={`br-dot${i === currentPage ? " br-dot-on" : ""}`} role="tab" aria-selected={i === currentPage} aria-label={`Page ${i + 1}`} />
-        ))}
-      </div>
     </div>
   );
 }
