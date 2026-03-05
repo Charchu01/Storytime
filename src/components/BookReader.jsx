@@ -151,72 +151,85 @@ const DedicationPage = React.forwardRef(({ dedication, gradient }, ref) => (
 
 // Single full-page image (for full-portrait layout)
 const StoryPageFull = React.forwardRef(({
-  imageUrl, text, gradient, emoji, heroPhotoUrl, isRegenerating, onEdit }, ref) => {
+  imageUrl, text, pageNum, gradient, emoji, heroPhotoUrl, isRegenerating, onEdit }, ref) => {
   const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
+  const isOdd = pageNum % 2 === 1;
   return (
     <div ref={ref} className="st-page st-story-page">
-      {isRegenerating ? (
-        <div className="st-illust-fallback" style={{ background: gradient }}>
-          <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
-          <span className="st-illustrating-badge">Illustrating...</span>
-        </div>
-      ) : isSafe ? (
-        <img src={imageUrl} className="st-full-page-img" alt=""
-          onError={(e) => { e.target.style.display = "none"; }} />
-      ) : (
-        <div className="st-illust-fallback" style={{ background: gradient }}>
-          <span className="st-fallback-emoji">{emoji}</span>
-          <p className="st-fallback-text">{text}</p>
-        </div>
-      )}
-      <div className="st-paper-texture" />
+      <div className="st-page-illustration">
+        {isRegenerating ? (
+          <div className="st-illust-fallback" style={{ background: gradient }}>
+            <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
+            <span className="st-illustrating-badge">Illustrating...</span>
+          </div>
+        ) : isSafe ? (
+          <img src={imageUrl} className="st-full-page-img" alt=""
+            onError={(e) => { e.target.style.display = "none"; }} />
+        ) : (
+          <div className="st-illust-fallback" style={{ background: gradient }}>
+            <span className="st-fallback-emoji">{emoji}</span>
+            <p className="st-fallback-text">{text}</p>
+          </div>
+        )}
+      </div>
+      <div className="st-page-border" />
+      <div className="st-page-texture" />
+      <span className={`st-page-number ${isOdd ? "st-pn-right" : "st-pn-left"}`}>{pageNum}</span>
       {onEdit && <button className="st-edit-toggle" onClick={(e) => { e.stopPropagation(); onEdit(); }}>✏️</button>}
     </div>
   );
 });
 
 // Left half of a two-panel or wide-cinematic spread
-const StorySpreadLeft = React.forwardRef(({ imageUrl, gradient, emoji, heroPhotoUrl, isRegenerating }, ref) => {
+const StorySpreadLeft = React.forwardRef(({ imageUrl, pageNum, gradient, emoji, heroPhotoUrl, isRegenerating }, ref) => {
   const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
   return (
     <div ref={ref} className="st-page st-story-page">
-      {isRegenerating ? (
-        <div className="st-illust-fallback" style={{ background: gradient }}>
-          <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
-          <span className="st-illustrating-badge">Illustrating...</span>
-        </div>
-      ) : isSafe ? (
-        <img src={imageUrl} className="st-spread-img st-spread-left" alt=""
-          onError={(e) => { e.target.style.display = "none"; }} />
-      ) : (
-        <div className="st-illust-fallback" style={{ background: gradient }}>
-          <span className="st-fallback-emoji">{emoji}</span>
-        </div>
-      )}
-      <div className="st-paper-texture" />
+      <div className="st-page-illustration">
+        {isRegenerating ? (
+          <div className="st-illust-fallback" style={{ background: gradient }}>
+            <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
+            <span className="st-illustrating-badge">Illustrating...</span>
+          </div>
+        ) : isSafe ? (
+          <img src={imageUrl} className="st-spread-img st-spread-left" alt=""
+            onError={(e) => { e.target.style.display = "none"; }} />
+        ) : (
+          <div className="st-illust-fallback" style={{ background: gradient }}>
+            <span className="st-fallback-emoji">{emoji}</span>
+          </div>
+        )}
+      </div>
+      <div className="st-page-border" />
+      <div className="st-page-texture" />
+      <span className="st-page-number st-pn-left">{pageNum}</span>
       <div className="st-spine-shadow st-spine-right" />
     </div>
   );
 });
 
 // Right half of a spread
-const StorySpreadRight = React.forwardRef(({ imageUrl, gradient, emoji, heroPhotoUrl, isRegenerating, onEdit }, ref) => {
+const StorySpreadRight = React.forwardRef(({ imageUrl, pageNum, gradient, emoji, heroPhotoUrl, isRegenerating, onEdit }, ref) => {
   const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
   return (
     <div ref={ref} className="st-page st-story-page">
-      {isRegenerating ? (
-        <div className="st-illust-fallback" style={{ background: gradient }}>
-          <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
-        </div>
-      ) : isSafe ? (
-        <img src={imageUrl} className="st-spread-img st-spread-right" alt=""
-          onError={(e) => { e.target.style.display = "none"; }} />
-      ) : (
-        <div className="st-illust-fallback" style={{ background: gradient }}>
-          <span className="st-fallback-emoji">{emoji}</span>
-        </div>
-      )}
-      <div className="st-paper-texture" />
+      <div className="st-page-illustration">
+        {isRegenerating ? (
+          <div className="st-illust-fallback" style={{ background: gradient }}>
+            <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
+          </div>
+        ) : isSafe ? (
+          <img src={imageUrl} className="st-spread-img st-spread-right" alt=""
+            onError={(e) => { e.target.style.display = "none"; }} />
+        ) : (
+          <div className="st-illust-fallback" style={{ background: gradient }}>
+            <span className="st-fallback-emoji">{emoji}</span>
+          </div>
+        )}
+      </div>
+      <div className="st-page-border" />
+      <div className="st-page-texture" />
+      <span className="st-page-number st-pn-right">{pageNum}</span>
       <div className="st-spine-shadow st-spine-left" />
       {onEdit && <button className="st-edit-toggle" onClick={(e) => { e.stopPropagation(); onEdit(); }}>✏️</button>}
     </div>
@@ -273,18 +286,20 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   // Build page array — layout-aware: full-portrait = 1 page, two-panel/wide-cinematic = 2 pages
   const bookPages = useMemo(() => {
     const result = [];
+    let pageNum = 0;
     result.push({ type: "cover" });
     if (dedication) {
       result.push({ type: "dedication" });
     }
     localPages.forEach((page, i) => {
       const layout = page.layout || "full-portrait";
+      pageNum++;
       if (layout === "full-portrait") {
-        result.push({ type: "story-full", page, index: i });
+        result.push({ type: "story-full", page, index: i, pageNum });
       } else {
         // two-panel or wide-cinematic → split into two flipbook pages
-        result.push({ type: "story-spread-left", page, index: i });
-        result.push({ type: "story-spread-right", page, index: i });
+        result.push({ type: "story-spread-left", page, index: i, pageNum });
+        result.push({ type: "story-spread-right", page, index: i, pageNum });
       }
     });
     // Pad with blank page if needed so back cover lands on a left (even) page
@@ -579,6 +594,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
               case "story-full":
                 return <StoryPageFull key={`sf-${bp.index}`}
                   imageUrl={bp.page.imageUrl} text={bp.page.text}
+                  pageNum={bp.pageNum}
                   gradient={gradient} emoji={bp.page.scene_emoji || "🌟"}
                   heroPhotoUrl={data.heroPhotoUrl}
                   isRegenerating={regeneratingImage === bp.index}
@@ -586,12 +602,14 @@ export default function BookReader({ data, cast, styleName, onReset }) {
               case "story-spread-left":
                 return <StorySpreadLeft key={`sl-${bp.index}`}
                   imageUrl={bp.page.imageUrl}
+                  pageNum={bp.pageNum}
                   gradient={gradient} emoji={bp.page.scene_emoji || "🌟"}
                   heroPhotoUrl={data.heroPhotoUrl}
                   isRegenerating={regeneratingImage === bp.index} />;
               case "story-spread-right":
                 return <StorySpreadRight key={`sr-${bp.index}`}
                   imageUrl={bp.page.imageUrl}
+                  pageNum={bp.pageNum}
                   gradient={gradient} emoji={bp.page.scene_emoji || "🌟"}
                   heroPhotoUrl={data.heroPhotoUrl}
                   isRegenerating={regeneratingImage === bp.index}

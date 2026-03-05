@@ -116,11 +116,11 @@ ART STYLE: ${styleDesc}
 
 ATMOSPHERE: ${atmosphere}
 
-PAGE BORDERS:
-- Every page has a painted border frame: a dark, rich colour (navy blue, deep burgundy, or forest green depending on the story's palette) with rough, hand-painted torn edges
-- Underneath the painted border, aged parchment/cream paper texture is visible
-- The border gives every page a classic, antique storybook feel
-- The border style must be IDENTICAL on every page
+ILLUSTRATION AREA:
+- The illustration fills the ENTIRE image edge-to-edge — NO borders, NO frames, NO parchment edges
+- Do NOT add any decorative border or frame around the illustration
+- The book's physical border/frame is handled separately — your job is ONLY the illustration and text boxes
+- Paint the scene all the way to every edge of the image
 
 TEXT BOXES:
 - ${textStyle}
@@ -130,18 +130,14 @@ TEXT BOXES:
 - If the page text is long, split into two text boxes side by side
 - Same text box design on EVERY page — identical borders, identical font, identical cream background
 
-PAGE NUMBERS:
-- Small elegant serif number at the bottom outer corner of each page
-- Odd pages (1, 3, 5...): number at bottom-RIGHT
-- Even pages (2, 4, 6...): number at bottom-LEFT
-- Number should be subtle — same colour as the border, small size
-
 DO NOT INCLUDE:
+- No page borders or frames around the illustration (the app adds these)
+- No page numbers (the app adds these)
+- No parchment edges or torn-paper effects (the app adds these)
 - No speech bubbles or comic-style word balloons
 - No modern UI elements, watermarks, or logos
-- No brand names or copyright text
 - No photorealistic rendering — everything must be illustrated
-- No text outside of the designated text boxes (no floating words in the illustration)
+- No text outside of the designated text boxes
 
 QUALITY: Award-winning picture book illustration quality. Every page should look like it belongs in a bookstore.`;
 }
@@ -210,13 +206,12 @@ GENERATE A PROFESSIONAL CHILDREN'S PICTURE BOOK FRONT COVER.
 This is the FIRST image generated for this book. It sets the art style for the ENTIRE book — every subsequent page MUST match this exact illustration style.
 
 LAYOUT: Single portrait-oriented book cover
-- Full illustrated background filling the entire cover
+- Full illustrated background filling the ENTIRE image edge-to-edge — NO borders, NO frames
 - Title "${title}" in large, warm, hand-lettered storybook style positioned in the top third
 - "A story for ${heroName}" in elegant smaller text below
 - "By ${authorName}" at the bottom in small text
 - All text clearly legible against the illustration
-- Painted border frame around the entire cover: dark rich colour (navy, burgundy, or forest green) with rough hand-painted torn edges, aged parchment visible underneath
-- This border style will be used on EVERY page of the book${heroPhotoUrl ? `
+- Do NOT add any decorative border or frame — the app handles this${heroPhotoUrl ? `
 
 REFERENCE IMAGES:
 - Image 1: Photo of ${heroName} — this is for reference only. Do NOT include this person on the cover. No characters on the cover — pure world-building.` : ""}
@@ -227,7 +222,7 @@ ILLUSTRATION:
 - Epic cinematic scale, magical and inviting
 - This scene should make a child WANT to open the book
 
-This cover defines the visual DNA of the entire book. Every subsequent page MUST match this exact art style, colour palette, border design, text box style, and illustration quality.`;
+This cover defines the visual DNA of the entire book. Every subsequent page MUST match this exact art style, colour palette, text box style, and illustration quality.`;
 }
 
 // ── Layer 3: PAGE-SPECIFIC PROMPT (unique per page) ──────────────────────────
@@ -290,8 +285,8 @@ function buildPagePrompt(page, pageIndex, totalPages, cast, heroName, previousPa
 
 REFERENCE IMAGES PROVIDED:
 - Image 1: Photo of ${heroName || "the main character"} — use this for FACE and IDENTITY only. Transform into illustrated style, do NOT copy the photo literally.
-- Image 2: The COVER of this book — this is your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, border design, and text box style on this page.${previousPageExists ? `
-- Image 3: The PREVIOUS page of this book — maintain VISUAL CONTINUITY with this page. Characters should look identical. Colour temperature, lighting style, and border design should flow naturally from this page to the current one.` : ""}
+- Image 2: The COVER of this book — this is your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and text box style on this page.${previousPageExists ? `
+- Image 3: The PREVIOUS page of this book — maintain VISUAL CONTINUITY with this page. Characters should look identical. Colour temperature, lighting style, and text box style should flow naturally from this page to the current one.` : ""}
 
 ${positionNote}
 
