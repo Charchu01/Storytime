@@ -43,7 +43,7 @@ function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, erro
         <div style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", marginBottom: 16, lineHeight: 1.6, maxWidth: 400, textAlign: "center", wordBreak: "break-word" }}>
           {error}
         </div>
-        <button className="br-end-btn" onClick={onRetry}>Try Again</button>
+        <button className="st-back-btn" onClick={onRetry}>Try Again</button>
       </div>
     );
   }
