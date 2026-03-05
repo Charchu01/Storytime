@@ -112,21 +112,25 @@ function buildCharacterDescription(cast) {
 async function analyzeCharacterPhotos_single(character, photoDataUri) {
   const role = ROLES.find((r) => r.id === character.role)?.label || character.role;
   const ageNote = character.age ? `, approximately ${character.age} years old` : "";
+  const isAdult = character.role === "adult" || (character.age && parseInt(character.age) >= 16);
 
   try {
     const description = await claudeCall(
-      `You are a professional children's book illustrator creating a character reference sheet. Your description will be fed DIRECTLY into an AI image generator to draw this person as a storybook character across multiple pages.
+      `You are a professional children's book illustrator creating a character reference sheet. Your description will be fed DIRECTLY into an AI image generator to draw this person as a storybook character.
 
-Write an EXTREMELY specific and vivid visual description (4-6 sentences) that an AI image generator can use. Be precise about:
-- EXACT hair color (e.g. "warm chestnut brown", "jet black", "strawberry blonde"), texture (straight, wavy, curly, coily), and length/style
-- EXACT skin tone (e.g. "warm golden brown", "fair with rosy cheeks", "deep rich brown", "olive-toned")
-- Eye color and shape (e.g. "large round dark brown eyes", "bright blue almond-shaped eyes")
-- Face shape (round, oval, heart-shaped) and key features (chubby cheeks, dimples, freckles, button nose)
-- Body build for their age (chubby toddler, slim, sturdy)
-- Any distinctive features (gap teeth, birthmark, curls that bounce, glasses)
+CRITICAL: Look at the PHOTO FIRST. Describe EXACTLY what you see — the REAL person in the image. Do NOT invent or assume features. If the person is clearly an adult, describe them as an adult. If they have a shaved head, say "shaved head" or "buzz cut" — do NOT write "curly hair" if you see no curls.
 
-Format as a single flowing paragraph. Do NOT mention clothing. Do NOT use vague terms like "light skin" or "dark hair" — be SPECIFIC with descriptive color words. Write in third person.`,
-      `This is ${character.name}, a ${role}${ageNote}. Please write an extremely detailed physical appearance description for an illustrator.`,
+Write an EXTREMELY specific and vivid visual description (4-6 sentences):
+- EXACT hair: color, texture, length/style — or "shaved/buzz cut" if applicable
+- EXACT skin tone (e.g. "warm golden brown", "fair with rosy cheeks", "olive-toned")
+- Eye color and shape
+- Face shape and key features (jawline, cheekbones, dimples, stubble/beard if present)
+- Body build: ${isAdult ? "adult build (tall, average, stocky, slim, muscular, etc.)" : "child build for their age (chubby toddler, slim, sturdy)"}
+- Any distinctive features (glasses, birthmark, facial hair, etc.)
+
+Format as a single flowing paragraph. Do NOT mention clothing. Do NOT use vague terms. Write in third person.
+${isAdult ? "\nIMPORTANT: This person is an ADULT. Do NOT describe them as a child. Use adult body proportions and features." : ""}`,
+      `This is ${character.name}, a ${role}${ageNote}. Look at the photo carefully and describe EXACTLY what you see — their real physical appearance.`,
       400,
       photoDataUri
     );
@@ -317,8 +321,14 @@ function buildMasterSystemPrompt(cast, heroName, heroAge, styleName, tone, forma
   const bookTypePrompt = BOOK_TYPE_PROMPTS[bookType] || BOOK_TYPE_PROMPTS.adventure;
 
   // Build character descriptions
+  const heroChar = cast.find(c => c.isHero) || cast[0];
+  const heroRole = heroChar?.role || "child";
+  const isAdultHero = heroRole === "adult" || (heroAge && parseInt(heroAge) >= 16);
+
   let castDesc = `MAIN CHARACTER: ${heroName}`;
-  if (heroAge) {
+  if (isAdultHero) {
+    castDesc += heroAge ? `, ${heroAge} years old (ADULT — adult proportions, adult face, adult body)` : ` (ADULT — adult proportions, adult face, adult body)`;
+  } else if (heroAge) {
     if (heroAge <= 3) castDesc += `, ${heroAge} years old (toddler — large head, chubby cheeks, short limbs)`;
     else if (heroAge <= 6) castDesc += `, ${heroAge} years old (young child — round face, big eyes, small stature)`;
     else if (heroAge <= 10) castDesc += `, ${heroAge} years old (older child — longer limbs, confident posture)`;
@@ -326,7 +336,6 @@ function buildMasterSystemPrompt(cast, heroName, heroAge, styleName, tone, forma
   }
 
   // Add appearance descriptions from photo analysis
-  const heroChar = cast.find(c => c.isHero) || cast[0];
   if (heroChar?.appearanceDescription) {
     castDesc += `\nAppearance: ${heroChar.appearanceDescription}`;
   }
