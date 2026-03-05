@@ -2544,6 +2544,7 @@
   z-index: 1;
   width: 90%;
   max-width: 700px;
+  aspect-ratio: 3 / 4;
   max-height: 85vh;
   border-radius: 8px;
   overflow: hidden;
@@ -2556,6 +2557,13 @@
   justify-content: center;
   background: #1a1210;
 }
+.br-page-display.br-portrait {
+  aspect-ratio: 3 / 4;
+}
+.br-page-display.br-landscape {
+  aspect-ratio: 4 / 3;
+  max-width: 900px;
+}
 @keyframes brPageFade {
   from { opacity: 0; transform: scale(0.97); }
   to { opacity: 1; transform: scale(1); }
@@ -2563,6 +2571,7 @@
 
 .br-page-content {
   width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2572,14 +2581,15 @@
 
 .br-page-image {
   width: 100%;
-  max-height: 85vh;
-  object-fit: contain;
+  height: 100%;
+  object-fit: cover;
   display: block;
 }
 
 /* Cover page */
 .br-page-cover {
-  background: linear-gradient(135deg, #1E3050, #263D5C);
+  height: 100%;
+  background: #1a1210;
 }
 .br-cover-fallback {
   display: flex;
@@ -2606,22 +2616,38 @@
   color: rgba(255,255,255,0.6);
 }
 
-/* Dedication page */
+/* Dedication page — looks like a real book page */
 .br-dedication-card {
+  height: 100%;
   background: linear-gradient(170deg, #FAF5ED 0%, #F3ECE0 50%, #EDE5D8 100%);
-  padding: 15%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10% 12%;
+  position: relative;
+}
+.br-dedication-card::before {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgba(92, 74, 58, 0.15);
+  border-radius: 4px;
+  pointer-events: none;
 }
 .br-dedication-text {
   font-family: 'Georgia', serif;
-  font-size: clamp(14px, 2vw, 20px);
+  font-size: clamp(16px, 2.5vw, 24px);
   font-style: italic;
   color: #5C4A3A;
   text-align: center;
-  line-height: 1.8;
+  line-height: 2;
+  max-width: 80%;
 }
 
 /* Spread / page content */
 .br-page-spread, .br-page-single {
+  height: 100%;
   background: #1a1210;
 }
 .br-page-emoji {
@@ -2661,7 +2687,8 @@
 
 /* Back cover */
 .br-page-back {
-  background: #263D5C;
+  height: 100%;
+  background: #1a1210;
 }
 .br-back-fallback {
   display: flex;
@@ -2687,9 +2714,13 @@
   color: rgba(255,255,255,0.4);
 }
 .br-back-actions {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   gap: 10px;
-  margin-top: 24px;
+  z-index: 2;
 }
 .br-back-btn {
   padding: 8px 20px;
@@ -2847,7 +2878,8 @@
 
 /* ── Mobile responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .br-page-display { width: 95%; max-height: 70vh; }
+  .br-page-display { width: 95%; max-height: 75vh; }
+  .br-page-display.br-landscape { max-width: 100%; }
   .br-nav { width: 34px; height: 34px; font-size: 18px; }
   .br-nav-prev { left: 6px; }
   .br-nav-next { right: 6px; }

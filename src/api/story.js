@@ -733,9 +733,6 @@ export async function generateAllImages(
     }
     refImages.push(...companionUrls);
 
-    // Validate cover + first spread always; remaining spreads skip validation for speed
-    const shouldValidate = (i === 0);
-
     try {
       let url = await generateImage(
         spreadPrompt,
@@ -748,32 +745,39 @@ export async function generateAllImages(
       );
 
       if (url && await validateImageUrl(url)) {
-        // Run validation gate if applicable
-        if (shouldValidate) {
-          const validation = await validateImage(
-            url,
-            [spread.leftPageText, spread.rightPageText],
-            heroName,
-            artStyle,
-            "spread",
-            spread.sceneDescription
-          );
-          if (!validation.pass) {
-            console.warn(`Spread ${i + 1} failed validation:`, validation.issues?.join(", "));
-            try {
-              const fixPrompt = spreadPrompt +
-                `\n\nCRITICAL FIXES FOR THIS RETRY:\n${validation.fixNotes || validation.issues?.join(". ") || "Improve text accuracy and character quality."}`;
-              await new Promise(r => setTimeout(r, 2000));
-              const retryUrl = await generateImage(
-                fixPrompt, heroPhotoUrl, tier, null,
-                refImages, spread.aspectRatio || "4:3", false
+        // Validate every spread
+        const validation = await validateImage(
+          url,
+          [spread.leftPageText, spread.rightPageText],
+          heroName,
+          artStyle,
+          "spread",
+          spread.sceneDescription
+        );
+        if (!validation.pass) {
+          console.warn(`Spread ${i + 1} failed validation:`, validation.issues?.join(", "));
+          // Retry with specific fix instructions
+          try {
+            const fixPrompt = spreadPrompt +
+              `\n\nCRITICAL FIXES FOR THIS RETRY:\n${validation.fixNotes || validation.issues?.join(". ") || "Improve text accuracy and character quality."}`;
+            await new Promise(r => setTimeout(r, 2000));
+            const retryUrl = await generateImage(
+              fixPrompt, heroPhotoUrl, tier, null,
+              refImages, spread.aspectRatio || "4:3", false
+            );
+            if (retryUrl && await validateImageUrl(retryUrl)) {
+              // Validate the retry too
+              const retryValidation = await validateImage(
+                retryUrl,
+                [spread.leftPageText, spread.rightPageText],
+                heroName, artStyle, "spread", spread.sceneDescription
               );
-              if (retryUrl && await validateImageUrl(retryUrl)) {
+              if (retryValidation.pass || (retryValidation.faceScore || 0) >= (validation.faceScore || 0)) {
                 url = retryUrl;
                 logCost("nano_banana", tier, true, 0, "retry_after_validation");
               }
-            } catch { /* use original */ }
-          }
+            }
+          } catch { /* use original */ }
         }
         images[`spread_${i}`] = url;
         previousImageUrl = url;
@@ -840,7 +844,32 @@ export async function generateAllImages(
       false
     );
     if (backUrl && await validateImageUrl(backUrl)) {
-      images.backCover = backUrl;
+      // Validate back cover
+      const backValidation = await validateImage(
+        backUrl, [], heroName, artStyle, "back_cover",
+        storyPlan.backCover?.sceneDescription || ""
+      );
+      if (!backValidation.pass) {
+        console.warn("Back cover failed validation:", backValidation.issues?.join(", "));
+        try {
+          const fixPrompt = backPrompt +
+            `\n\nCRITICAL FIXES:\n${backValidation.fixNotes || backValidation.issues?.join(". ")}`;
+          await new Promise(r => setTimeout(r, 2000));
+          const retryBack = await generateImage(
+            fixPrompt, heroPhotoUrl, tier, null,
+            backRefs, storyPlan.backCover?.aspectRatio || "3:4", false
+          );
+          if (retryBack && await validateImageUrl(retryBack)) {
+            images.backCover = retryBack;
+          } else {
+            images.backCover = backUrl;
+          }
+        } catch {
+          images.backCover = backUrl;
+        }
+      } else {
+        images.backCover = backUrl;
+      }
       logCost("nano_banana", tier, true, 0, null);
     }
   } catch (err) {
