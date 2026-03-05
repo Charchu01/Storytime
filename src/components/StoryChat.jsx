@@ -64,12 +64,14 @@ export default function StoryChat({ heroType, onDataUpdate, onReady }) {
   const sendToAssistant = useCallback(async (allMessages) => {
     setLoading(true);
     try {
-      // Build API messages (only user/assistant, skip system display messages)
+      // Build API messages — send only user messages and assistant displayText
+      // (never send raw JSON back to Claude, it causes format drift)
       const apiMessages = allMessages
         .filter((m) => m.role === "user" || m.role === "assistant")
         .map((m) => ({
           role: m.role,
-          content: m.content,
+          // For assistant messages, send only the friendly text, not raw JSON
+          content: m.role === "assistant" ? (m.displayText || m.content) : m.content,
           ...(m.imageDataUrl ? { imageDataUrl: m.imageDataUrl } : {}),
         }));
 
@@ -88,11 +90,10 @@ export default function StoryChat({ heroType, onDataUpdate, onReady }) {
 
       const data = await response.json();
 
-      // Add assistant message — store the raw JSON as content for API history
-      // so Claude sees its own format, but display only the friendly message
+      // The API now always returns a clean message string (never raw JSON)
       const assistantMsg = {
         role: "assistant",
-        content: data._raw || JSON.stringify({ message: data.message, suggestions: data.suggestions || [], action: data.action || null, dataUpdate: data.dataUpdate || {} }),
+        content: data.message,
         displayText: data.message,
         suggestions: data.suggestions || [],
         action: data.action,
@@ -124,6 +125,7 @@ export default function StoryChat({ heroType, onDataUpdate, onReady }) {
         {
           role: "assistant",
           content: "Oops, something went wrong! Let me try again. What were we talking about?",
+          displayText: "Oops, something went wrong! Let me try again. What were we talking about?",
           suggestions: [],
           action: null,
           timestamp: Date.now(),

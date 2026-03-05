@@ -93,7 +93,6 @@ export default async function handler(req, res) {
             input_image: referencePhotoUrl,
             aspect_ratio: "3:4",
             output_format: "jpg",
-            safety_tolerance: 5,
           },
         });
       } catch (err) {
