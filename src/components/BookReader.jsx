@@ -149,38 +149,7 @@ const DedicationPage = React.forwardRef(({ dedication, gradient }, ref) => (
   </div>
 ));
 
-// Single full-page image (for full-portrait layout)
-const StoryPageFull = React.forwardRef(({
-  imageUrl, text, pageNum, gradient, emoji, heroPhotoUrl, isRegenerating, onEdit }, ref) => {
-  const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
-  const isOdd = pageNum % 2 === 1;
-  return (
-    <div ref={ref} className="st-page st-story-page">
-      <div className="st-page-illustration">
-        {isRegenerating ? (
-          <div className="st-illust-fallback" style={{ background: gradient }}>
-            <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
-            <span className="st-illustrating-badge">Illustrating...</span>
-          </div>
-        ) : isSafe ? (
-          <img src={imageUrl} className="st-full-page-img" alt=""
-            onError={(e) => { e.target.style.display = "none"; }} />
-        ) : (
-          <div className="st-illust-fallback" style={{ background: gradient }}>
-            <span className="st-fallback-emoji">{emoji}</span>
-            <p className="st-fallback-text">{text}</p>
-          </div>
-        )}
-      </div>
-      <div className="st-page-border" />
-      <div className="st-page-texture" />
-      <span className={`st-page-number ${isOdd ? "st-pn-right" : "st-pn-left"}`}>{pageNum}</span>
-      {onEdit && <button className="st-edit-toggle" onClick={(e) => { e.stopPropagation(); onEdit(); }}>✏️</button>}
-    </div>
-  );
-});
-
-// Left half of a two-panel or wide-cinematic spread
+// Left half of a spread (shows left half of 4:3 landscape image)
 const StorySpreadLeft = React.forwardRef(({ imageUrl, pageNum, gradient, emoji, heroPhotoUrl, isRegenerating }, ref) => {
   const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
   return (
@@ -261,16 +230,18 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const story = data.story || data;
-  const pages = story.pages || [];
-  const dedication = data.dedication;
-  const coverImageUrl = story.coverImageUrl || null;
+  const images = data.images || {};
+  const spreads = story.spreads || [];
+  const dedication = data.dedication || story.dedication || null;
+  const coverImageUrl = images.cover || story.coverImageUrl || null;
+  const backCoverImageUrl = images.backCover || null;
   const heroName = cast.find((c) => c.isHero)?.name || cast[0]?.name || "your little one";
   const authorName = data.authorName || "A loving family";
 
   const [phase, setPhase] = useState("reveal");
   const [currentPage, setCurrentPage] = useState(0);
   const [activeEdit, setActiveEdit] = useState(null);
-  const [localPages, setLocalPages] = useState(pages);
+  const [localSpreads, setLocalSpreads] = useState(spreads);
   const [regeneratingImage, setRegeneratingImage] = useState(null);
   const [narrating, setNarrating] = useState(false);
   const [narratorVoice, setNarratorVoice] = useState("mom");
@@ -283,24 +254,31 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const gradient = STYLE_GRADIENTS[styleName] || STYLE_GRADIENTS.Storybook;
   const coverGradient = STYLE_COVER_GRADIENTS[styleName] || STYLE_COVER_GRADIENTS.Storybook;
 
-  // Build page array — layout-aware: full-portrait = 1 page, two-panel/wide-cinematic = 2 pages
+  // Build page array — each spread produces TWO flipbook pages (left + right)
   const bookPages = useMemo(() => {
     const result = [];
-    let pageNum = 0;
     result.push({ type: "cover" });
     if (dedication) {
       result.push({ type: "dedication" });
     }
-    localPages.forEach((page, i) => {
-      const layout = page.layout || "full-portrait";
-      pageNum++;
-      if (layout === "full-portrait") {
-        result.push({ type: "story-full", page, index: i, pageNum });
-      } else {
-        // two-panel or wide-cinematic → split into two flipbook pages
-        result.push({ type: "story-spread-left", page, index: i, pageNum });
-        result.push({ type: "story-spread-right", page, index: i, pageNum });
-      }
+    localSpreads.forEach((spread, i) => {
+      const imageUrl = images[`spread_${i}`] || null;
+      const pageNumLeft = (i * 2) + 2;
+      const pageNumRight = (i * 2) + 3;
+      result.push({
+        type: "spread-left",
+        imageUrl,
+        text: spread.leftPageText,
+        pageNum: pageNumLeft,
+        spreadIndex: i,
+      });
+      result.push({
+        type: "spread-right",
+        imageUrl,
+        text: spread.rightPageText,
+        pageNum: pageNumRight,
+        spreadIndex: i,
+      });
     });
     // Pad with blank page if needed so back cover lands on a left (even) page
     if (result.length % 2 !== 0) {
@@ -308,13 +286,15 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     }
     result.push({ type: "back-cover" });
     return result;
-  }, [localPages, dedication]);
+  }, [localSpreads, dedication, images]);
 
-  // Map flipbook page index to story page index
-  function getStoryPageIndex(flipPage) {
+  // Map flipbook page index to spread info for narration
+  function getSpreadInfo(flipPage) {
     const bp = bookPages[flipPage];
-    if (bp && (bp.type === "story-full" || bp.type === "story-spread-left" || bp.type === "story-spread-right")) return bp.index;
-    return -1;
+    if (bp && (bp.type === "spread-left" || bp.type === "spread-right")) {
+      return { spreadIndex: bp.spreadIndex, side: bp.type === "spread-left" ? "left" : "right", text: bp.text };
+    }
+    return null;
   }
 
   // ── Open book ──────────────────────────────────────────────────────────────
@@ -353,20 +333,32 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   }, [phase]);
 
   // ── Edit handlers ──────────────────────────────────────────────────────────
-  async function handleEditSave(pageIndex, instruction, type) {
+  async function handleEditSave(spreadIndex, instruction, type) {
     if (type === "story") {
-      const newText = await editPageText(localPages[pageIndex].text, instruction, cast);
-      setLocalPages((prev) => prev.map((p, i) => (i === pageIndex ? { ...p, text: newText } : p)));
+      const spread = localSpreads[spreadIndex];
+      const fullText = `${spread.leftPageText} ${spread.rightPageText}`;
+      const newText = await editPageText(fullText, instruction, cast);
+      // Split the edited text roughly in half for left/right
+      const sentences = newText.match(/[^.!?]+[.!?]+/g) || [newText];
+      const mid = Math.ceil(sentences.length / 2);
+      const leftText = sentences.slice(0, mid).join("").trim();
+      const rightText = sentences.slice(mid).join("").trim() || leftText;
+      setLocalSpreads((prev) => prev.map((s, i) =>
+        i === spreadIndex ? { ...s, leftPageText: leftText, rightPageText: rightText } : s
+      ));
     } else {
-      setRegeneratingImage(pageIndex);
+      setRegeneratingImage(spreadIndex);
       try {
-        const sceneDesc = localPages[pageIndex].scene_description || localPages[pageIndex].text;
-        const mood = localPages[pageIndex].mood || "wonder";
+        const spread = localSpreads[spreadIndex];
+        const sceneDesc = `${spread.leftPageText} ${spread.rightPageText}`;
         const newUrl = await generatePageImage(
           `${sceneDesc}. ${instruction}`,
-          cast, styleName, data.heroPhotoUrl, mood
+          cast, styleName, data.heroPhotoUrl, "wonder"
         );
-        setLocalPages((prev) => prev.map((p, i) => (i === pageIndex ? { ...p, imageUrl: newUrl } : p)));
+        // Update the images object directly isn't possible via state, store on spread
+        setLocalSpreads((prev) => prev.map((s, i) =>
+          i === spreadIndex ? { ...s, _overrideImageUrl: newUrl } : s
+        ));
       } catch (err) { addToast("Failed to regenerate image", "error"); }
       setRegeneratingImage(null);
     }
@@ -375,8 +367,8 @@ export default function BookReader({ data, cast, styleName, onReset }) {
 
   // ── Narration (server-side proxy) ─────────────────────────────────────────
   async function handleNarrate() {
-    const storyIdx = getStoryPageIndex(currentPage);
-    if (storyIdx < 0 || !localPages[storyIdx]?.text) return;
+    const info = getSpreadInfo(currentPage);
+    if (!info || !info.text) return;
 
     if (narrating) {
       narrationAudio.current?.pause();
@@ -384,8 +376,8 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       return;
     }
 
-    const text = localPages[storyIdx].text;
-    const cacheKey = `page_${storyIdx}_${narratorVoice}`;
+    const text = info.text;
+    const cacheKey = `spread_${info.spreadIndex}_${info.side}_${narratorVoice}`;
 
     try {
       let audioUrl = narrationCache.current[cacheKey];
@@ -477,7 +469,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   // ── Share ──────────────────────────────────────────────────────────────────
   function handleShare() {
     try {
-      const shareData = { story: { title: story.title, pages: localPages.map(p => ({ text: p.text })) }, styleName, heroName, dedication };
+      const shareData = { story: { title: story.title, spreads: localSpreads.map(s => ({ leftPageText: s.leftPageText, rightPageText: s.rightPageText })) }, styleName, heroName, dedication };
       const encoded = btoa(encodeURIComponent(JSON.stringify(shareData)));
       const url = `${window.location.origin}/shared?d=${encoded}`;
       navigator.clipboard.writeText(url);
@@ -524,7 +516,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   // ═════════════════════════════════════════════════════════════════════════════
   // RENDER: Reading Phase — react-pageflip
   // ═════════════════════════════════════════════════════════════════════════════
-  const storyIdx = getStoryPageIndex(currentPage);
+  const spreadInfo = getSpreadInfo(currentPage);
 
   return (
     <div className="st-scene">
@@ -536,7 +528,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       <div className="st-toolbar">
         <button className="st-tool-btn" onClick={() => navigate("/library")}>&larr; Back to Library</button>
         <div className="st-tool-right">
-          {storyIdx >= 0 && (
+          {spreadInfo && (
             <>
               <div className="st-voice-picker">
                 <button className={`st-voice-btn${narratorVoice === "mom" ? " st-voice-active" : ""}`}
@@ -581,6 +573,11 @@ export default function BookReader({ data, cast, styleName, onReset }) {
           onFlip={handleFlip}
         >
           {bookPages.map((bp, i) => {
+            // For spreads, check for regenerated image override
+            const spreadImageUrl = bp.spreadIndex != null
+              ? (localSpreads[bp.spreadIndex]?._overrideImageUrl || bp.imageUrl)
+              : null;
+
             switch (bp.type) {
               case "cover":
                 return <CoverPage key={`cover-${i}`} title={story.title}
@@ -591,29 +588,21 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                 return <DedicationPage key={`ded-${i}`}
                   dedication={dedication}
                   gradient={gradient} />;
-              case "story-full":
-                return <StoryPageFull key={`sf-${bp.index}`}
-                  imageUrl={bp.page.imageUrl} text={bp.page.text}
+              case "spread-left":
+                return <StorySpreadLeft key={`sl-${bp.spreadIndex}`}
+                  imageUrl={spreadImageUrl}
                   pageNum={bp.pageNum}
-                  gradient={gradient} emoji={bp.page.scene_emoji || "🌟"}
+                  gradient={gradient} emoji="🌟"
                   heroPhotoUrl={data.heroPhotoUrl}
-                  isRegenerating={regeneratingImage === bp.index}
-                  onEdit={() => setActiveEdit({ index: bp.index, type: "art" })} />;
-              case "story-spread-left":
-                return <StorySpreadLeft key={`sl-${bp.index}`}
-                  imageUrl={bp.page.imageUrl}
+                  isRegenerating={regeneratingImage === bp.spreadIndex} />;
+              case "spread-right":
+                return <StorySpreadRight key={`sr-${bp.spreadIndex}`}
+                  imageUrl={spreadImageUrl}
                   pageNum={bp.pageNum}
-                  gradient={gradient} emoji={bp.page.scene_emoji || "🌟"}
+                  gradient={gradient} emoji="🌟"
                   heroPhotoUrl={data.heroPhotoUrl}
-                  isRegenerating={regeneratingImage === bp.index} />;
-              case "story-spread-right":
-                return <StorySpreadRight key={`sr-${bp.index}`}
-                  imageUrl={bp.page.imageUrl}
-                  pageNum={bp.pageNum}
-                  gradient={gradient} emoji={bp.page.scene_emoji || "🌟"}
-                  heroPhotoUrl={data.heroPhotoUrl}
-                  isRegenerating={regeneratingImage === bp.index}
-                  onEdit={() => setActiveEdit({ index: bp.index, type: "art" })} />;
+                  isRegenerating={regeneratingImage === bp.spreadIndex}
+                  onEdit={() => setActiveEdit({ index: bp.spreadIndex, type: "art" })} />;
               case "blank":
                 return <BlankPage key={`blank-${i}`} />;
               case "back-cover":

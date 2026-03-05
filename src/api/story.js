@@ -30,118 +30,6 @@ const NANO_STYLES = {
   "Sketch & Color": "whimsical hand-drawn children's book illustration with visible pencil lines, loose ink outlines, and watercolour wash fills",
 };
 
-// ── Page layout types ────────────────────────────────────────────────────────
-export const PAGE_LAYOUTS = {
-  "full-portrait": {
-    aspect: "3:4",
-    desc: "ONE full-page portrait illustration filling the entire page. The scene is rich and detailed with the character(s) naturally placed. Text box(es) at the bottom.",
-  },
-  "two-panel": {
-    aspect: "4:3",
-    desc: "TWO side-by-side illustrated panels on an open book spread, divided by a subtle page crease/spine down the centre. Each panel shows a different moment or scene. Each panel has its own text box at the bottom. The left panel is one scene, the right panel is the next moment in the story.",
-  },
-  "wide-cinematic": {
-    aspect: "16:9",
-    desc: "ONE wide cinematic landscape illustration stretching across both open pages of the book. The scene is epic and expansive. Text box(es) at the bottom, spanning the width.",
-  },
-};
-
-// ── Layer 1: CHARACTER DNA (generated ONCE, used on EVERY page) ──────────────
-function buildCharacterDNA(cast, heroName, heroAge, tone, personalIngredient) {
-  const hero = cast.find(c => c.isHero) || cast[0];
-  const supporting = cast.filter(c => !c.isHero);
-
-  let dna = `CHARACTER BIBLE (apply to ALL pages):\nMAIN CHARACTER: ${heroName}`;
-
-  if (heroAge) {
-    dna += `, ${heroAge} years old`;
-    if (heroAge <= 3) dna += `. Toddler proportions — large head, chubby cheeks, short limbs, round belly.`;
-    else if (heroAge <= 6) dna += `. Young child proportions — round face, big expressive eyes, small stature.`;
-    else if (heroAge <= 10) dna += `. Older child proportions — longer limbs, more defined features, confident posture.`;
-    else dna += `. Adolescent proportions.`;
-  }
-
-  dna += `
-- ${heroName} is the person from the uploaded photo (Image 1)
-- Transform into an illustrated storybook character — NOT photorealistic
-- Keep their EXACT facial features, head shape, and distinguishing features
-- ${heroName} should be recognizable on every single page
-- Characters can and should be seen from DIFFERENT angles and distances across pages — close-ups, medium shots, wide shots — but their identity, proportions, and clothing must remain consistent`;
-
-  if (supporting.length > 0) {
-    dna += `\n\nSUPPORTING CAST:`;
-    supporting.forEach(c => {
-      const roleLabel = c.role === 'mom' ? 'Mother figure' :
-                        c.role === 'dad' ? 'Father figure' :
-                        c.role === 'sibling' ? 'Sibling' :
-                        c.role === 'pet' ? 'Family pet' :
-                        c.role === 'grandparent' ? 'Grandparent' :
-                        c.role === 'friend' ? 'Best friend' : c.role;
-      dna += `\n- ${c.name}: ${roleLabel}. Must look the same on every page they appear — same hair, same build, same clothing style.`;
-    });
-  }
-
-  if (personalIngredient) {
-    dna += `\n\nEMOTIONAL CORE: This story is personally meaningful because: "${personalIngredient}". Illustrations should subtly reflect this emotional thread.`;
-  }
-
-  return dna;
-}
-
-// ── Layer 2: BOOK IDENTITY (generated ONCE, used on EVERY page) ──────────────
-function buildBookIdentity(styleName, tone, format) {
-  const styleDesc = NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
-
-  const toneMap = {
-    "Cozy":       "Warm golden-hour lighting, soft glowing lamps, long gentle shadows, amber and honey tones. Feels like being wrapped in a blanket.",
-    "Exciting":   "Dynamic dramatic lighting, bold contrasts, high energy, vivid saturated colours. Feels like the best part of a movie.",
-    "Heartfelt":  "Soft diffused light, pastel warmth, gentle lens flare, intimate close framing. Feels like a warm hug.",
-    "Funny":      "Bright playful lighting, exaggerated expressions, saturated candy colours, slightly cartoonish proportions. Feels like laughing until your belly hurts.",
-  };
-  const atmosphere = toneMap[tone] || toneMap["Cozy"];
-
-  const formatMap = {
-    "classic":  "Text in elegant decorative text boxes with ornate scroll borders, warm cream parchment background, classic serif font.",
-    "rhyming":  "Text in whimsical decorative text boxes with playful curving borders, warm cream background, slightly italic serif font that flows like poetry.",
-    "funny":    "Text in fun decorative text boxes with bouncy rounded borders, warm cream background, friendly serif font with personality.",
-  };
-  const textStyle = formatMap[format] || formatMap["classic"];
-
-  return `BOOK IDENTITY (apply to EVERY page):
-
-ART STYLE: ${styleDesc}
-- This style must be IDENTICAL on every page — same brush strokes, same colour palette, same line weight, same level of detail
-- Match the EXACT illustration style of the cover image (Image 2)
-- This must look like a real professionally published children's picture book
-
-ATMOSPHERE: ${atmosphere}
-
-ILLUSTRATION AREA:
-- The illustration fills the ENTIRE image edge-to-edge — NO borders, NO frames, NO parchment edges
-- Do NOT add any decorative border or frame around the illustration
-- The book's physical border/frame is handled separately — your job is ONLY the illustration and text boxes
-- Paint the scene all the way to every edge of the image
-
-TEXT BOXES:
-- ${textStyle}
-- Text boxes have decorative corner flourishes — small ornamental swirls at each corner of the box
-- Text boxes occupy no more than 25% of the page area
-- Text must be large enough to read comfortably — at least 14pt equivalent
-- If the page text is long, split into two text boxes side by side
-- Same text box design on EVERY page — identical borders, identical font, identical cream background
-
-DO NOT INCLUDE:
-- No page borders or frames around the illustration (the app adds these)
-- No page numbers (the app adds these)
-- No parchment edges or torn-paper effects (the app adds these)
-- No speech bubbles or comic-style word balloons
-- No modern UI elements, watermarks, or logos
-- No photorealistic rendering — everything must be illustrated
-- No text outside of the designated text boxes
-
-QUALITY: Award-winning picture book illustration quality. Every page should look like it belongs in a bookstore.`;
-}
-
 // ── Cost tracking ─────────────────────────────────────────────────────────────
 export function logCost(type, model, success, durationMs, error) {
   try {
@@ -191,127 +79,6 @@ function buildCharacterDescription(cast) {
       return `${character.name} (${role}${age})${photoNote}`;
     })
     .join(", ");
-}
-
-// ── Cover prompt builder (uses Layer 2 + cover-specific) ─────────────────────
-function buildCoverPrompt(coverScene, styleName, title, heroName, authorName, tone, format, heroPhotoUrl) {
-  const bookIdentity = buildBookIdentity(styleName, tone, format);
-
-  return `${bookIdentity}
-
----
-
-GENERATE A PROFESSIONAL CHILDREN'S PICTURE BOOK FRONT COVER.
-
-This is the FIRST image generated for this book. It sets the art style for the ENTIRE book — every subsequent page MUST match this exact illustration style.
-
-LAYOUT: Single portrait-oriented book cover
-- Full illustrated background filling the ENTIRE image edge-to-edge — NO borders, NO frames
-- Title "${title}" in large, warm, hand-lettered storybook style positioned in the top third
-- "A story for ${heroName}" in elegant smaller text below
-- "By ${authorName}" at the bottom in small text
-- All text clearly legible against the illustration
-- Do NOT add any decorative border or frame — the app handles this${heroPhotoUrl ? `
-
-REFERENCE IMAGES:
-- Image 1: Photo of ${heroName} — this is for reference only. Do NOT include this person on the cover. No characters on the cover — pure world-building.` : ""}
-
-ILLUSTRATION:
-- Scene: ${coverScene}
-- No characters visible — pure world-building establishing shot
-- Epic cinematic scale, magical and inviting
-- This scene should make a child WANT to open the book
-
-This cover defines the visual DNA of the entire book. Every subsequent page MUST match this exact art style, colour palette, text box style, and illustration quality.`;
-}
-
-// ── Layer 3: PAGE-SPECIFIC PROMPT (unique per page) ──────────────────────────
-function buildPagePrompt(page, pageIndex, totalPages, cast, heroName, previousPageExists) {
-  const layout = page.layout || "full-portrait";
-  const pageNum = pageIndex + 1;
-
-  const charactersPresent = page.characters_present || [];
-  const characterNote = charactersPresent.length > 0
-    ? `Characters visible in this scene: ${charactersPresent.join(", ")}`
-    : `Main character visible in this scene.`;
-
-  let layoutInstruction;
-  if (layout === "two-panel") {
-    const leftScene = page.scene_description_left || page.scene_description;
-    const rightScene = page.scene_description_right || "The next moment in the story";
-    layoutInstruction = `LAYOUT: TWO side-by-side illustrated panels on an open book spread.
-- Divided by a subtle page crease/spine down the centre
-- LEFT PANEL: ${leftScene}
-- RIGHT PANEL: ${rightScene}
-- Each panel has its own text box at the bottom
-- Both panels share the same art style, lighting, and colour temperature`;
-  } else {
-    layoutInstruction = `LAYOUT: ONE full-page portrait illustration filling the entire page.
-- Rich detailed scene with the character(s) naturally placed
-- Text box(es) at the bottom integrated into the composition`;
-  }
-
-  const words = (page.scene_description || page.text || "").split(/\s+/);
-  const scene = words.length > 50
-    ? words.slice(0, 50).join(" ")
-    : page.scene_description || page.text;
-
-  const moodDirection = {
-    "wonder":     "Sense of magical discovery. Wide eyes, soft gasps, sparkles in the air. The world feels bigger than the character.",
-    "adventure":  "Thrilling energy and momentum. Dynamic poses, wind in hair, sense of speed and excitement.",
-    "cozy":       "Intimate warmth and safety. Close proximity, soft textures, gentle embraces, warm light.",
-    "tense":      "Suspenseful anticipation. Dramatic shadows, leaning forward, breath held, something about to happen.",
-    "triumphant": "Victory and pride. Arms raised, biggest smile, golden light bursting, the world celebrating.",
-    "tender":     "Quiet love and connection. Gentle touches, soft gazes, peaceful stillness, hearts full.",
-  };
-  const moodNote = moodDirection[page.mood] || moodDirection["wonder"];
-
-  let positionNote;
-  if (pageIndex === 0) {
-    positionNote = "This is the OPENING page. Set the scene, introduce the world, create intrigue.";
-  } else if (pageIndex === totalPages - 1) {
-    positionNote = "This is the FINAL page. Bring the story to a warm, satisfying close. This should feel like the most emotionally resonant page in the book.";
-  } else if (pageIndex === totalPages - 2) {
-    positionNote = "This is the second-to-last page. The climax is resolving. Build toward the warm ending.";
-  } else if (pageIndex < totalPages / 3) {
-    positionNote = "This is early in the story. The adventure is beginning, curiosity is building.";
-  } else if (pageIndex < (2 * totalPages) / 3) {
-    positionNote = "This is the middle of the story. The adventure is at its peak, stakes are high.";
-  } else {
-    positionNote = "The story is winding down. Resolution is coming, warmth is returning.";
-  }
-
-  return `PAGE ${pageNum} OF ${totalPages}
-
-REFERENCE IMAGES PROVIDED:
-- Image 1: Photo of ${heroName || "the main character"} — use this for FACE and IDENTITY only. Transform into illustrated style, do NOT copy the photo literally.
-- Image 2: The COVER of this book — this is your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and text box style on this page.${previousPageExists ? `
-- Image 3: The PREVIOUS page of this book — maintain VISUAL CONTINUITY with this page. Characters should look identical. Colour temperature, lighting style, and text box style should flow naturally from this page to the current one.` : ""}
-
-${positionNote}
-
-${layoutInstruction}
-
-SCENE: ${scene}
-
-${characterNote}
-
-EMOTIONAL DIRECTION: ${moodNote}
-
-PAGE TEXT (render in the decorative text boxes):
-"${page.text}"
-
-Page ${pageNum}`;
-}
-
-// ── Full prompt assembler (all 3 layers) ─────────────────────────────────────
-function buildFullPrompt(page, pageIndex, totalPages, cast, heroName, heroAge,
-  styleName, tone, format, personalIngredient, previousPageExists) {
-  const characterDNA = buildCharacterDNA(cast, heroName, heroAge, tone, personalIngredient);
-  const bookIdentity = buildBookIdentity(styleName, tone, format);
-  const pagePrompt = buildPagePrompt(page, pageIndex, totalPages, cast, heroName, previousPageExists);
-
-  return `${characterDNA}\n\n---\n\n${bookIdentity}\n\n---\n\n${pagePrompt}`;
 }
 
 // ── Analyze character photos ──────────────────────────────────────────────────
@@ -384,70 +151,188 @@ export async function analyzeCharacterPhotos(cast) {
   return enrichedCast;
 }
 
-// ── Generate story text + scene descriptions ──────────────────────────────────
-export async function generateStory(cast, styleName, storyData) {
-  const characterDescriptions = buildCharacterDescription(cast);
+// ══════════════════════════════════════════════════════════════════════════════
+// CLAUDE AS ART DIRECTOR — Story + Visual Plan in ONE call
+// ══════════════════════════════════════════════════════════════════════════════
 
-  const appearanceNotes = cast
-    .filter((c) => c.appearanceDescription)
-    .map((c) => `${c.name}: ${c.appearanceDescription}`)
-    .join("\n");
+function buildMasterSystemPrompt(cast, heroName, heroAge, styleName, tone, format, personalIngredient, pageCount) {
+  const styleDesc = NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
+  const supporting = cast.filter(c => !c.isHero);
 
-  const systemPrompt = `You are a master storyteller. You write with the emotional depth of Oliver Jeffers, the playful language of Julia Donaldson, and the worldbuilding of Maurice Sendak.
+  // Build character descriptions
+  let castDesc = `MAIN CHARACTER: ${heroName}`;
+  if (heroAge) {
+    if (heroAge <= 3) castDesc += `, ${heroAge} years old (toddler — large head, chubby cheeks, short limbs)`;
+    else if (heroAge <= 6) castDesc += `, ${heroAge} years old (young child — round face, big eyes, small stature)`;
+    else if (heroAge <= 10) castDesc += `, ${heroAge} years old (older child — longer limbs, confident posture)`;
+    else castDesc += `, ${heroAge} years old`;
+  }
 
-Generate a complete picture book with this exact JSON structure:
+  // Add appearance descriptions from photo analysis
+  const heroChar = cast.find(c => c.isHero) || cast[0];
+  if (heroChar?.appearanceDescription) {
+    castDesc += `\nAppearance: ${heroChar.appearanceDescription}`;
+  }
 
-{"title":"Story title (creative, evocative, 3-6 words)","coverScene":"A breathtaking wide establishing shot description of the story world — epic scale, no characters visible, pure world-building","coverEmoji":"Single emoji representing the story world","pages":[{"pageNumber":1,"text":"The story text for this page. 2-4 sentences.","scene_description":"A detailed illustration description with rich environmental details including colors, lighting, textures, and atmosphere.","scene_description_left":"(Only for two-panel layout) Left panel scene description","scene_description_right":"(Only for two-panel layout) Right panel scene description","scene_emoji":"Single emoji for this scene","mood":"One of: wonder, adventure, cozy, tense, triumphant, tender","layout":"One of: full-portrait, two-panel, wide-cinematic","characters_present":["Name1","Name2"]}]}
+  supporting.forEach(c => {
+    const role = c.role === 'mom' ? 'Mother' : c.role === 'dad' ? 'Father' :
+      c.role === 'sibling' ? 'Sibling' : c.role === 'pet' ? 'Family pet' :
+      c.role === 'grandparent' ? 'Grandparent' : c.role === 'friend' ? 'Best friend' : c.role;
+    castDesc += `\n${c.name}: ${role}`;
+    if (c.appearanceDescription) {
+      castDesc += ` — ${c.appearanceDescription}`;
+    }
+  });
 
-Story writing rules:
-* Exactly ${storyData.pageCount || 6} pages
-* Each page ends at a moment that compels turning the page
-* Use the character's name often
-* Include sensory details: what things look, sound, smell, and feel like
-* The story should have a clear arc: setup, adventure, challenge, resolution, warm ending
-* The ending should feel earned and warm
-${storyData.personalIngredient ? `* PRIORITY: Weave this personal detail into the emotional core of the story: "${storyData.personalIngredient}"` : ""}
-${storyData.storyFormat === "rhyming" ? "* Write in strict AABB rhyme scheme. 8-10 syllables per line." : ""}
-${storyData.storyFormat === "funny" ? "* Every page needs a genuine surprise. Setup on one page, punchline on the next." : ""}
+  const toneMap = {
+    "Cozy": "warm golden-hour lighting, soft glowing lamps, amber and honey tones, feels like a warm blanket",
+    "Exciting": "dynamic dramatic lighting, bold contrasts, vivid saturated colours, cinematic energy",
+    "Heartfelt": "soft diffused light, gentle warmth, intimate framing, tender atmosphere",
+    "Funny": "bright playful lighting, exaggerated expressions, candy colours, maximum fun energy",
+  };
+  const atmosphere = toneMap[tone] || toneMap["Cozy"];
 
-Illustration rules:
-* Wide establishing shots for big moments, medium shots for emotional moments
-* Always show the character IN the world, not isolated
-* Each scene_description MUST include vivid world vocabulary — describe the environment with specific colors, textures, lighting, and atmosphere so the image generator has rich visual context
-* Each page's characters_present must list which characters are visible in that scene
-* The character should be 30-40% of frame height, never filling the whole image
+  // Calculate spread count
+  const spreadCount = Math.ceil(pageCount / 2);
 
-Layout rules — for each page, assign a "layout" field:
-* "full-portrait": One big scene filling the whole page. Use for: emotional close-ups, tender moments, bedtime scenes, single dramatic moments.
-* "two-panel": Two side-by-side panels showing two connected moments. Use for: action sequences, before/after, journey progressions, conversations. For two-panel, also provide "scene_description_left" and "scene_description_right" describing each panel separately.
-* "wide-cinematic": One wide panoramic scene. Use for: epic reveals, establishing new worlds, dramatic vistas, climactic moments.
-* Vary layouts for visual rhythm — never the same layout 3 times in a row
-* Use "two-panel" for at least 40% of pages
-* A typical 6-page book: two-panel, full-portrait, two-panel, wide-cinematic, two-panel, full-portrait
-* A typical 10-page book: two-panel, full-portrait, two-panel, wide-cinematic, two-panel, full-portrait, two-panel, wide-cinematic, full-portrait, full-portrait
+  return `You are a master children's book author AND art director. You will write an amazing story AND design every visual spread of the book.
 
-Based on the story idea provided, choose the perfect world setting, character personality traits, emotional tone, and story arc. The user has given you creative freedom — make it magical.
+═══ YOUR CHARACTERS ═══
+${castDesc}
 
-Return ONLY valid JSON. No preamble. No markdown code blocks. Just the raw JSON object.`;
+${personalIngredient ? `EMOTIONAL CORE: "${personalIngredient}" — weave this into the story's heart.` : ""}
 
-  const userPrompt = `Hero: ${storyData.hero || storyData.heroName || "the child"}${storyData.heroAge ? ` (age ${storyData.heroAge})` : ""}
-${appearanceNotes ? `\nCharacter Appearances:\n${appearanceNotes}\n` : ""}
-${characterDescriptions ? `Cast: ${characterDescriptions}` : ""}
+═══ THE BOOK FORMAT ═══
+This is a ${pageCount}-page picture book with ${spreadCount} illustrated spreads.
 
-Story idea: ${storyData.storyIdea || storyData.sparkText || storyData.spark || "A magical adventure"}
+Physical structure:
+- PAGE 1: Front cover (single page, portrait 3:4)
+- PAGES 2-3: First spread (two facing pages, landscape 4:3)
+- PAGES 4-5: Second spread (landscape 4:3)
+- PAGES 6-7: Third spread (landscape 4:3)
+${pageCount > 6 ? `- PAGES 8-9: Fourth spread (landscape 4:3)
+- PAGES 10-11: Fifth spread (landscape 4:3)` : ""}
+- LAST PAGE: Back cover (single page, portrait 3:4)
 
-Art style: ${styleName}
-Pages: ${storyData.pageCount || 6}
-${storyData.tone ? `Preferred tone: ${storyData.tone}` : ""}
-${storyData.storyFormat === "rhyming" ? "Write in AABB rhyming couplets." : ""}
-${storyData.storyFormat === "funny" ? "Make it genuinely funny with surprises." : ""}
-${storyData.personalIngredient ? `Personal detail to weave in: "${storyData.personalIngredient}"` : ""}
+When a reader opens the book, they see TWO pages at once (a spread). Each spread image shows the LEFT page and RIGHT page together, with a subtle crease/spine visible down the centre.
 
-Based on the story idea, choose the perfect world setting, character personality, emotional arc, and visual environments. Make it magical and personal.`;
+═══ ART STYLE ═══
+Style: ${styleDesc}
+Atmosphere: ${atmosphere}
+${format === "rhyming" ? "Text boxes should feel whimsical and poetic." : ""}
+${format === "funny" ? "Text boxes should feel playful and bouncy." : ""}
 
-  const maxTokens = (storyData.pageCount || 6) > 6 ? 3000 : 1800;
+═══ ILLUSTRATION RULES FOR NANO BANANA PRO ═══
+Every image prompt you write MUST include these rules:
+
+CONSISTENCY RULES (include in EVERY prompt):
+- The illustration fills the ENTIRE image edge-to-edge — NO borders, NO frames, NO parchment edges around the illustration
+- Do NOT add any decorative border or frame (the app adds these)
+- Do NOT add page numbers (the app adds these)
+- Art style must be IDENTICAL across all spreads — same brush strokes, same colour palette, same line weight
+- Match the EXACT illustration style of the cover (Image 2 in the reference images)
+- All characters must look IDENTICAL on every spread — same proportions, hair, clothing, features
+- Characters can be viewed from different angles and distances, but their identity must be unmistakable
+- NOT photorealistic — this is an illustrated children's storybook
+
+TEXT BOX RULES (include in EVERY prompt that has text):
+- Story text goes in decorative text boxes with ornate scroll/flourish borders and corner decorations
+- Text boxes have warm cream/parchment background with elegant serif font
+- Text must be large and clearly legible
+- Same text box design style on every spread
+- Text boxes should not cover more than 25-30% of the image
+- No text anywhere EXCEPT inside the text boxes
+
+REFERENCE IMAGES (include in EVERY page prompt, not the cover):
+- Image 1: Photo of ${heroName} — use for FACE and IDENTITY only. Transform into the illustrated style.
+- Image 2: The cover of this book — your STYLE BIBLE. Match this exactly.
+- Image 3 (when available): The previous spread — maintain visual continuity.
+
+═══ YOUR TASK ═══
+1. Write an incredible ${pageCount}-page children's story
+2. Design the visual layout for every single spread
+3. Write the COMPLETE Nano Banana Pro prompt for each image
+
+For each spread, YOU decide:
+- How to split the story text between the left and right page
+- Whether the illustration is one continuous scene across both pages, or two distinct panels
+- Where the text boxes go (bottom of spread, bottom of each page, one page only, etc.)
+- The camera angle and composition (wide establishing shot, intimate close-up, dramatic low angle, etc.)
+- The lighting and colour mood for this specific moment
+- Which characters are visible and how they're positioned
+- What details in the environment tell the story
+
+Think like a REAL picture book designer. Vary your layouts:
+- Some spreads: one epic scene spanning both pages, text at bottom
+- Some spreads: distinct left and right panels with their own text boxes
+- Some spreads: illustration dominant with small text box in one corner
+- Some spreads: close-up emotional moment with large text overlay area
+- The FINAL spread should be the most emotionally resonant
+
+═══ OUTPUT FORMAT ═══
+Return ONLY valid JSON with this structure:
+
+{
+  "title": "Story Title",
+  "dedication": "A heartfelt dedication...",
+  "cover": {
+    "imagePrompt": "COMPLETE Nano Banana Pro prompt for the cover...",
+    "aspectRatio": "3:4"
+  },
+  "spreads": [
+    {
+      "spreadNumber": 1,
+      "leftPageText": "Story text for the left page...",
+      "rightPageText": "Story text for the right page...",
+      "imagePrompt": "COMPLETE Nano Banana Pro prompt for this spread...",
+      "aspectRatio": "4:3",
+      "designNotes": "Brief note on why this layout works for this moment"
+    }
+  ],
+  "backCover": {
+    "imagePrompt": "COMPLETE Nano Banana Pro prompt for the back cover...",
+    "aspectRatio": "3:4"
+  }
+}
+
+CRITICAL: The imagePrompt for each spread must be a COMPLETE, standalone prompt that Nano Banana Pro can execute directly. Include ALL visual details — scene, characters, composition, lighting, text placement, text content, and the consistency rules. Each prompt should be 150-250 words.
+
+${format === "rhyming" ? "Write in strict AABB rhyme scheme. 8-10 syllables per line." : ""}
+${format === "funny" ? "Make it genuinely funny with surprises and silly moments." : ""}
+
+Return ONLY the JSON. No preamble. No markdown.`;
+}
+
+function buildMasterUserPrompt(wizardData) {
+  return `Create a personalized children's storybook.
+
+Hero: ${wizardData.heroName}${wizardData.heroAge ? ` (age ${wizardData.heroAge})` : ""}
+Story idea: ${wizardData.storyIdea || wizardData.sparkText || wizardData.spark || "A magical adventure"}
+${wizardData.personalIngredient ? `Personal detail: "${wizardData.personalIngredient}"` : ""}
+${wizardData.tone ? `Mood: ${wizardData.tone}` : ""}
+
+Write the story, then design every spread with complete image prompts. Make it magical, personal, and visually stunning.`;
+}
+
+// ── Generate story + visual plan (ONE Claude call) ───────────────────────────
+export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
+  const systemPrompt = buildMasterSystemPrompt(
+    cast,
+    storyData.heroName,
+    storyData.heroAge,
+    styleName,
+    storyData.tone,
+    storyData.storyFormat || "classic",
+    storyData.personalIngredient,
+    storyData.pageCount || 6
+  );
+
+  const userPrompt = buildMasterUserPrompt(storyData);
+
+  const maxTokens = (storyData.pageCount || 6) > 6 ? 6000 : 4000;
   const raw = await claudeCall(systemPrompt, userPrompt, maxTokens);
 
+  // Parse the JSON response
   let parsed;
   try {
     const cleaned = raw.replace(/```json\s*|```\s*/g, "").trim();
@@ -458,69 +343,168 @@ Based on the story idea, choose the perfect world setting, character personality
       try {
         parsed = JSON.parse(jsonMatch[1]);
       } catch {
-        try {
-          const retryRaw = await claudeCall(systemPrompt, userPrompt, maxTokens);
-          const retryCleaned = retryRaw.replace(/```json\s*|```\s*/g, "").trim();
-          parsed = JSON.parse(retryCleaned);
-        } catch {
-          throw new Error("Failed to parse story response after retry. Please try again.");
-        }
+        // Retry once
+        const retryRaw = await claudeCall(systemPrompt, userPrompt, maxTokens);
+        const retryCleaned = retryRaw.replace(/```json\s*|```\s*/g, "").trim();
+        parsed = JSON.parse(retryCleaned);
       }
     } else {
-      throw new Error("Failed to parse story response. Please try again.");
+      // Retry once
+      const retryRaw = await claudeCall(systemPrompt, userPrompt, maxTokens);
+      const retryCleaned = retryRaw.replace(/```json\s*|```\s*/g, "").trim();
+      parsed = JSON.parse(retryCleaned);
     }
   }
 
-  if (!parsed.title || !Array.isArray(parsed.pages) || parsed.pages.length === 0) {
-    throw new Error("Invalid story structure returned. Please try again.");
+  // Validate structure
+  if (!parsed.title || !parsed.cover || !Array.isArray(parsed.spreads) || parsed.spreads.length === 0) {
+    throw new Error("Invalid story structure. Please try again.");
   }
 
-  parsed.pages = parsed.pages.map((page, i) => ({
-    pageNumber: page.pageNumber || i + 1,
-    text: page.text || "",
-    scene_description: page.scene_description || page.text || "",
-    scene_description_left: page.scene_description_left || null,
-    scene_description_right: page.scene_description_right || null,
-    scene_emoji: page.scene_emoji || "🌟",
-    mood: page.mood || "wonder",
-    layout: page.layout || "full-portrait",
-    characters_present: page.characters_present || [],
+  // Ensure each spread has required fields
+  parsed.spreads = parsed.spreads.map((spread, i) => ({
+    spreadNumber: spread.spreadNumber || i + 1,
+    leftPageText: spread.leftPageText || "",
+    rightPageText: spread.rightPageText || "",
+    imagePrompt: spread.imagePrompt || "",
+    aspectRatio: spread.aspectRatio || "4:3",
+    designNotes: spread.designNotes || "",
   }));
+
+  // Ensure cover and back cover
+  parsed.cover = {
+    imagePrompt: parsed.cover.imagePrompt || "",
+    aspectRatio: parsed.cover.aspectRatio || "3:4",
+  };
+  parsed.backCover = parsed.backCover || {
+    imagePrompt: "",
+    aspectRatio: "3:4",
+  };
 
   return parsed;
 }
 
-// ── Generate a single page image (fallback for edits) ────────────────────────
-export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood) {
-  const styleDesc = NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
-  const prompt = `Children's storybook illustration in ${styleDesc} style. ${sceneDescription}. Award-winning picture book quality, no text in image.`;
+// ── Generate ALL images from Claude's prompts ────────────────────────────────
+// Sequential chained flow: cover → spread1 → spread2 → ... → back cover
+// Each image references the hero photo + cover (style anchor) + previous image
+export async function generateAllImages(
+  storyPlan, heroPhotoUrl, onImageReady, tier
+) {
+  const images = {};
+  let previousImageUrl = null;
 
-  const startTime = Date.now();
-
-  if (heroPhotoUrl) {
-    try {
-      const url = await generateImage(prompt, heroPhotoUrl, "standard", styleName);
-      if (await validateImageUrl(url)) {
-        logCost("nano_banana", "standard", true, Date.now() - startTime, null);
-        return url;
-      }
-    } catch (err) {
-      console.warn("Face-ref generation failed:", err.message);
-    }
-  }
-
+  // 1. Generate cover
   try {
-    const url = await generateImage(prompt, null, "standard", styleName);
-    if (await validateImageUrl(url)) {
-      logCost("flux", "no_face", true, Date.now() - startTime, null);
-      return url;
+    const coverUrl = await generateImage(
+      storyPlan.cover.imagePrompt,
+      heroPhotoUrl,
+      tier,
+      null,
+      [],
+      storyPlan.cover.aspectRatio || "3:4",
+      true
+    );
+    if (coverUrl && await validateImageUrl(coverUrl)) {
+      images.cover = coverUrl;
+      previousImageUrl = coverUrl;
+      logCost("nano_banana", tier, true, 0, null);
     }
   } catch (err) {
-    console.error("All image attempts failed:", err.message);
+    console.warn("Cover generation failed:", err.message);
+  }
+  if (onImageReady) onImageReady("cover", images.cover || null);
+
+  // 2. Generate spreads sequentially (chained)
+  for (let i = 0; i < storyPlan.spreads.length; i++) {
+    const spread = storyPlan.spreads[i];
+
+    // Reference images: cover (style anchor) + previous spread (local consistency)
+    const referenceImageUrls = [];
+    if (images.cover) referenceImageUrls.push(images.cover);
+    if (previousImageUrl && previousImageUrl !== images.cover) {
+      referenceImageUrls.push(previousImageUrl);
+    }
+
+    try {
+      const url = await generateImage(
+        spread.imagePrompt,
+        heroPhotoUrl,
+        tier,
+        null,
+        referenceImageUrls,
+        spread.aspectRatio || "4:3",
+        false
+      );
+
+      if (url && await validateImageUrl(url)) {
+        images[`spread_${i}`] = url;
+        previousImageUrl = url;
+        logCost("nano_banana", tier, true, 0, null);
+      } else {
+        throw new Error("Invalid image URL");
+      }
+    } catch (err) {
+      console.warn(`Spread ${i + 1} failed:`, err.message);
+
+      // Retry once with 3s delay
+      try {
+        await new Promise(r => setTimeout(r, 3000));
+        const referenceImageUrls2 = [];
+        if (images.cover) referenceImageUrls2.push(images.cover);
+        if (previousImageUrl && previousImageUrl !== images.cover) {
+          referenceImageUrls2.push(previousImageUrl);
+        }
+        const retryUrl = await generateImage(
+          spread.imagePrompt, heroPhotoUrl, tier, null,
+          referenceImageUrls2, spread.aspectRatio || "4:3", false
+        );
+        if (retryUrl && await validateImageUrl(retryUrl)) {
+          images[`spread_${i}`] = retryUrl;
+          previousImageUrl = retryUrl;
+        } else {
+          images[`spread_${i}`] = null;
+        }
+      } catch (retryErr) {
+        console.warn(`Spread ${i + 1} retry failed:`, retryErr.message);
+        images[`spread_${i}`] = null;
+      }
+    }
+
+    if (onImageReady) onImageReady(`spread_${i}`, images[`spread_${i}`] || null);
   }
 
-  logCost("all", "failed", false, Date.now() - startTime, "all attempts failed");
-  return null;
+  // 3. Generate back cover
+  const backRefImages = [];
+  if (images.cover) backRefImages.push(images.cover);
+  if (previousImageUrl) backRefImages.push(previousImageUrl);
+
+  try {
+    const backUrl = await generateImage(
+      storyPlan.backCover.imagePrompt,
+      heroPhotoUrl,
+      tier,
+      null,
+      backRefImages,
+      storyPlan.backCover.aspectRatio || "3:4",
+      false
+    );
+    if (backUrl && await validateImageUrl(backUrl)) {
+      images.backCover = backUrl;
+      logCost("nano_banana", tier, true, 0, null);
+    }
+  } catch (err) {
+    console.warn("Back cover generation failed:", err.message);
+    images.backCover = null;
+  }
+  if (onImageReady) onImageReady("backCover", images.backCover || null);
+
+  // Check if we got at least some images
+  const spreadImages = storyPlan.spreads.map((_, i) => images[`spread_${i}`]);
+  if (!images.cover && spreadImages.every(url => !url)) {
+    throw new Error("All illustrations failed. Please try again.");
+  }
+
+  return images;
 }
 
 // ── Upload hero photo once ────────────────────────────────────────────────────
@@ -554,166 +538,37 @@ export async function uploadHeroPhoto(cast) {
   }
 }
 
-// ── Generate cover image ──────────────────────────────────────────────────────
-export async function generateCoverImage(
-  coverScene, styleName, tier, title, heroName, authorName, heroPhotoUrl,
-  tone, format
-) {
-  if (!coverScene) return null;
+// ── Generate a single page image (fallback for edits) ────────────────────────
+export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood) {
+  const styleDesc = NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
+  const prompt = `Children's storybook illustration in ${styleDesc} style. ${sceneDescription}. The illustration fills the ENTIRE image edge-to-edge — NO borders, NO frames. Award-winning picture book quality, no text in image.`;
 
-  const prompt = buildCoverPrompt(
-    coverScene, styleName,
-    title || "My Story",
-    heroName || "a special child",
-    authorName || "A loving family",
-    tone || "Cozy",
-    format || "classic",
-    heroPhotoUrl
-  );
+  const startTime = Date.now();
+
+  if (heroPhotoUrl) {
+    try {
+      const url = await generateImage(prompt, heroPhotoUrl, "standard", styleName);
+      if (await validateImageUrl(url)) {
+        logCost("nano_banana", "standard", true, Date.now() - startTime, null);
+        return url;
+      }
+    } catch (err) {
+      console.warn("Face-ref generation failed:", err.message);
+    }
+  }
 
   try {
-    const url = await generateImage(
-      prompt,
-      heroPhotoUrl || null,
-      tier,
-      styleName,
-      [],
-      "3:4",
-      true
-    );
-    return url;
+    const url = await generateImage(prompt, null, "standard", styleName);
+    if (await validateImageUrl(url)) {
+      logCost("flux", "no_face", true, Date.now() - startTime, null);
+      return url;
+    }
   } catch (err) {
-    console.warn("Cover generation failed:", err.message);
-    return null;
-  }
-}
-
-// ── Generate ALL page images — sequential chained flow ───────────────────────
-// Each page includes the PREVIOUS page's output as a reference image,
-// creating a chain that maintains consistent style across the entire book.
-// The cover acts as a permanent "style anchor."
-export async function generateAllImagesChained(
-  pages, cast, styleName, heroPhotoUrl,
-  onPageImage, coverImageUrl, tier,
-  heroName, heroAge, tone, format, personalIngredient
-) {
-  if (!heroPhotoUrl) {
-    return generateAllImagesFallback(pages, cast, styleName, tier, onPageImage, tone, format);
+    console.error("All image attempts failed:", err.message);
   }
 
-  heroName = heroName || cast.find(c => c.isHero)?.name || cast[0]?.name || "the hero";
-  const totalPages = pages.length;
-  const pageImages = [];
-  let previousPageUrl = null;
-
-  for (let i = 0; i < pages.length; i++) {
-    const page = pages[i];
-
-    // Build full three-layer prompt
-    const previousPageExists = (previousPageUrl !== null);
-    const prompt = buildFullPrompt(
-      page, i, totalPages, cast, heroName, heroAge,
-      styleName, tone, format, personalIngredient, previousPageExists
-    );
-
-    // Aspect ratio depends on layout type
-    const layout = PAGE_LAYOUTS[page.layout] || PAGE_LAYOUTS["full-portrait"];
-    const aspectRatio = layout.aspect;
-
-    // Build reference images: cover (style anchor) + previous page (local consistency)
-    const referenceImageUrls = [];
-    if (coverImageUrl) referenceImageUrls.push(coverImageUrl);
-    if (previousPageUrl) referenceImageUrls.push(previousPageUrl);
-
-    try {
-      const url = await generateImage(
-        prompt,
-        heroPhotoUrl,
-        tier,
-        styleName,
-        referenceImageUrls,
-        aspectRatio,
-        false
-      );
-
-      if (url && await validateImageUrl(url)) {
-        pageImages.push(url);
-        previousPageUrl = url;
-        if (onPageImage) onPageImage(i, url);
-        logCost("nano_banana", tier, true, 0, null);
-      } else {
-        throw new Error("Invalid image URL");
-      }
-    } catch (err) {
-      console.warn(`Page ${i + 1} failed:`, err.message);
-
-      // Retry once with 3s delay
-      try {
-        await new Promise(r => setTimeout(r, 3000));
-        const retryUrl = await generateImage(
-          prompt, heroPhotoUrl, tier, styleName,
-          referenceImageUrls, aspectRatio, false
-        );
-        if (retryUrl && await validateImageUrl(retryUrl)) {
-          pageImages.push(retryUrl);
-          previousPageUrl = retryUrl;
-          if (onPageImage) onPageImage(i, retryUrl);
-        } else {
-          pageImages.push(null);
-          if (onPageImage) onPageImage(i, null);
-        }
-      } catch (retryErr) {
-        console.warn(`Page ${i + 1} retry failed:`, retryErr.message);
-        pageImages.push(null);
-        if (onPageImage) onPageImage(i, null);
-      }
-    }
-  }
-
-  const failCount = pageImages.filter(url => url === null).length;
-  if (failCount > 0) {
-    console.warn(`${failCount} of ${pages.length} illustrations failed`);
-  }
-  if (pageImages.every(url => url === null)) {
-    throw new Error("All illustrations failed. Please try again.");
-  }
-
-  return { pageImages, coverImageUrl };
-}
-
-// ── Fallback: generate without chaining (no hero photo) ──────────────────────
-async function generateAllImagesFallback(pages, cast, styleName, tier, onPageImage, tone, format) {
-  const bookIdentity = buildBookIdentity(styleName, tone, format);
-  const pageImages = [];
-
-  for (let i = 0; i < pages.length; i++) {
-    const page = pages[i];
-    const layout = PAGE_LAYOUTS[page.layout] || PAGE_LAYOUTS["full-portrait"];
-    const sceneDesc = page.scene_description || page.text;
-    const prompt = `${bookIdentity}\n\n---\n\nSCENE: ${sceneDesc}\n\nPAGE TEXT (render in decorative text boxes):\n"${page.text}"`;
-
-
-    try {
-      const url = await generateImage(prompt, null, tier, styleName, [], layout.aspect, false);
-      if (url && await validateImageUrl(url)) {
-        pageImages.push(url);
-        if (onPageImage) onPageImage(i, url);
-      } else {
-        pageImages.push(null);
-        if (onPageImage) onPageImage(i, null);
-      }
-    } catch (err) {
-      console.warn(`Page ${i + 1} fallback failed:`, err.message);
-      pageImages.push(null);
-      if (onPageImage) onPageImage(i, null);
-    }
-  }
-
-  if (pageImages.every(url => url === null)) {
-    throw new Error("All illustrations failed. Please try again.");
-  }
-
-  return { pageImages, coverImageUrl: null };
+  logCost("all", "failed", false, Date.now() - startTime, "all attempts failed");
+  return null;
 }
 
 // ── Edit page text ────────────────────────────────────────────────────────────
