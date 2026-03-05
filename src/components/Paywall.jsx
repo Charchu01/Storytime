@@ -44,30 +44,37 @@ function PaymentForm({ onSuccess, price, tier }) {
 
   return (
     <form onSubmit={handleSubmit} className="pw-form">
-      <PaymentElement
-        options={{
-          layout: "tabs",
-        }}
-      />
+      <PaymentElement options={{ layout: "tabs" }} />
       {error && <div className="pw-error">{error}</div>}
       <button
         type="submit"
         className="pw-pay-btn"
         disabled={!stripe || processing}
       >
-        {processing ? "Processing..." : `Unlock My Story — ${price}`}
+        {processing ? "Processing..." : `Create My Book — ${price}`}
       </button>
     </form>
   );
 }
 
-export default function Paywall({ tier, previewImageUrl, pageCount, price, onPaid, storySessionId }) {
+export default function Paywall({ bookType, artStyle, heroData, wizardData, onPaid, storySessionId }) {
+  const [selectedTier, setSelectedTier] = useState("standard");
   const [clientSecret, setClientSecret] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showPayment, setShowPayment] = useState(false);
 
-  useEffect(() => {
-    createPaymentIntent(tier, storySessionId)
+  const price = selectedTier === "premium" ? "$19.99" : "$9.99";
+  const pageCount = selectedTier === "premium"
+    ? (bookType?.pageCount?.premium || 10)
+    : (bookType?.pageCount?.standard || 6);
+
+  function handleProceedToPayment() {
+    setShowPayment(true);
+    setLoading(true);
+    setError(null);
+
+    createPaymentIntent(selectedTier, storySessionId)
       .then((secret) => {
         setClientSecret(secret);
         setLoading(false);
@@ -76,57 +83,94 @@ export default function Paywall({ tier, previewImageUrl, pageCount, price, onPai
         setError(err.message);
         setLoading(false);
       });
-  }, [tier, storySessionId]);
+  }
+
+  const heroName = heroData?.heroName || wizardData?.heroName || "Your hero";
+  const styleName = artStyle?.style?.name || "Classic Storybook";
+  const bookTitle = bookType?.title || "Adventure Story";
 
   return (
-    <div className="pw-overlay">
-      <div className="pw-modal">
-        <div className="pw-header">
-          <div className="pw-sparkle">✨</div>
-          <h2 className="pw-title">Your story is ready!</h2>
-          <p className="pw-subtitle">Here's a sneak peek of page 1...</p>
+    <div className="pw-screen">
+      <div className="pw-content">
+        <div className="pw-sparkle-icon">✨</div>
+        <h1 className="pw-headline">Your story is ready to create!</h1>
+
+        {/* Summary card */}
+        <div className="pw-summary">
+          <div className="pw-summary-hero">{heroName}'s {bookTitle}</div>
+          <div className="pw-summary-details">
+            <span className="pw-summary-tag">{artStyle?.style?.name || styleName}</span>
+            {artStyle?.tone && <span className="pw-summary-tag">{artStyle.tone.label}</span>}
+            <span className="pw-summary-tag">{bookType?.emoji} {bookType?.title}</span>
+          </div>
         </div>
 
-        {previewImageUrl && (
-          <div className="pw-preview">
-            <img src={previewImageUrl} alt="Page 1 preview" className="pw-preview-img" />
-          </div>
+        {/* Tier selection */}
+        {!showPayment && (
+          <>
+            <div className="pw-tiers">
+              <button
+                className={`pw-tier-card${selectedTier === "standard" ? " pw-tier-selected" : ""}`}
+                onClick={() => setSelectedTier("standard")}
+              >
+                <div className="pw-tier-name">Standard</div>
+                <div className="pw-tier-price">$9.99</div>
+                <div className="pw-tier-pages">{bookType?.pageCount?.standard || 6} pages</div>
+              </button>
+
+              <button
+                className={`pw-tier-card pw-tier-premium${selectedTier === "premium" ? " pw-tier-selected" : ""}`}
+                onClick={() => setSelectedTier("premium")}
+              >
+                <div className="pw-tier-badge">Best Value</div>
+                <div className="pw-tier-name">Premium</div>
+                <div className="pw-tier-price">$19.99</div>
+                <div className="pw-tier-pages">{bookType?.pageCount?.premium || 10} pages</div>
+                <div className="pw-tier-perks">Best quality · Family Vault</div>
+              </button>
+            </div>
+
+            <button className="pw-pay-btn pw-proceed-btn" onClick={handleProceedToPayment}>
+              Continue — {price}
+            </button>
+          </>
         )}
 
-        <div className="pw-unlock">
-          <div className="pw-lock-icon">🔒</div>
-          <div className="pw-unlock-text">
-            Unlock all {pageCount} pages
+        {/* Payment form */}
+        {showPayment && (
+          <div className="pw-payment-section">
+            {loading && (
+              <div className="pw-loading">Setting up secure payment...</div>
+            )}
+
+            {error && (
+              <div className="pw-error">
+                Hmm, something went wrong setting up payment. Please try again!
+              </div>
+            )}
+
+            {clientSecret && (
+              <Elements
+                stripe={stripePromise}
+                options={{
+                  clientSecret,
+                  appearance: {
+                    theme: "night",
+                    variables: {
+                      colorPrimary: "#F59E0B",
+                      borderRadius: "12px",
+                    },
+                  },
+                }}
+              >
+                <PaymentForm
+                  onSuccess={() => onPaid(selectedTier)}
+                  price={price}
+                  tier={selectedTier}
+                />
+              </Elements>
+            )}
           </div>
-          <div className="pw-price">{price}</div>
-        </div>
-
-        {loading && (
-          <div className="pw-loading">Setting up secure payment...</div>
-        )}
-
-        {error && (
-          <div className="pw-error">
-            Hmm, something went wrong setting up payment. Please try again!
-          </div>
-        )}
-
-        {clientSecret && (
-          <Elements
-            stripe={stripePromise}
-            options={{
-              clientSecret,
-              appearance: {
-                theme: "night",
-                variables: {
-                  colorPrimary: "#F59E0B",
-                  borderRadius: "12px",
-                },
-              },
-            }}
-          >
-            <PaymentForm onSuccess={onPaid} price={price} tier={tier} />
-          </Elements>
         )}
 
         <p className="pw-fine">

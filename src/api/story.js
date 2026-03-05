@@ -1,33 +1,60 @@
 import { claudeCall, generateImage, uploadPhoto } from "./client";
-import { ROLES, STYLES } from "../constants/data";
+import { ROLES, STYLES, WORLDS, OCCASIONS, THEMES } from "../constants/data";
 
 // ── Face-ref-lost tracking ───────────────────────────────────────────────────
 export const imageGenFlags = { faceRefLostCount: 0 };
 
 // ── Left page gradients for each style ────────────────────────────────────────
 export const STYLE_GRADIENTS = {
-  Storybook: "linear-gradient(135deg, #FEF3C7, #FDE68A, #F59E0B)",
-  Watercolor: "linear-gradient(135deg, #E0F2FE, #BAE6FD, #7DD3FC)",
+  "Classic Storybook": "linear-gradient(135deg, #FEF3C7, #FDE68A, #F59E0B)",
+  "Soft Watercolor": "linear-gradient(135deg, #E0F2FE, #BAE6FD, #7DD3FC)",
+  "Pixar / 3D Animated": "linear-gradient(135deg, #DBEAFE, #BFDBFE, #93C5FD)",
   "Bold & Bright": "linear-gradient(135deg, #FDF4FF, #FAE8FF, #E879F9)",
   "Cozy & Soft": "linear-gradient(135deg, #FFF1F2, #FFE4E6, #FECDD3)",
   "Sketch & Color": "linear-gradient(135deg, #F5F5DC, #FFFACD, #FFEAA7)",
+  "Anime / Manga": "linear-gradient(135deg, #FCE7F3, #FBCFE8, #F9A8D4)",
+  "Vintage Storybook": "linear-gradient(135deg, #FEF3C7, #FDE68A, #FCD34D)",
+  "Paper Collage": "linear-gradient(135deg, #FFEDD5, #FED7AA, #FDBA74)",
+  "Clean & Minimal": "linear-gradient(135deg, #F8FAFC, #F1F5F9, #E2E8F0)",
+  // Legacy fallbacks
+  Storybook: "linear-gradient(135deg, #FEF3C7, #FDE68A, #F59E0B)",
+  Watercolor: "linear-gradient(135deg, #E0F2FE, #BAE6FD, #7DD3FC)",
 };
 
 export const STYLE_COVER_GRADIENTS = {
-  Storybook: "linear-gradient(160deg, #D97706, #B45309, #92400E)",
-  Watercolor: "linear-gradient(160deg, #0284C7, #0369A1, #075985)",
+  "Classic Storybook": "linear-gradient(160deg, #D97706, #B45309, #92400E)",
+  "Soft Watercolor": "linear-gradient(160deg, #0284C7, #0369A1, #075985)",
+  "Pixar / 3D Animated": "linear-gradient(160deg, #2563EB, #1D4ED8, #1E40AF)",
   "Bold & Bright": "linear-gradient(160deg, #A855F7, #7C3AED, #6D28D9)",
   "Cozy & Soft": "linear-gradient(160deg, #F472B6, #EC4899, #DB2777)",
   "Sketch & Color": "linear-gradient(160deg, #A16207, #854D0E, #713F12)",
+  "Anime / Manga": "linear-gradient(160deg, #EC4899, #DB2777, #BE185D)",
+  "Vintage Storybook": "linear-gradient(160deg, #D97706, #B45309, #92400E)",
+  "Paper Collage": "linear-gradient(160deg, #EA580C, #C2410C, #9A3412)",
+  "Clean & Minimal": "linear-gradient(160deg, #64748B, #475569, #334155)",
+  // Legacy fallbacks
+  Storybook: "linear-gradient(160deg, #D97706, #B45309, #92400E)",
+  Watercolor: "linear-gradient(160deg, #0284C7, #0369A1, #075985)",
 };
 
 // ── Nano Banana Pro style descriptions ───────────────────────────────────────
+// Look up by style name — supports both new and legacy names
+function getNanoStyle(styleName) {
+  const styleObj = STYLES.find(s => s.name === styleName || s.id === styleName);
+  if (styleObj?.nanoPromptStyle) return styleObj.nanoPromptStyle;
+  // Legacy fallback
+  return "classic children's storybook illustration with bold saturated colours, clean outlines, and warm painterly backgrounds";
+}
+
+// Legacy compat
 const NANO_STYLES = {
-  "Storybook": "classic children's storybook illustration with bold saturated colours, clean outlines, and warm painterly backgrounds",
-  "Watercolor": "soft watercolour children's book illustration with visible brushstrokes, dreamy washes, and gentle colour bleeds",
+  "Classic Storybook": "classic children's storybook illustration with bold saturated colours, clean outlines, and warm painterly backgrounds",
+  "Soft Watercolor": "soft watercolour children's book illustration with visible brushstrokes, dreamy washes, and gentle colour bleeds",
   "Bold & Bright": "modern vibrant children's book illustration with thick bold outlines, flat graphic colours, and playful energy",
   "Cozy & Soft": "gentle pastel children's bedtime book illustration with rounded shapes, soft muted tones, and cozy warmth",
   "Sketch & Color": "whimsical hand-drawn children's book illustration with visible pencil lines, loose ink outlines, and watercolour wash fills",
+  Storybook: "classic children's storybook illustration with bold saturated colours, clean outlines, and warm painterly backgrounds",
+  Watercolor: "soft watercolour children's book illustration with visible brushstrokes, dreamy washes, and gentle colour bleeds",
 };
 
 // ── Cost tracking ─────────────────────────────────────────────────────────────
@@ -271,9 +298,23 @@ Must be IDENTICAL on every page. Match Image 2 exactly.`
 // CLAUDE AS ART DIRECTOR — Story + Visual Plan in ONE call
 // ══════════════════════════════════════════════════════════════════════════════
 
-function buildMasterSystemPrompt(cast, heroName, heroAge, styleName, tone, format, personalIngredient, pageCount) {
-  const styleDesc = NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
+// ── Book Type prompt overrides ────────────────────────────────────────────────
+const BOOK_TYPE_PROMPTS = {
+  adventure: `Write a classic narrative picture book with a beginning, middle, and satisfying end. Include a challenge the hero must overcome and a moment of triumph.`,
+  nursery_rhyme: `Write in strict AABB rhyme scheme. Every line must rhyme with the next. 8-10 syllables per line. Musical, bouncy rhythm designed to be read aloud. Each spread is a new verse.`,
+  bedtime: `Write a gentle, calming bedtime story. Start with a quiet adventure, gradually wind down, and end with the hero falling asleep. Soft, soothing language. The last spread must show the hero peacefully sleeping.`,
+  abc: `Write a personalised alphabet book. Each spread covers 2-3 letters. Connect each letter to something from the hero's life, world, or personality. Use a rhyming couplet for each letter. Layout: letter large on the left page, illustration + text on the right.`,
+  counting: `Write a personalised counting book from 1 to 10. Each spread covers 1-2 numbers. The items being counted should connect to the story theme. Accumulating pattern — each new number adds to the adventure. Layout: number large on the left, scene on the right.`,
+  day_in_life: `Write a "day in the life" story following the hero from morning to bedtime. Each spread is a different time of day. Ground it in REAL activities the child does, but sprinkle in magical/special moments. Chronological flow: wake up -> morning -> midday -> afternoon -> evening -> bedtime.`,
+  love_letter: `Write a book of affirmations and love. Each spread is a different reason why the hero is special. Direct address: "Did you know..." / "I love the way you..." / "You make the world better because..." Tender, heartfelt, makes the reader cry (in a good way). The final spread is the biggest declaration of love.`,
+  superhero: `Write a superhero origin story. The hero discovers they have a unique power connected to something real about them (kindness, curiosity, laughter). Include an exciting challenge they must face and overcome using their power. End with them embracing their identity. Action-packed but with a heartfelt message.`,
+};
+
+function buildMasterSystemPrompt(cast, heroName, heroAge, styleName, tone, format, personalIngredient, pageCount, storyData) {
+  const styleDesc = getNanoStyle(styleName);
   const supporting = cast.filter(c => !c.isHero);
+  const bookType = storyData?.bookType || "adventure";
+  const bookTypePrompt = BOOK_TYPE_PROMPTS[bookType] || BOOK_TYPE_PROMPTS.adventure;
 
   // Build character descriptions
   let castDesc = `MAIN CHARACTER: ${heroName}`;
@@ -302,21 +343,45 @@ function buildMasterSystemPrompt(cast, heroName, heroAge, styleName, tone, forma
 
   const toneMap = {
     "Cozy": "warm golden-hour lighting, soft glowing lamps, amber and honey tones, feels like a warm blanket",
+    "Cozy & Warm": "warm golden-hour lighting, soft glowing lamps, amber and honey tones, feels like a warm blanket",
     "Exciting": "dynamic dramatic lighting, bold contrasts, vivid saturated colours, cinematic energy",
+    "Exciting & Epic": "dynamic dramatic lighting, bold contrasts, vivid saturated colours, cinematic energy, wide sweeping shots",
     "Heartfelt": "soft diffused light, gentle warmth, intimate framing, tender atmosphere",
+    "Heartfelt & Tender": "soft diffused light, gentle warmth, intimate close framing, tender atmosphere",
     "Funny": "bright playful lighting, exaggerated expressions, candy colours, maximum fun energy",
+    "Funny & Silly": "bright playful lighting, exaggerated expressions, candy colours, physical comedy, maximum fun energy",
+    "Dreamy & Magical": "ethereal glowing light, soft focus, magical particles, aurora colours, floating elements, surreal gentle beauty",
+    "Spooky (but fun!)": "purple and orange Halloween palette, friendly ghosts, playful shadows, moonlit scenes, spooky-cute not scary",
   };
   const atmosphere = toneMap[tone] || toneMap["Cozy"];
+
+  // Build world/setting vocabulary
+  const worldObj = storyData?.world ? WORLDS?.find(w => w.id === storyData.world) : null;
+  const worldVocab = worldObj?.vocab || "";
+
+  // Build occasion context
+  const occasionObj = storyData?.occasion ? OCCASIONS?.find(o => o.id === storyData.occasion) : null;
+  const occasionPrompt = occasionObj?.prompt || "";
+
+  // Build theme context
+  const themeObj = storyData?.theme ? THEMES?.find(t => t.id === storyData.theme) : null;
+  const themeLabel = themeObj?.label || "";
 
   // Calculate spread count
   const spreadCount = Math.ceil(pageCount / 2);
 
   return `You are a master children's book author AND art director. You will write an amazing story AND design every visual spread of the book.
 
+═══ BOOK TYPE ═══
+${bookTypePrompt}
+
 ═══ YOUR CHARACTERS ═══
 ${castDesc}
 
 ${personalIngredient ? `EMOTIONAL CORE: "${personalIngredient}" — weave this into the story's heart.` : ""}
+${occasionPrompt ? `OCCASION: ${occasionPrompt}` : ""}
+${themeLabel ? `THEME/LESSON: The story should explore the theme of "${themeLabel}".` : ""}
+${worldVocab ? `SETTING: Use this visual vocabulary for the world: ${worldVocab}` : ""}
 
 ═══ THE BOOK FORMAT ═══
 This is a ${pageCount}-page picture book with ${spreadCount} illustrated spreads.
@@ -455,12 +520,24 @@ Return ONLY the JSON. No preamble. No markdown.`;
 }
 
 function buildMasterUserPrompt(wizardData) {
-  return `Create a personalized children's storybook.
+  const bookTypeLabel = {
+    adventure: "adventure story",
+    nursery_rhyme: "nursery rhyme book",
+    bedtime: "bedtime story",
+    abc: "ABC alphabet book",
+    counting: "counting book",
+    superhero: "superhero origin story",
+    love_letter: "love letter / affirmation book",
+    day_in_life: "day in the life story",
+  }[wizardData.bookType] || "adventure story";
+
+  return `Create a personalized children's ${bookTypeLabel}.
 
 Hero: ${wizardData.heroName}${wizardData.heroAge ? ` (age ${wizardData.heroAge})` : ""}
 Story idea: ${wizardData.storyIdea || wizardData.sparkText || wizardData.spark || "A magical adventure"}
 ${wizardData.personalIngredient ? `Personal detail: "${wizardData.personalIngredient}"` : ""}
 ${wizardData.tone ? `Mood: ${wizardData.tone}` : ""}
+${wizardData.details ? `Extra details: ${wizardData.details}` : ""}
 
 Write the story, then design every spread with complete image prompts. Make it magical, personal, and visually stunning.`;
 }
@@ -475,7 +552,8 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
     storyData.tone,
     storyData.storyFormat || "classic",
     storyData.personalIngredient,
-    storyData.pageCount || 6
+    storyData.pageCount || 6,
+    storyData
   );
 
   const userPrompt = buildMasterUserPrompt(storyData);
@@ -538,7 +616,7 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
   // Ensure top-level fields for prompt assembly
   parsed.characterAppearances = parsed.characterAppearances || { hero: `${storyData.heroName || "the character"}`, supporting: {} };
   parsed.textBoxDesign = parsed.textBoxDesign || "Simple rectangular box, thin dark brown ornate border, small corner flourishes, warm cream fill, dark brown elegant serif text, centred";
-  parsed.artStyle = parsed.artStyle || NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
+  parsed.artStyle = parsed.artStyle || getNanoStyle(styleName);
 
   return parsed;
 }
@@ -736,7 +814,7 @@ export async function uploadHeroPhoto(cast) {
 
 // ── Generate a single page image (fallback for edits) ────────────────────────
 export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood) {
-  const styleDesc = NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
+  const styleDesc = getNanoStyle(styleName);
   const prompt = `Children's storybook illustration in ${styleDesc} style. ${sceneDescription}. The illustration fills the ENTIRE image edge-to-edge — NO borders, NO frames. Award-winning picture book quality, no text in image.`;
 
   const startTime = Date.now();
