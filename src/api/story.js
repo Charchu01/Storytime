@@ -288,33 +288,42 @@ export async function generateCoverImage(coverScene, styleName) {
   }
 }
 
-// ── Generate ALL page images in PARALLEL ──────────────────────────────────────
+// ── Generate ALL page images in batches ──────────────────────────────────────
+const BATCH_SIZE = 3; // Max concurrent image requests to avoid rate limiting
+
 export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, onPageImage, coverScene) {
-  // Start cover generation
+  // Start cover generation (runs alongside batches)
   const coverPromise = generateCoverImage(coverScene, styleName);
 
-  // Fire ALL page image requests in parallel
-  const pagePromises = pages.map((page, i) => {
-    const sceneDesc = page.scene_description || page.imagePrompt || page.text;
-    const mood = page.mood || "wonder";
-    return generatePageImage(sceneDesc, cast, styleName, heroPhotoUrl, mood)
-      .then((url) => {
-        // Notify as each image arrives
-        if (onPageImage) onPageImage(i, url);
-        return url;
-      })
-      .catch((err) => {
-        console.error(`Failed to generate image for page ${i + 1}:`, err);
-        if (onPageImage) onPageImage(i, null);
-        return null;
-      });
-  });
+  // Generate page images in batches of BATCH_SIZE to avoid Replicate rate limits
+  const pageImages = new Array(pages.length).fill(null);
 
-  // Wait for all in parallel
-  const [coverImageUrl, ...pageImages] = await Promise.all([
-    coverPromise,
-    ...pagePromises,
-  ]);
+  for (let batchStart = 0; batchStart < pages.length; batchStart += BATCH_SIZE) {
+    const batchEnd = Math.min(batchStart + BATCH_SIZE, pages.length);
+    const batchPromises = [];
+
+    for (let i = batchStart; i < batchEnd; i++) {
+      const page = pages[i];
+      const sceneDesc = page.scene_description || page.imagePrompt || page.text;
+      const mood = page.mood || "wonder";
+      batchPromises.push(
+        generatePageImage(sceneDesc, cast, styleName, heroPhotoUrl, mood)
+          .then((url) => {
+            pageImages[i] = url;
+            if (onPageImage) onPageImage(i, url);
+          })
+          .catch((err) => {
+            console.error(`Failed to generate image for page ${i + 1}:`, err);
+            pageImages[i] = null;
+            if (onPageImage) onPageImage(i, null);
+          })
+      );
+    }
+
+    await Promise.all(batchPromises);
+  }
+
+  const coverImageUrl = await coverPromise;
 
   // If ALL page images failed, throw
   if (pageImages.every((url) => url === null)) {
