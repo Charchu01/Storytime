@@ -15,7 +15,7 @@ export default function FamilyVault({ userId = "anonymous" }) {
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Failed to load vault:", err);
+        // Vault load failed
         setError(err.message);
         setLoading(false);
       });
@@ -27,7 +27,7 @@ export default function FamilyVault({ userId = "anonymous" }) {
       await deleteFromVault(charId, userId);
       setCharacters((prev) => prev.filter((c) => c.id !== charId));
     } catch (err) {
-      console.error("Failed to delete from vault:", err);
+      // Vault delete failed
     }
   }
 

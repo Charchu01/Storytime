@@ -1,35 +1,60 @@
+// ── Retry helper ──────────────────────────────────────────────────────────────
+async function fetchWithRetry(url, options, maxRetries = 1) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+
+      // Auto-retry on 429
+      if (response.status === 429 && attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
+
+      return response;
+    } catch (err) {
+      if (attempt === maxRetries) throw err;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+}
+
+function friendlyError(status, fallback) {
+  if (status === 429) return "Our servers are busy. Trying again in a moment...";
+  if (status === 500) return "Something went wrong on our end. Please try again.";
+  if (status === 403) return "There's a configuration issue. Please contact support.";
+  return fallback || "Something went wrong. Let's try again.";
+}
+
 export async function claudeCall(system, userMsg, maxTokens = 1400, imageDataUrl = null) {
   let response;
   try {
-    response = await fetch("/api/claude", {
+    response = await fetchWithRetry("/api/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ system, userMsg, maxTokens, imageDataUrl }),
     });
   } catch (err) {
-    throw new Error(`Network error calling /api/claude: ${err.message}`);
+    throw new Error("Something went wrong. Let's try again.");
   }
 
   let data;
   try {
     data = await response.json();
   } catch {
-    const text = await response.text().catch(() => "");
-    throw new Error(`/api/claude returned non-JSON (${response.status}): ${text.slice(0, 200)}`);
+    throw new Error(friendlyError(response.status, "Received an unexpected response. Please try again."));
   }
 
   if (!response.ok) {
-    throw new Error(data.error || `API error (${response.status})`);
+    throw new Error(friendlyError(response.status, data.error));
   }
 
   return data.text;
 }
 
-// Analyze a photo for quality — checks face visibility, lighting, clarity.
-// Returns { quality: "good"|"fair"|"poor", feedback: string }
 export async function analyzePhotoQuality(photoDataUri) {
-  const result = await claudeCall(
-    `You are a photo quality checker for a children's storybook app. The app uses face-preserving AI illustration — so the uploaded photo MUST have a clear, visible face.
+  try {
+    const result = await claudeCall(
+      `You are a photo quality checker for a children's storybook app. The app uses face-preserving AI illustration — so the uploaded photo MUST have a clear, visible face.
 
 Analyze this photo and return a JSON object with exactly these fields:
 - "quality": one of "good", "fair", or "poor"
@@ -41,75 +66,69 @@ Scoring rules:
 - "poor": No face visible, extremely blurry, too dark to see features, face is tiny/distant, photo is of an object
 
 Return ONLY valid JSON. No markdown, no explanation.`,
-    "Please analyze this photo for face quality.",
-    150,
-    photoDataUri
-  );
+      "Please analyze this photo for face quality.",
+      150,
+      photoDataUri
+    );
 
-  try {
-    const cleaned = result.replace(/```json\s*|```\s*/g, "").trim();
-    return JSON.parse(cleaned);
+    try {
+      const cleaned = result.replace(/```json\s*|```\s*/g, "").trim();
+      return JSON.parse(cleaned);
+    } catch {
+      return { quality: "fair", feedback: "Photo looks okay — we'll do our best!" };
+    }
   } catch {
     return { quality: "fair", feedback: "Couldn't analyze — but we'll try our best!" };
   }
 }
 
-// Upload a photo data URI to Replicate file hosting and get back an HTTP URL.
-// Call this ONCE before generating images, then reuse the URL for all pages.
 export async function uploadPhoto(photoDataUri) {
   let response;
   try {
-    response = await fetch("/api/upload-photo", {
+    response = await fetchWithRetry("/api/upload-photo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ photoDataUri }),
     });
   } catch (err) {
-    throw new Error(`Network error uploading photo: ${err.message}`);
+    throw new Error("Something went wrong uploading the photo. Let's try again.");
   }
 
   let data;
   try {
     data = await response.json();
   } catch {
-    const text = await response.text().catch(() => "");
-    throw new Error(`/api/upload-photo returned non-JSON (${response.status}): ${text.slice(0, 200)}`);
+    throw new Error(friendlyError(response.status));
   }
 
   if (!response.ok) {
-    throw new Error(data.error || `Photo upload failed (${response.status})`);
+    throw new Error(friendlyError(response.status, data.error));
   }
 
   return data.photoUrl;
 }
 
-// Generate an image: creates prediction server-side, then polls for completion client-side.
-// This avoids Vercel serverless timeout issues (hobby plan = 10s hard limit).
-// useFaceRef: if true AND referencePhotoUrl is provided, uses flux-pulid for face preservation.
-//             if false (default), uses flux-1.1-pro-ultra with text descriptions only (more reliable).
 export async function generateImage(prompt, referencePhotoUrl = null, useFaceRef = false) {
-  // Step 1: Create prediction (returns instantly)
   let response;
   try {
-    response = await fetch("/api/generate-image", {
+    response = await fetchWithRetry("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, referencePhotoUrl, useFaceRef }),
     });
   } catch (err) {
-    throw new Error(`Network error calling /api/generate-image: ${err.message}`);
+    throw new Error("Something went wrong. Let's try again.");
   }
 
   let data;
   try {
     data = await response.json();
   } catch {
-    const text = await response.text().catch(() => "");
-    throw new Error(`/api/generate-image returned non-JSON (${response.status}): ${text.slice(0, 200)}`);
+    throw new Error(friendlyError(response.status));
   }
 
   if (!response.ok) {
-    throw new Error(data.error || `Image generation failed (${response.status})`);
+    throw new Error(friendlyError(response.status, data.error));
   }
 
   const { predictionId } = data;
@@ -117,9 +136,8 @@ export async function generateImage(prompt, referencePhotoUrl = null, useFaceRef
     throw new Error("No prediction ID returned from server");
   }
 
-  // Step 2: Poll for completion
-  const POLL_INTERVAL = 2500; // 2.5s between polls
-  const MAX_POLLS = 48; // ~2 minutes max wait
+  const POLL_INTERVAL = 2500;
+  const MAX_POLLS = 48;
 
   for (let i = 0; i < MAX_POLLS; i++) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL));
@@ -128,14 +146,14 @@ export async function generateImage(prompt, referencePhotoUrl = null, useFaceRef
     try {
       pollRes = await fetch(`/api/poll-image?id=${predictionId}`);
     } catch {
-      continue; // Network blip — retry
+      continue;
     }
 
     let pollData;
     try {
       pollData = await pollRes.json();
     } catch {
-      continue; // Bad response — retry
+      continue;
     }
 
     if (pollData.status === "succeeded") {
@@ -148,36 +166,32 @@ export async function generateImage(prompt, referencePhotoUrl = null, useFaceRef
     if (pollData.status === "failed" || pollData.status === "canceled") {
       throw new Error(pollData.error || `Image generation ${pollData.status}`);
     }
-
-    // "starting" or "processing" — keep polling
   }
 
   throw new Error("Image generation timed out after 2 minutes");
 }
 
-// Generate an image using a LoRA model (Premium tier).
 export async function generateLoraImage(prompt, loraUrl, triggerWord) {
   let response;
   try {
-    response = await fetch("/api/generate-image", {
+    response = await fetchWithRetry("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, loraUrl, triggerWord }),
     });
   } catch (err) {
-    throw new Error(`Network error calling /api/generate-image: ${err.message}`);
+    throw new Error("Something went wrong. Let's try again.");
   }
 
   let data;
   try {
     data = await response.json();
   } catch {
-    const text = await response.text().catch(() => "");
-    throw new Error(`/api/generate-image returned non-JSON (${response.status}): ${text.slice(0, 200)}`);
+    throw new Error(friendlyError(response.status));
   }
 
   if (!response.ok) {
-    throw new Error(data.error || `Image generation failed (${response.status})`);
+    throw new Error(friendlyError(response.status, data.error));
   }
 
   const { predictionId } = data;
@@ -221,81 +235,113 @@ export async function generateLoraImage(prompt, loraUrl, triggerWord) {
 // ── Payment helpers ─────────────────────────────────────────────────────────
 
 export async function createPaymentIntent(tier, storySessionId) {
-  const response = await fetch("/api/create-payment-intent", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tier, storySessionId }),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Failed to create payment intent");
-  return data.clientSecret;
+  try {
+    const response = await fetchWithRetry("/api/create-payment-intent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tier, storySessionId }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
+    return data.clientSecret;
+  } catch (err) {
+    throw new Error(err.message || "Something went wrong setting up payment. Please try again.");
+  }
 }
 
 export async function checkPayment(sessionId) {
-  const response = await fetch(`/api/check-payment?sessionId=${sessionId}`);
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Failed to check payment");
-  return data;
+  try {
+    const response = await fetch(`/api/check-payment?sessionId=${sessionId}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
+    return data;
+  } catch (err) {
+    throw new Error(err.message || "Failed to check payment status.");
+  }
 }
 
 // ── LoRA Training helpers ───────────────────────────────────────────────────
 
 export async function zipPhotos(photoUrls) {
-  const response = await fetch("/api/zip-photos", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ photoUrls }),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Failed to zip photos");
-  return data.zipUrl;
+  try {
+    const response = await fetchWithRetry("/api/zip-photos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photoUrls }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
+    return data.zipUrl;
+  } catch (err) {
+    throw new Error(err.message || "Failed to prepare photos for training.");
+  }
 }
 
-export async function trainLora(zipUrl, childName, sessionId) {
-  const response = await fetch("/api/train-lora", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ zipUrl, childName, sessionId }),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Failed to start LoRA training");
-  return data;
+export async function trainLora(zipUrl, childName, sessionId, artStyle) {
+  try {
+    const response = await fetchWithRetry("/api/train-lora", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ zipUrl, childName, sessionId, artStyle }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
+    return data;
+  } catch (err) {
+    throw new Error(err.message || "Failed to start character training.");
+  }
 }
 
 export async function checkTraining(trainingId) {
-  const response = await fetch(`/api/check-training?trainingId=${trainingId}`);
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Failed to check training");
-  return data;
+  try {
+    const response = await fetch(`/api/check-training?trainingId=${trainingId}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
+    return data;
+  } catch (err) {
+    throw new Error(err.message || "Failed to check training status.");
+  }
 }
 
 // ── Family Vault helpers ────────────────────────────────────────────────────
 
 export async function getVaultCharacters(userId = "anonymous") {
-  const response = await fetch(`/api/vault?userId=${userId}`);
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Failed to load vault");
-  return data.characters;
+  try {
+    const response = await fetch(`/api/vault?userId=${userId}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
+    return data.characters;
+  } catch (err) {
+    throw new Error(err.message || "Failed to load saved characters.");
+  }
 }
 
 export async function saveToVault(character, userId = "anonymous") {
-  const response = await fetch("/api/vault", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": userId },
-    body: JSON.stringify(character),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Failed to save to vault");
-  return data.character;
+  try {
+    const response = await fetchWithRetry("/api/vault", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-user-id": userId },
+      body: JSON.stringify(character),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
+    return data.character;
+  } catch (err) {
+    throw new Error(err.message || "Failed to save character.");
+  }
 }
 
 export async function deleteFromVault(characterId, userId = "anonymous") {
-  const response = await fetch("/api/vault", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json", "x-user-id": userId },
-    body: JSON.stringify({ characterId }),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Failed to delete from vault");
-  return data;
+  try {
+    const response = await fetchWithRetry("/api/vault", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", "x-user-id": userId },
+      body: JSON.stringify({ characterId }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
+    return data;
+  } catch (err) {
+    throw new Error(err.message || "Failed to delete character.");
+  }
 }

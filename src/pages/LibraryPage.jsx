@@ -10,7 +10,7 @@ export default function LibraryPage() {
   const navigate = useNavigate();
   const [hoveredId, setHoveredId] = useState(null);
 
-  useEffect(() => { document.title = "My Library — StoriKids"; }, []);
+  useEffect(() => { document.title = "My Library — Storytime"; }, []);
 
   function handleDelete(id, title) {
     if (confirm(`Delete "${title}"? This cannot be undone.`)) {

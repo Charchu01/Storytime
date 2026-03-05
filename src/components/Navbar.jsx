@@ -89,7 +89,7 @@ export default function Navbar() {
     <>
       <nav className="gn">
         <div className="gn-inner">
-          <Link to="/" className="gn-logo">📖 StoriKids</Link>
+          <Link to="/" className="gn-logo">📖 Storytime</Link>
 
           <div className="gn-center">
             <NavLink to="/create" className={({ isActive }) => `gn-link${isActive ? " gn-active" : ""}`}>
@@ -115,7 +115,7 @@ export default function Navbar() {
         <div className="drawer-overlay">
           <div className="drawer" ref={drawerRef}>
             <div className="drawer-head">
-              <Link to="/" className="gn-logo">📖 StoriKids</Link>
+              <Link to="/" className="gn-logo">📖 Storytime</Link>
               <button className="drawer-close" onClick={() => setDrawerOpen(false)}>✕</button>
             </div>
             <div className="drawer-sep" />

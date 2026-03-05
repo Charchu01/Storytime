@@ -1,0 +1,40 @@
+{
+  "title": "Mia and the Whispering Forest",
+  "coverScene": "A vast magical forest at golden hour, ancient twisted trees with glowing mushrooms at their roots, fireflies dancing in warm amber light, a winding path leading into the distance",
+  "coverEmoji": "🌲",
+  "artStyle": "Soft Watercolour",
+  "heroName": "Mia",
+  "heroAge": 6,
+  "authorName": "The Storytime Team",
+  "dedication": "For every child who believes in magic — and every parent who keeps that belief alive.",
+  "pages": [
+    {
+      "pageNumber": 1,
+      "text": "Mia had always known the old oak at the bottom of the garden was special. Its branches whispered secrets when the wind blew just right, and sometimes, if she listened very carefully, she could almost hear it say her name.",
+      "scene_description": "A curious 6-year-old girl with shoulder-length brown hair, wearing a yellow raincoat and red boots, standing in a sunlit garden looking up at an enormous ancient oak tree. The tree's branches seem to reach toward her like gentle arms. Golden afternoon light filters through the leaves, creating dappled patterns on the grass. Fireflies begin to appear in the warm air.",
+      "scene_emoji": "🌳",
+      "mood": "wonder"
+    },
+    {
+      "pageNumber": 2,
+      "text": "Today, the whispers were louder. 'Mia,' they called, soft as a lullaby. She squeezed through the gap in the roots and found herself tumbling into a world made entirely of starlight and moss.",
+      "scene_description": "Wide shot of a magical underground cavern revealed through tree roots, filled with bioluminescent moss and floating orbs of golden light. A small girl in a yellow raincoat slides down a natural slide made of smooth roots into this wonderland. The ceiling is covered in glowing crystals that look like stars. Everything is bathed in warm amber and soft green light.",
+      "scene_emoji": "✨",
+      "mood": "wonder"
+    },
+    {
+      "pageNumber": 3,
+      "text": "A fox with fur the colour of autumn leaves sat waiting on a toadstool. 'We've been expecting you,' he said, adjusting tiny spectacles. 'The forest has a problem, and it thinks you're brave enough to help.'",
+      "scene_description": "Medium shot of a whimsical fox with orange-red fur wearing tiny round spectacles, sitting on an oversized spotted toadstool in an enchanted forest clearing. A girl in a yellow raincoat kneels before the fox, eyes wide with wonder. Around them, enormous flowers glow softly and tiny creatures peek from behind mushrooms. Warm cozy lighting with gentle fog.",
+      "scene_emoji": "🦊",
+      "mood": "cozy"
+    },
+    {
+      "pageNumber": 4,
+      "text": "Mia took a deep breath, stood up as tall as she could, and smiled. 'I'm ready,' she said. And somewhere deep in the ancient forest, the trees began to sing.",
+      "scene_description": "Triumphant wide shot of a brave girl in a yellow raincoat standing at the edge of a magnificent forest vista, arms slightly spread with confidence. Below her stretches an endless magical forest with trees that seem to glow from within. Golden light bursts through the canopy above. Musical notes made of light float through the air. The scene is epic in scale, warm and hopeful.",
+      "scene_emoji": "🌟",
+      "mood": "triumphant"
+    }
+  ]
+}

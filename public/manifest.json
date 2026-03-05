@@ -1,6 +1,6 @@
 {
-  "name": "StoriKids",
-  "short_name": "StoriKids",
+  "name": "Storytime",
+  "short_name": "Storytime",
   "description": "Create personalized AI storybooks starring your child",
   "start_url": "/",
   "display": "standalone",
