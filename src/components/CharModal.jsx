@@ -1,55 +1,39 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ROLES } from "../constants/data";
 import { analyzePhotoQuality } from "../api/client";
 
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024; // 10MB raw input
-const PHOTO_MAX_DIM = 1024; // Resize to max 1024px on longest side
-const PHOTO_QUALITY = 0.85; // JPEG quality
+const PHOTO_MAX_DIM = 1024;
+const PHOTO_QUALITY = 0.85;
 const MAX_PHOTOS = 3;
 
-// Resize and compress photo to keep data URLs manageable for API calls
 function compressPhoto(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
-
     img.onload = () => {
       URL.revokeObjectURL(url);
-
       let { width, height } = img;
       if (width > PHOTO_MAX_DIM || height > PHOTO_MAX_DIM) {
         const scale = PHOTO_MAX_DIM / Math.max(width, height);
         width = Math.round(width * scale);
         height = Math.round(height * scale);
       }
-
       const canvas = document.createElement("canvas");
       canvas.width = width;
       canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, width, height);
-
-      const dataUrl = canvas.toDataURL("image/jpeg", PHOTO_QUALITY);
-      resolve(dataUrl);
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", PHOTO_QUALITY));
     };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Failed to load image"));
-    };
-
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Failed to load image")); };
     img.src = url;
   });
 }
-
-const QUALITY_ICONS = { good: "✅", fair: "⚠️", poor: "❌" };
-const QUALITY_COLORS = { good: "#16a34a", fair: "#d97706", poor: "#dc2626" };
 
 export default function CharModal({ preset, existing, onSave, onClose }) {
   const [role, setRole] = useState(existing?.role || preset || "child");
   const [name, setName] = useState(existing?.name || "");
   const [age, setAge] = useState(existing?.age || "");
-  // Photos array: [{ dataUri, quality, feedback, analyzing }]
   const [photos, setPhotos] = useState(() => {
     if (existing?.photos?.length) return existing.photos;
     if (existing?.photo) return [{ dataUri: existing.photo, quality: "good", feedback: "" }];
@@ -57,61 +41,39 @@ export default function CharModal({ preset, existing, onSave, onClose }) {
   });
   const [primaryIndex, setPrimaryIndex] = useState(existing?.primaryPhotoIndex || 0);
   const [error, setError] = useState(null);
-  const [showTips, setShowTips] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef();
+  const nameRef = useRef();
 
   const currentRole = ROLES.find((r) => r.id === role);
 
+  // Auto-focus name input when modal opens (if no existing name)
+  useEffect(() => {
+    if (!existing && nameRef.current) {
+      setTimeout(() => nameRef.current.focus(), 350);
+    }
+  }, [existing]);
+
   async function handleFile(file) {
     if (!file) return;
-    if (file.size > MAX_PHOTO_SIZE) {
-      setError("Photo must be under 10MB");
-      return;
-    }
-    if (photos.length >= MAX_PHOTOS) {
-      setError(`Maximum ${MAX_PHOTOS} photos — remove one first`);
-      return;
-    }
+    if (file.size > MAX_PHOTO_SIZE) { setError("Photo must be under 10 MB"); return; }
+    if (photos.length >= MAX_PHOTOS) { setError(`Max ${MAX_PHOTOS} photos — remove one first`); return; }
     setError(null);
     try {
       const compressed = await compressPhoto(file);
       const newIndex = photos.length;
-
-      // Add photo with "analyzing" state
       setPhotos((prev) => [...prev, { dataUri: compressed, quality: null, feedback: "", analyzing: true }]);
-
-      // Show tips on first photo upload
-      if (photos.length === 0 && !localStorage.getItem("sk_photo_tips_seen")) {
-        setShowTips(true);
-        localStorage.setItem("sk_photo_tips_seen", "1");
-        setTimeout(() => setShowTips(false), 5000);
-      }
-
-      // Run quality analysis in background
       try {
         const result = await analyzePhotoQuality(compressed);
-        setPhotos((prev) =>
-          prev.map((p, i) =>
-            i === newIndex ? { ...p, quality: result.quality, feedback: result.feedback, analyzing: false } : p
-          )
-        );
-        // If this is the first "good" photo and current primary isn't good, auto-select it
+        setPhotos((prev) => prev.map((p, i) => i === newIndex ? { ...p, quality: result.quality, feedback: result.feedback, analyzing: false } : p));
         if (result.quality === "good") {
-          setPhotos((current) => {
-            const currentPrimary = current[primaryIndex];
-            if (!currentPrimary || currentPrimary.quality !== "good") {
-              setPrimaryIndex(newIndex);
-            }
-            return current;
+          setPhotos((cur) => {
+            if (!cur[primaryIndex] || cur[primaryIndex].quality !== "good") setPrimaryIndex(newIndex);
+            return cur;
           });
         }
       } catch {
-        // Quality check failed — still keep the photo, just mark as fair
-        setPhotos((prev) =>
-          prev.map((p, i) =>
-            i === newIndex ? { ...p, quality: "fair", feedback: "Couldn't analyze — we'll do our best!", analyzing: false } : p
-          )
-        );
+        setPhotos((prev) => prev.map((p, i) => i === newIndex ? { ...p, quality: "fair", feedback: "", analyzing: false } : p));
       }
     } catch {
       setError("Failed to process photo");
@@ -120,26 +82,25 @@ export default function CharModal({ preset, existing, onSave, onClose }) {
 
   function removePhoto(index) {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
-    // Adjust primary index
-    if (primaryIndex === index) {
-      setPrimaryIndex(0);
-    } else if (primaryIndex > index) {
-      setPrimaryIndex((prev) => prev - 1);
-    }
+    if (primaryIndex === index) setPrimaryIndex(0);
+    else if (primaryIndex > index) setPrimaryIndex((p) => p - 1);
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith("image/")) handleFile(file);
   }
 
   function handleSave() {
     const trimmedName = name.trim().slice(0, 30);
     if (!trimmedName) return;
-
-    // Warn if primary photo is poor quality
     const primary = photos[primaryIndex];
     if (primary?.quality === "poor" && photos.some((p, i) => i !== primaryIndex && p.quality !== "poor")) {
-      // Auto-switch to best available
       const betterIdx = photos.findIndex((p) => p.quality === "good") ?? photos.findIndex((p) => p.quality === "fair");
       if (betterIdx >= 0) setPrimaryIndex(betterIdx);
     }
-
     const adjustedPrimary = primaryIndex < photos.length ? primaryIndex : 0;
     onSave({
       id: existing?.id || Date.now(),
@@ -148,144 +109,134 @@ export default function CharModal({ preset, existing, onSave, onClose }) {
       age,
       photos,
       primaryPhotoIndex: adjustedPrimary,
-      // Backward compat: photo = primary photo's dataUri
       photo: photos[adjustedPrimary]?.dataUri || null,
       emoji: currentRole.emoji,
     });
   }
 
+  const hasPhotos = photos.length > 0;
+  const heroPhoto = photos[primaryIndex] || photos[0];
+
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+      <div className="modal cm-modal">
         <div className="modal-handle" />
         <button className="modal-x" onClick={onClose}>✕</button>
 
-        <div className="m-h">{existing ? "Edit character" : "Add a character"}</div>
-        <div className="m-s">Add up to {MAX_PHOTOS} photos for the best illustrations</div>
-
-        <div className="rtabs">
-          {ROLES.map((r) => (
-            <button
-              key={r.id}
-              className={`rtab${role === r.id ? " on" : ""}`}
-              onClick={() => setRole(r.id)}
-            >
-              <span className="rt-em">{r.emoji}</span>
-              <span className="rt-lb">{r.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Photo grid */}
-        <div className="photo-grid">
-          {photos.map((p, i) => (
-            <div
-              key={i}
-              className={`photo-slot photo-slot-filled${i === primaryIndex ? " photo-primary" : ""}`}
-              onClick={() => setPrimaryIndex(i)}
-            >
-              <img src={p.dataUri} alt={`Photo ${i + 1}`} />
-              <button className="photo-rm" onClick={(e) => { e.stopPropagation(); removePhoto(i); }}>✕</button>
-              {i === primaryIndex && <div className="photo-star-badge">★</div>}
-              {p.analyzing ? (
-                <div className="photo-quality-badge photo-q-analyzing">
-                  <span className="photo-q-spinner" />
+        {/* ── Hero photo area ─────────────────────────────── */}
+        <div
+          className={`cm-hero${dragOver ? " cm-hero-drag" : ""}${hasPhotos ? " cm-hero-has" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          onClick={() => !hasPhotos && fileRef.current.click()}
+        >
+          {hasPhotos ? (
+            <div className="cm-hero-photo">
+              <img src={heroPhoto?.dataUri} alt="Character" />
+              <div className="cm-hero-overlay">
+                <div className="cm-thumbs">
+                  {photos.map((p, i) => (
+                    <div
+                      key={i}
+                      className={`cm-thumb${i === primaryIndex ? " cm-thumb-active" : ""}`}
+                      onClick={(e) => { e.stopPropagation(); setPrimaryIndex(i); }}
+                    >
+                      <img src={p.dataUri} alt="" />
+                      {p.analyzing && <div className="cm-thumb-spin" />}
+                      {!p.analyzing && p.quality === "poor" && <div className="cm-thumb-warn">!</div>}
+                      <button className="cm-thumb-rm" onClick={(e) => { e.stopPropagation(); removePhoto(i); }}>✕</button>
+                    </div>
+                  ))}
+                  {photos.length < MAX_PHOTOS && (
+                    <button className="cm-thumb cm-thumb-add" onClick={(e) => { e.stopPropagation(); fileRef.current.click(); }}>
+                      +
+                    </button>
+                  )}
                 </div>
-              ) : p.quality && (
-                <div className="photo-quality-badge" style={{ color: QUALITY_COLORS[p.quality] }}>
-                  {QUALITY_ICONS[p.quality]}
-                </div>
-              )}
+              </div>
             </div>
-          ))}
-
-          {photos.length < MAX_PHOTOS && (
-            <div
-              className="photo-slot photo-slot-empty"
-              onClick={() => fileRef.current.click()}
-            >
-              <div style={{ fontSize: 24, marginBottom: 4 }}>
-                {photos.length === 0 ? currentRole?.emoji : "＋"}
+          ) : (
+            <div className="cm-hero-empty">
+              <div className="cm-hero-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="3" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="m21 15-5-5L5 21" />
+                </svg>
               </div>
-              <div style={{ fontWeight: 700, fontSize: 11 }}>
-                {photos.length === 0 ? "Add photo" : "Add more"}
-              </div>
+              <div className="cm-hero-label">Add a photo</div>
+              <div className="cm-hero-sub">Tap or drag a photo for custom illustrations</div>
             </div>
           )}
         </div>
 
-        {/* Quality feedback for current photos */}
-        {photos.length > 0 && (
-          <div className="photo-feedback">
-            {photos.some((p) => p.quality === "poor") && (
-              <div className="pf-warning">
-                {photos.filter((p) => p.quality === "poor").map((p, i) => (
-                  <div key={i}>❌ {p.feedback}</div>
-                ))}
-              </div>
-            )}
-            {photos.length > 1 && (
-              <div className="pf-hint">★ = primary face reference · tap to change</div>
-            )}
+        {/* ── Photo quality warning ───────────────────────── */}
+        {photos.some((p) => p.quality === "poor") && (
+          <div className="cm-warn">
+            {photos.filter((p) => p.quality === "poor").map((p, i) => (
+              <span key={i}>{p.feedback}</span>
+            ))}
           </div>
         )}
+
+        {/* ── Role chips (horizontal scroll) ─────────────── */}
+        <div className="cm-roles">
+          {ROLES.map((r) => (
+            <button
+              key={r.id}
+              className={`cm-role${role === r.id ? " cm-role-on" : ""}`}
+              onClick={() => setRole(r.id)}
+            >
+              <span className="cm-role-em">{r.emoji}</span>
+              <span className="cm-role-lb">{r.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* ── Name & Age ─────────────────────────────────── */}
+        <div className="cm-fields">
+          <div className="cm-field-main">
+            <input
+              ref={nameRef}
+              className="cm-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={30}
+              placeholder={role === "pet" ? "Name (e.g. Buddy)" : "Name (e.g. Emma)"}
+              onKeyDown={(e) => e.key === "Enter" && name.trim() && handleSave()}
+            />
+          </div>
+          {["child", "baby"].includes(role) && (
+            <div className="cm-field-age">
+              <input
+                className="cm-age"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                type="number"
+                min="0"
+                max="17"
+                placeholder="Age"
+                onKeyDown={(e) => e.key === "Enter" && name.trim() && handleSave()}
+              />
+            </div>
+          )}
+        </div>
+
+        {error && <div className="cm-error">{error}</div>}
 
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
+          capture="user"
           style={{ display: "none" }}
           onChange={(e) => { handleFile(e.target.files[0]); e.target.value = ""; }}
         />
 
-        {showTips && (
-          <div className="photo-tips" onClick={() => setShowTips(false)}>
-            <strong>📸 Tips for the best results:</strong>
-            <div>✓ Clear face, looking forward</div>
-            <div>✓ Good natural lighting</div>
-            <div>✓ Just this person in the frame</div>
-            <div>✓ Multiple angles help a lot!</div>
-          </div>
-        )}
-
-        {error && (
-          <div style={{ color: "#e53e3e", fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
-            {error}
-          </div>
-        )}
-
-        <label className="f-lbl">Name *</label>
-        <input
-          className="f-inp"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={30}
-          placeholder={
-            role === "pet" ? "e.g. Buddy" : role === "mom" ? "e.g. Sarah" : "e.g. Emma"
-          }
-        />
-
-        {["child", "baby"].includes(role) && (
-          <>
-            <label className="f-lbl">Age</label>
-            <input
-              className="f-inp"
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
-              type="number"
-              min="0"
-              max="17"
-              placeholder="e.g. 5"
-            />
-          </>
-        )}
-
-        <button
-          className="m-save"
-          disabled={!name.trim()}
-          onClick={handleSave}
-        >
-          {existing ? "Save changes ✓" : `Add ${name || currentRole.label} to story ✨`}
+        {/* ── Save button ────────────────────────────────── */}
+        <button className="cm-save" disabled={!name.trim()} onClick={handleSave}>
+          {existing ? "Save changes" : `Add ${name.trim() || currentRole.label}`}
         </button>
       </div>
     </div>

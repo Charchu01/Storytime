@@ -552,6 +552,7 @@
   color: var(--mid);
   font-weight: 900;
 }
+/* legacy — keep for other modals that may use these */
 .m-h {
   font-family: 'Fraunces', serif;
   font-size: 22px;
@@ -564,170 +565,6 @@
   color: var(--mid);
   margin-bottom: 18px;
   line-height: 1.4;
-}
-.rtabs {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  margin-bottom: 14px;
-}
-.rtab {
-  border: 1.5px solid #F0DDD4;
-  border-radius: 11px;
-  padding: 8px 4px;
-  text-align: center;
-  cursor: pointer;
-  transition: all .14s;
-  background: white;
-  font-family: 'Nunito';
-}
-.rtab:hover, .rtab.on {
-  border-color: var(--terra);
-  background: var(--tpal);
-}
-.rt-em {
-  font-size: 17px;
-  display: block;
-  margin-bottom: 3px;
-}
-.rt-lb {
-  font-size: 9px;
-  font-weight: 800;
-  color: var(--ink);
-  text-transform: uppercase;
-}
-/* ── Photo grid (multi-photo) ─────────────────────────────────────────────── */
-.photo-grid {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.photo-slot {
-  width: 90px;
-  height: 90px;
-  border-radius: 12px;
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all .2s;
-}
-.photo-slot-empty {
-  border: 2px dashed #F0DDD4;
-  background: #FDFAF8;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: var(--mid);
-}
-.photo-slot-empty:hover {
-  border-color: var(--terra);
-  background: var(--tpal);
-}
-.photo-slot-filled {
-  border: 2px solid #E0D0C8;
-}
-.photo-slot-filled img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.photo-slot-filled.photo-primary {
-  border-color: var(--terra);
-  box-shadow: 0 0 0 2px var(--terra);
-}
-.photo-rm {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.6);
-  color: white;
-  border: none;
-  font-size: 10px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity .2s;
-}
-.photo-slot-filled:hover .photo-rm {
-  opacity: 1;
-}
-.photo-star-badge {
-  position: absolute;
-  bottom: 3px;
-  left: 3px;
-  background: var(--terra);
-  color: white;
-  font-size: 10px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.photo-quality-badge {
-  position: absolute;
-  bottom: 3px;
-  right: 3px;
-  background: rgba(255,255,255,0.9);
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-}
-.photo-q-analyzing {
-  background: rgba(255,255,255,0.85);
-}
-.photo-q-spinner {
-  width: 12px;
-  height: 12px;
-  border: 2px solid #E0D0C8;
-  border-top-color: var(--terra);
-  border-radius: 50%;
-  animation: qspin .6s linear infinite;
-}
-@keyframes qspin { to { transform: rotate(360deg); } }
-.photo-feedback {
-  margin-bottom: 10px;
-  font-size: 12px;
-}
-.pf-warning {
-  color: #dc2626;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-.pf-hint {
-  color: var(--lt);
-  font-weight: 600;
-}
-/* ── Photo count badge on cast cards ──────────────────────────────────────── */
-.cchar-photo-count {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  background: var(--terra);
-  color: white;
-  font-size: 9px;
-  font-weight: 900;
-  width: 17px;
-  height: 17px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid white;
 }
 .f-lbl {
   font-size: 10px;
@@ -772,6 +609,331 @@
 }
 .m-save:hover { background: #A84A1F; }
 .m-save:disabled { background: #D4A898; cursor: not-allowed; }
+
+/* ── Photo count badge on cast cards ──────────────────────────────────────── */
+.cchar-photo-count {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  background: var(--terra);
+  color: white;
+  font-size: 9px;
+  font-weight: 900;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NEW Character Modal (cm-*)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.cm-modal {
+  padding: 14px 20px 24px;
+}
+
+/* ── Hero photo area ─────────────────────────────────────────────────────── */
+.cm-hero {
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: all .25s;
+  position: relative;
+}
+.cm-hero-empty {
+  background: linear-gradient(135deg, #FDF6F0 0%, #F5EBE0 100%);
+  border: 2px dashed #E0D0C8;
+  border-radius: 16px;
+  padding: 28px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: all .25s;
+  min-height: 130px;
+}
+.cm-hero:hover .cm-hero-empty {
+  border-color: var(--terra);
+  background: linear-gradient(135deg, #FFF8F3 0%, #FBEEE5 100%);
+  transform: scale(1.01);
+}
+.cm-hero-drag .cm-hero-empty,
+.cm-hero-drag.cm-hero-has .cm-hero-photo {
+  border-color: var(--terra) !important;
+  box-shadow: 0 0 0 3px rgba(168,74,31,.15);
+}
+.cm-hero-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--terra);
+  margin-bottom: 10px;
+  box-shadow: 0 2px 12px rgba(168,74,31,.1);
+}
+.cm-hero-label {
+  font-family: 'Nunito';
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.cm-hero-sub {
+  font-size: 12px;
+  color: var(--mid);
+  font-weight: 600;
+}
+
+/* ── Hero with photo ─────────────────────────────────────────────────────── */
+.cm-hero-photo {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.cm-hero-photo > img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+.cm-hero-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px;
+  background: linear-gradient(transparent, rgba(0,0,0,.45));
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Thumbnails row ──────────────────────────────────────────────────────── */
+.cm-thumbs {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+}
+.cm-thumb {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  border: 2px solid rgba(255,255,255,.5);
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  transition: all .2s;
+  flex-shrink: 0;
+}
+.cm-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cm-thumb-active {
+  border-color: white;
+  box-shadow: 0 0 0 2px var(--terra);
+  transform: scale(1.1);
+}
+.cm-thumb-add {
+  background: rgba(255,255,255,.2);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: white;
+  font-weight: 300;
+  border: 2px dashed rgba(255,255,255,.6);
+}
+.cm-thumb-add:hover {
+  background: rgba(255,255,255,.35);
+  border-color: white;
+}
+.cm-thumb-rm {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.7);
+  color: white;
+  border: none;
+  font-size: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.cm-thumb:hover .cm-thumb-rm { opacity: 1; }
+.cm-thumb-spin {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cm-thumb-spin::after {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: qspin .6s linear infinite;
+}
+@keyframes qspin { to { transform: rotate(360deg); } }
+.cm-thumb-warn {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: white;
+  font-size: 9px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Quality warning ─────────────────────────────────────────────────────── */
+.cm-warn {
+  background: #FEF2F2;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #dc2626;
+  font-weight: 700;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ── Role chips (horizontal scroll) ──────────────────────────────────────── */
+.cm-roles {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 2px 0;
+}
+.cm-roles::-webkit-scrollbar { display: none; }
+.cm-role {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 100px;
+  border: 1.5px solid #F0DDD4;
+  background: white;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .18s;
+  flex-shrink: 0;
+  font-family: 'Nunito';
+}
+.cm-role:hover {
+  border-color: var(--terra);
+  background: #FFF8F3;
+}
+.cm-role-on {
+  border-color: var(--terra);
+  background: var(--tpal);
+  box-shadow: 0 0 0 1px var(--terra);
+}
+.cm-role-em { font-size: 15px; line-height: 1; }
+.cm-role-lb {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+/* ── Name & Age fields ───────────────────────────────────────────────────── */
+.cm-fields {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.cm-field-main { flex: 1; }
+.cm-field-age { width: 72px; flex-shrink: 0; }
+.cm-name, .cm-age {
+  width: 100%;
+  border: 1.5px solid #F0DDD4;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-family: 'Nunito';
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  background: #FDFAF8;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.cm-name:focus, .cm-age:focus {
+  border-color: var(--terra);
+  box-shadow: 0 0 0 3px rgba(168,74,31,.08);
+}
+.cm-name::placeholder, .cm-age::placeholder {
+  color: #C8B5AA;
+  font-weight: 600;
+}
+
+/* ── Error message ───────────────────────────────────────────────────────── */
+.cm-error {
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  background: #FEF2F2;
+  border-radius: 8px;
+}
+
+/* ── Save button ─────────────────────────────────────────────────────────── */
+.cm-save {
+  width: 100%;
+  background: var(--terra);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 14px;
+  font-family: 'Nunito';
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: all .2s;
+  letter-spacing: .2px;
+}
+.cm-save:hover {
+  background: #A84A1F;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(168,74,31,.3);
+}
+.cm-save:active { transform: translateY(0); }
+.cm-save:disabled {
+  background: #D4A898;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
 
 /* ── Style Picker ───────────────────────────────────────────────────────────── */
 
