@@ -31,37 +31,23 @@ CONTEXT:
 - The hero type was already selected on the welcome screen. It will be provided.
 - You are building a storybook, not writing it yet. You're collecting the ingredients.
 
-RESPONSE FORMAT — you MUST return valid JSON with these fields:
-{
-  "message": "Your response text to the user",
-  "suggestions": ["Option 1", "Option 2", "Option 3"],
-  "action": null,
-  "dataUpdate": {}
-}
+RESPONSE FORMAT:
+Your ENTIRE response must be a single JSON object — nothing before it, nothing after it.
+Do NOT write any text outside the JSON. Do NOT repeat the message outside the JSON.
+Do NOT wrap in markdown code fences.
 
-"action" can be one of:
-- null (default, just chatting)
-- "request_photo" (when asking for a photo upload)
-- "show_styles" (when presenting art style options)
-- "show_tones" (when presenting tone options)
-- "ready" (when all data is collected and user confirms)
+The JSON object must have exactly these keys:
+{"message":"Your response text","suggestions":["Option 1","Option 2"],"action":null,"dataUpdate":{}}
 
-"dataUpdate" should include any new data collected in this exchange. Valid keys:
-- heroName (string)
-- heroAge (string or number)
-- heroType (string: "child", "adult", "grandparent", "pet", "baby")
-- characters (array of {name, relationship, description})
-- storyIdea (string — the user's own words)
-- details (string — places, events, memories)
-- personalIngredient (string)
-- dedication (string)
-- authorName (string)
-- artStyle (string: "sb", "wc", "bb", "cs", "sc")
-- tone (string: "cozy", "exciting", "funny", "heartfelt")
+"action" values: null, "request_photo", "show_styles", "show_tones", "ready"
 
-Only include keys in dataUpdate that were actually collected in THIS exchange.
+"dataUpdate" valid keys (only include what was collected THIS exchange):
+heroName, heroAge, heroType ("child"/"adult"/"grandparent"/"pet"/"baby"),
+characters (array of {name, relationship, description}),
+storyIdea, details, personalIngredient, dedication, authorName,
+artStyle ("sb"/"wc"/"bb"/"cs"/"sc"), tone ("cozy"/"exciting"/"funny"/"heartfelt")
 
-Remember: Return ONLY valid JSON. No markdown wrapping, no explanation outside the JSON.`;
+IMPORTANT: Output ONLY the JSON object. No preamble, no extra text.`;
 
 export default async function handler(req, res) {
   try {
@@ -134,20 +120,48 @@ export default async function handler(req, res) {
 
     const text = data.content.map((block) => block.text || "").join("").trim();
 
-    // Try to parse JSON response
+    // Extract JSON from Claude's response — handle cases where Claude
+    // outputs text before/after the JSON or wraps in code fences
+    let parsed = null;
+
+    // Strip markdown code fences first
+    let cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+
+    // Try direct parse
     try {
-      const cleaned = text.replace(/```json\s*|```\s*/g, "").trim();
-      const parsed = JSON.parse(cleaned);
-      return res.json(parsed);
+      parsed = JSON.parse(cleaned);
     } catch {
-      // If Claude didn't return valid JSON, wrap it
+      // Find the first { and last } to extract embedded JSON
+      const firstBrace = cleaned.indexOf("{");
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        try {
+          parsed = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+        } catch {
+          // JSON still invalid
+        }
+      }
+    }
+
+    if (parsed && parsed.message) {
+      // Return the raw JSON string too so client can use it for conversation history
       return res.json({
-        message: text,
-        suggestions: [],
-        action: null,
-        dataUpdate: {},
+        message: parsed.message,
+        suggestions: parsed.suggestions || [],
+        action: parsed.action || null,
+        dataUpdate: parsed.dataUpdate || {},
+        _raw: JSON.stringify(parsed),
       });
     }
+
+    // Fallback: couldn't parse JSON at all
+    return res.json({
+      message: text,
+      suggestions: [],
+      action: null,
+      dataUpdate: {},
+      _raw: null,
+    });
   } catch (err) {
     console.error("Chat assistant error:", err);
     res.status(500).json({ error: `Chat assistant failed: ${err.message}` });
