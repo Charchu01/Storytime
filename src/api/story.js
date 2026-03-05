@@ -75,17 +75,11 @@ async function validateImageUrl(url) {
   if (!url) return false;
   // Blob URLs and data URIs are already local — always valid
   if (url.startsWith("blob:") || url.startsWith("data:")) return true;
-  try {
-    const resp = await fetch(url, { method: "HEAD" });
-    if (!resp.ok) return false;
-    const ct = resp.headers.get("content-type");
-    if (ct && !ct.startsWith("image/")) return false;
-    // Skip size check — Replicate images vary widely and the URL existing means it succeeded
-    return true;
-  } catch {
-    // Network error on HEAD — still try to use the URL (GET may work)
-    return true;
-  }
+  // If it looks like a URL, trust it. HEAD requests to Replicate CDN can fail
+  // with 405/CORS even when the image is perfectly valid. The poll endpoint
+  // already validates the image before returning "succeeded".
+  if (url.startsWith("http")) return true;
+  return false;
 }
 
 // ── Character description helpers ─────────────────────────────────────────────
@@ -468,47 +462,45 @@ async function runWithConcurrency(tasks, limit = 2) {
 
 // ── Generate ALL page images with concurrency limit ─────────────────────────
 export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, onPageImage, coverScene, worldVocab, toneLighting, tier = "standard") {
-  // Cover runs independently (not counted in concurrency limit)
-  const coverPromise = generateCoverImage(coverScene, styleName, tier);
-
   // Build task array — each task is a function that returns a promise
   const tasks = pages.map((page, i) => {
     return async () => {
       const sceneDesc = page.scene_description || page.imagePrompt || page.text;
       const mood = page.mood || "wonder";
 
-      try {
-        const url = await generatePageImage(
-          sceneDesc, cast, styleName, heroPhotoUrl,
-          mood, worldVocab, toneLighting, tier
-        );
+      // generatePageImage returns null on failure (doesn't throw),
+      // so we check the return value for retry, not try/catch.
+      const url = await generatePageImage(
+        sceneDesc, cast, styleName, heroPhotoUrl,
+        mood, worldVocab, toneLighting, tier
+      );
+
+      if (url) {
         if (onPageImage) onPageImage(i, url);
         return url;
-      } catch (err) {
-        console.warn(`Page ${i + 1} generation failed:`, err.message);
-
-        // Retry once after a short delay (catches transient 429s)
-        try {
-          await new Promise((r) => setTimeout(r, 3000));
-          const retryUrl = await generatePageImage(
-            sceneDesc, cast, styleName, heroPhotoUrl,
-            mood, worldVocab, toneLighting, tier
-          );
-          if (onPageImage) onPageImage(i, retryUrl);
-          return retryUrl;
-        } catch (retryErr) {
-          console.warn(`Page ${i + 1} retry failed:`, retryErr.message);
-          if (onPageImage) onPageImage(i, null);
-          return null;
-        }
       }
+
+      // First attempt returned null — retry once after delay
+      console.warn(`Page ${i + 1} generation returned null, retrying in 4s...`);
+      await new Promise((r) => setTimeout(r, 4000));
+
+      const retryUrl = await generatePageImage(
+        sceneDesc, cast, styleName, heroPhotoUrl,
+        mood, worldVocab, toneLighting, tier
+      );
+
+      if (onPageImage) onPageImage(i, retryUrl);
+      if (!retryUrl) console.warn(`Page ${i + 1} retry also returned null`);
+      return retryUrl;
     };
   });
 
   // Run with concurrency limit of 2:
-  // At most 2 Replicate predictions + 2 polling loops at a time = ~5 Vercel functions (safe)
+  // At most 2 Replicate predictions + 2 polling loops at a time = ~4 Vercel functions (safe)
   const pageImages = await runWithConcurrency(tasks, 2);
-  const coverImageUrl = await coverPromise;
+
+  // Generate cover AFTER pages to avoid competing for Replicate concurrency slots
+  const coverImageUrl = await generateCoverImage(coverScene, styleName, tier);
 
   const failCount = pageImages.filter((url) => url === null).length;
   if (failCount > 0) {
