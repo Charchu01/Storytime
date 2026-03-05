@@ -19,15 +19,16 @@ import ConsentCheckbox from "./ConsentCheckbox";
 
 // ── Step configurations per mode ──────────────────────────────────────────────
 const MODE_STEPS = {
-  child: ["hero", "personality", "loves", "cast", "world", "format", "secret", "style"],
-  pet: ["hero", "pet_traits", "loves", "cast", "world", "format", "style"],
-  family: ["cast", "personality", "loves", "world", "format", "secret", "style"],
-  special: ["hero", "personality", "loves", "world", "format", "secret", "style"],
+  child: ["hero", "photos", "personality", "loves", "cast", "world", "format", "secret", "style"],
+  pet: ["hero", "photos", "pet_traits", "loves", "cast", "world", "format", "style"],
+  family: ["cast", "photos", "personality", "loves", "world", "format", "secret", "style"],
+  special: ["hero", "photos", "personality", "loves", "world", "format", "secret", "style"],
   imagination: ["world", "personality", "loves", "format", "secret", "style"],
 };
 
 const STEP_LABELS = {
   hero: "The Star",
+  photos: "Add Photos",
   personality: "Personality",
   pet_traits: "Pet Personality",
   loves: "Favourite Things",
@@ -37,6 +38,34 @@ const STEP_LABELS = {
   secret: "Secret Ingredient",
   style: "Art Style",
 };
+
+const MAX_PHOTOS = 3;
+const PHOTO_MAX_DIM = 1024;
+const PHOTO_QUALITY = 0.85;
+const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
+
+function compressPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > PHOTO_MAX_DIM || height > PHOTO_MAX_DIM) {
+        const scale = PHOTO_MAX_DIM / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", PHOTO_QUALITY));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Failed to load image")); };
+    img.src = url;
+  });
+}
 
 function ChipGrid({ items, selected, onSelect, multi = false, max = 3 }) {
   return (
@@ -88,10 +117,13 @@ export default function OnboardingWizard({ mode, isGift, tier, onComplete, onBac
     companion: null,
     magicalGuide: null,
   });
+  const [heroPhotos, setHeroPhotos] = useState([]);
+  const [photoError, setPhotoError] = useState(null);
   const [showCharModal, setShowCharModal] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [consentError, setConsentError] = useState(false);
   const nameRef = useRef();
+  const photoRef = useRef();
 
   const currentStep = steps[stepIdx];
   const progress = ((stepIdx + 1) / steps.length) * 100;
@@ -148,9 +180,27 @@ export default function OnboardingWizard({ mode, isGift, tier, onComplete, onBac
     }
   }
 
+  async function handlePhotoFile(file) {
+    if (!file) return;
+    if (file.size > MAX_PHOTO_SIZE) { setPhotoError("Photo must be under 10 MB"); return; }
+    if (heroPhotos.length >= MAX_PHOTOS) { setPhotoError(`Max ${MAX_PHOTOS} photos`); return; }
+    setPhotoError(null);
+    try {
+      const compressed = await compressPhoto(file);
+      setHeroPhotos((prev) => [...prev, { dataUri: compressed, quality: "fair", feedback: "" }]);
+    } catch {
+      setPhotoError("Failed to process photo");
+    }
+  }
+
+  function removePhoto(idx) {
+    setHeroPhotos((prev) => prev.filter((_, i) => i !== idx));
+  }
+
   function canContinue() {
     switch (currentStep) {
       case "hero": return data.heroName.trim().length > 0;
+      case "photos": return true; // photos are optional — user can skip
       case "personality":
       case "pet_traits": return data.personality.length > 0;
       case "loves": return data.loves.length > 0;
@@ -164,11 +214,11 @@ export default function OnboardingWizard({ mode, isGift, tier, onComplete, onBac
   }
 
   function handleFinish() {
-    if (!consentChecked && mode !== "imagination") {
+    if (!consentChecked && mode !== "imagination" && heroPhotos.length > 0) {
       setConsentError(true);
       return;
     }
-    onComplete(data);
+    onComplete({ ...data, heroPhotos });
   }
 
   // ── Render current step ─────────────────────────────────────────────────────
@@ -206,6 +256,60 @@ export default function OnboardingWizard({ mode, isGift, tier, onComplete, onBac
                 min="0"
                 max="99"
               />
+            )}
+          </div>
+        );
+
+      case "photos":
+        return (
+          <div className="wiz-step wizard-step-enter" key="photos">
+            <h2 className="wiz-step-h">
+              Add photos of {data.heroName || "the hero"}
+            </h2>
+            <p className="wiz-step-sub">
+              Upload 1–3 clear face photos for custom illustrations.
+              Skip this step if you prefer text-only generation.
+            </p>
+
+            <div className="wiz-photo-grid">
+              {heroPhotos.map((p, i) => (
+                <div key={i} className="wiz-photo-thumb">
+                  <img src={p.dataUri} alt={`Photo ${i + 1}`} />
+                  <button className="wiz-photo-rm" onClick={() => removePhoto(i)}>✕</button>
+                </div>
+              ))}
+              {heroPhotos.length < MAX_PHOTOS && (
+                <button
+                  className="wiz-photo-add"
+                  onClick={() => photoRef.current?.click()}
+                >
+                  <span className="wiz-photo-add-icon">+</span>
+                  <span className="wiz-photo-add-label">Add photo</span>
+                </button>
+              )}
+            </div>
+
+            {photoError && <div className="wiz-photo-error">{photoError}</div>}
+
+            <input
+              ref={photoRef}
+              type="file"
+              accept="image/*"
+              capture="user"
+              style={{ display: "none" }}
+              onChange={(e) => { handlePhotoFile(e.target.files[0]); e.target.value = ""; }}
+            />
+
+            <div className="wiz-photo-tips">
+              <div className="wiz-photo-tip">Clear face, good lighting</div>
+              <div className="wiz-photo-tip">Front-facing works best</div>
+              <div className="wiz-photo-tip">No sunglasses or heavy filters</div>
+            </div>
+
+            {heroPhotos.length === 0 && (
+              <p className="wiz-skip-note">
+                No photos? No problem — we'll create beautiful illustrations from the story description alone.
+              </p>
             )}
           </div>
         );

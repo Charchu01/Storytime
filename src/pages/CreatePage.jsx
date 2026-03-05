@@ -145,7 +145,8 @@ export default function CreatePage() {
   function handleWizardComplete(data) {
     setWizardData(data);
 
-    // Build cast from wizard data
+    // Build cast from wizard data, including uploaded photos
+    const heroPhotos = data.heroPhotos || [];
     const heroCast = [];
     if (data.heroName) {
       heroCast.push({
@@ -155,8 +156,9 @@ export default function CreatePage() {
         age: data.heroAge || "",
         isHero: true,
         emoji: mode === "pet" ? "🐾" : "🧒",
-        photo: null,
-        photos: [],
+        photo: heroPhotos[0]?.dataUri || null,
+        photos: heroPhotos,
+        primaryPhotoIndex: 0,
       });
     }
 
