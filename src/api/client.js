@@ -85,14 +85,16 @@ export async function uploadPhoto(photoDataUri) {
 
 // Generate an image: creates prediction server-side, then polls for completion client-side.
 // This avoids Vercel serverless timeout issues (hobby plan = 10s hard limit).
-export async function generateImage(prompt, referencePhotoUrl = null) {
+// useFaceRef: if true AND referencePhotoUrl is provided, uses flux-pulid for face preservation.
+//             if false (default), uses flux-1.1-pro-ultra with text descriptions only (more reliable).
+export async function generateImage(prompt, referencePhotoUrl = null, useFaceRef = false) {
   // Step 1: Create prediction (returns instantly)
   let response;
   try {
     response = await fetch("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, referencePhotoUrl }),
+      body: JSON.stringify({ prompt, referencePhotoUrl, useFaceRef }),
     });
   } catch (err) {
     throw new Error(`Network error calling /api/generate-image: ${err.message}`);
