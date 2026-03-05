@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import ModeAndTierSelector from "../components/ModeAndTierSelector";
-import OnboardingWizard from "../components/OnboardingWizard";
+import WelcomeScreen from "../components/WelcomeScreen";
+import StoryStudio from "../components/StoryStudio";
 import GenerationStep from "../components/GenerationStep";
 import BookReader from "../components/BookReader";
 import { useAppContext } from "../App";
@@ -30,9 +30,9 @@ export default function CreatePage() {
   const [searchParams] = useSearchParams();
   const { addStory } = useAppContext();
 
-  // Flow: modeAndTier → wizard → generate → preview
-  const [step, setStep] = useState("modeAndTier");
-  const [mode, setMode] = useState(searchParams.get("mode") || null);
+  // Flow: welcome → studio → generate → preview
+  const [step, setStep] = useState("welcome");
+  const [heroType, setHeroType] = useState(null);
   const [isGift, setIsGift] = useState(false);
   const [tier, setTier] = useState(null);
   const [cast, setCast] = useState([]);
@@ -52,35 +52,25 @@ export default function CreatePage() {
           setVaultChar(stored);
           sessionStorage.removeItem("sk_vault_char");
           setTier("premium");
-          setMode("child");
-          setStep("wizard");
+          setHeroType("child");
+          setStep("studio");
         }
       } catch {}
     }
   }, []);
 
-  // If mode is passed via URL, skip to modeAndTier with mode pre-selected
-  useEffect(() => {
-    const urlMode = searchParams.get("mode");
-    if (urlMode && ["child", "pet", "family", "special", "imagination"].includes(urlMode)) {
-      setMode(urlMode);
-    }
-  }, []);
-
   useEffect(() => { document.title = "Create Your Story — Storytime"; }, []);
 
-  function handleModeAndTierSelect(selectedMode, selectedTier, gift) {
-    setMode(selectedMode);
+  function handleWelcomeSelect(selectedHeroType, selectedTier, gift) {
+    setHeroType(selectedHeroType);
     setTier(selectedTier);
     setIsGift(gift);
     setLength(selectedTier === "premium" ? 10 : 6);
-    setStep("wizard");
+    setStep("studio");
   }
 
-  function handleWizardComplete(allData) {
-    setWizardData(allData);
-
-    // Build cast from wizard data
+  function handleStudioComplete(allData) {
+    // Build cast from studio data
     const heroPhotos = allData.heroPhotos || [];
     const heroCast = [];
     if (allData.heroName) {
@@ -90,14 +80,14 @@ export default function CreatePage() {
         role: allData.heroRole || "child",
         age: allData.heroAge || "",
         isHero: true,
-        emoji: mode === "pet" ? "🐾" : "🧒",
+        emoji: allData.heroRole === "pet" ? "🐾" : "🧒",
         photo: heroPhotos[0]?.dataUri || null,
         photos: heroPhotos,
         primaryPhotoIndex: 0,
       });
     }
 
-    // Add companions from wizard
+    // Add companions from studio
     if (allData.cast?.length > 0) {
       heroCast.push(...allData.cast.map((c) => ({
         ...c,
@@ -108,24 +98,26 @@ export default function CreatePage() {
 
     setCast(heroCast);
 
-    // Set style from wizard
+    // Set style from studio data
     const styleName = STYLES.find((s) => s.id === allData.style)?.name || allData.style;
     setStyle(styleName);
 
-    // Set length from wizard
+    // Set length from studio
     if (allData.length) setLength(allData.length);
 
-    // Build enriched story data for generation — now simplified with storyIdea
+    // Build enriched story data for generation
     const enrichedStoryData = {
       heroName: allData.heroName,
       heroAge: allData.heroAge,
+      heroType: allData.heroType || "",
       storyIdea: allData.storyIdea || "",
-      spark: allData.spark,
+      spark: allData.spark || "custom",
       storyFormat: allData.format || "classic",
       personalIngredient: allData.secret || null,
       dedication: allData.dedication || null,
       authorName: allData.authorName || "A loving family",
       tone: allData.tone || null,
+      details: allData.details || null,
     };
 
     setWizardData(enrichedStoryData);
@@ -140,7 +132,7 @@ export default function CreatePage() {
       styleName: style,
       cast,
       tier,
-      mode,
+      mode: heroType,
     };
     const id = addStory(storyEntry);
     setStep("preview");
@@ -149,13 +141,13 @@ export default function CreatePage() {
 
   function reset() {
     clearDraft();
-    setMode(null);
+    setHeroType(null);
     setTier(null);
     setCast([]);
     setStyle(null);
     setResult(null);
     setWizardData(null);
-    setStep("modeAndTier");
+    setStep("welcome");
   }
 
   if (step === "preview" && result) {
@@ -164,19 +156,19 @@ export default function CreatePage() {
 
   return (
     <div className="create-page">
-      {step === "modeAndTier" && (
-        <ModeAndTierSelector
-          onSelect={handleModeAndTierSelect}
+      {step === "welcome" && (
+        <WelcomeScreen
+          onSelect={handleWelcomeSelect}
           onBack={() => navigate("/")}
         />
       )}
-      {step === "wizard" && (
-        <OnboardingWizard
-          mode={mode}
-          isGift={isGift}
+      {step === "studio" && (
+        <StoryStudio
+          heroType={heroType}
           tier={tier}
-          onComplete={handleWizardComplete}
-          onBack={() => setStep("modeAndTier")}
+          isGift={isGift}
+          onComplete={handleStudioComplete}
+          onBack={() => setStep("welcome")}
         />
       )}
       {step === "generate" && (
@@ -189,7 +181,7 @@ export default function CreatePage() {
           vaultChar={vaultChar}
           wizardData={wizardData}
           onNext={handleStoryComplete}
-          onBack={() => setStep("wizard")}
+          onBack={() => setStep("studio")}
         />
       )}
     </div>
