@@ -1,59 +1,29 @@
-import Replicate from "replicate";
+// Generate images using zsxkib/flux-pulid on Replicate (async polling)
 
-// Retry helper: waits and retries on 429 rate-limit errors
-async function runWithRetry(replicate, model, input, maxRetries = 2) {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await replicate.run(model, { input });
-    } catch (err) {
-      const is429 =
-        err.response?.status === 429 ||
-        err.status === 429 ||
-        (err.message && err.message.includes("429"));
-      if (is429 && attempt < maxRetries) {
-        const waitMs = 12000;
-        console.log(
-          `Rate limited (attempt ${attempt + 1}), waiting ${waitMs / 1000}s...`
-        );
-        await new Promise((r) => setTimeout(r, waitMs));
-        continue;
-      }
-      throw err;
+async function pollForResult(apiKey, predictionId, maxAttempts = 60) {
+  let attempts = 0;
+  while (attempts < maxAttempts) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const pollRes = await fetch(
+      `https://api.replicate.com/v1/predictions/${predictionId}`,
+      { headers: { Authorization: `Token ${apiKey}` } }
+    );
+    const result = await pollRes.json();
+    if (result.status === "succeeded") {
+      // output can be a URL string or array of URLs
+      const out = Array.isArray(result.output) ? result.output[0] : result.output;
+      if (typeof out === "string" && out.startsWith("http")) return out;
+      throw new Error("Unexpected output format from model");
     }
-  }
-}
-
-// Normalize Replicate output to a URL string.
-// The SDK can return: a string, a FileOutput object, an array of those, or a ReadableStream.
-function extractUrl(output) {
-  // If it's an array, grab the first element
-  if (Array.isArray(output)) {
-    output = output[0];
-  }
-  // Already a plain URL string
-  if (typeof output === "string") {
-    return output;
-  }
-  // FileOutput or similar object — try common patterns
-  if (output) {
-    // FileOutput.toString() returns the URL in replicate SDK v1.x
-    const str = String(output);
-    if (str.startsWith("http")) return str;
-    // Some objects have a .url property
-    if (typeof output.url === "string" && output.url.startsWith("http")) {
-      return output.url;
+    if (result.status === "failed" || result.status === "canceled") {
+      throw new Error("Image generation failed: " + (result.error || "unknown"));
     }
-    // .url() as a method
-    if (typeof output.url === "function") {
-      const result = output.url();
-      if (typeof result === "string" && result.startsWith("http")) return result;
-    }
+    attempts++;
   }
-  return null;
+  throw new Error("Image generation timed out");
 }
 
 export default async function handler(req, res) {
-  // Top-level try/catch so we ALWAYS return JSON, never an HTML error page
   try {
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
@@ -64,85 +34,78 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "REPLICATE_KEY not configured" });
     }
 
-    const { prompt, aspectRatio = "16:9", referencePhotoUrl, model } =
-      req.body || {};
+    const {
+      prompt,
+      aspectRatio = "16:9",
+      referencePhotoUrl,
+      width = 768,
+      height = 576,
+    } = req.body || {};
+
     if (!prompt) {
       return res.status(400).json({ error: "prompt is required" });
     }
 
-    const replicate = new Replicate({ auth: apiKey });
-    let output;
-    let usedModel = "flux-1.1-pro";
-    let identityError = null;
+    // Build input for flux-pulid
+    const input = {
+      prompt,
+      id_weight: 0.8,
+      num_steps: 20,
+      guidance_scale: 4,
+      width,
+      height,
+      output_format: "webp",
+      output_quality: 90,
+    };
 
-    // Step 1: Try Kontext identity-preserving model if requested
-    if (referencePhotoUrl && model === "kontext") {
-      try {
-        output = await runWithRetry(
-          replicate,
-          "black-forest-labs/flux-kontext-pro",
-          {
-            prompt,
-            input_image: referencePhotoUrl,
-            aspect_ratio: aspectRatio,
-            safety_tolerance: 5,
-          }
-        );
-        usedModel = "kontext";
-      } catch (err) {
-        identityError = err.message || "Kontext failed";
-        console.error("Kontext Pro failed, falling back:", identityError);
-        output = null;
+    // Only pass id_image if we have a reference photo
+    if (referencePhotoUrl) {
+      input.id_image = referencePhotoUrl;
+    }
+
+    // Submit prediction with Prefer: wait (Replicate may return immediately for fast models)
+    const submitRes = await fetch(
+      "https://api.replicate.com/v1/models/zsxkib/flux-pulid/predictions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${apiKey}`,
+          "Content-Type": "application/json",
+          Prefer: "wait",
+        },
+        body: JSON.stringify({ input }),
+      }
+    );
+
+    const prediction = await submitRes.json();
+
+    // If Prefer: wait returned a completed result
+    if (prediction.status === "succeeded" && prediction.output) {
+      const out = Array.isArray(prediction.output)
+        ? prediction.output[0]
+        : prediction.output;
+      if (typeof out === "string" && out.startsWith("http")) {
+        return res.json({ imageUrl: out, model: "flux-pulid" });
       }
     }
 
-    // Step 2: Fallback to text-only Flux 1.1 Pro Ultra
-    if (!output || !extractUrl(output)) {
-      try {
-        output = await runWithRetry(
-          replicate,
-          "black-forest-labs/flux-1.1-pro-ultra",
-          {
-            prompt,
-            aspect_ratio: aspectRatio,
-            output_format: "webp",
-            output_quality: 95,
-            safety_tolerance: 5,
-            prompt_upsampling: true,
-            raw: false,
-          }
-        );
-        usedModel = "flux-1.1-pro-ultra";
-      } catch (err) {
-        const fluxError = err.message || "Unknown error";
-        console.error("Flux 1.1 Pro failed:", fluxError);
-        const detail = identityError
-          ? `Identity model: ${identityError}. Fallback: ${fluxError}`
-          : fluxError;
-        return res
-          .status(500)
-          .json({ error: `Image generation failed: ${detail}` });
-      }
-    }
-
-    // Step 3: Normalize output to a URL string
-    const imageUrl = extractUrl(output);
-
-    if (!imageUrl) {
-      console.error(
-        "Bad output from model:",
-        usedModel,
-        typeof output,
-        JSON.stringify(output).slice(0, 200)
-      );
+    // If failed immediately
+    if (prediction.status === "failed" || prediction.status === "canceled") {
       return res.status(500).json({
-        error: `Bad output from ${usedModel}: could not extract image URL`,
+        error: `Image generation failed: ${prediction.error || "unknown"}`,
       });
     }
 
-    res.json({ imageUrl, model: usedModel });
+    // Otherwise poll for result
+    if (!prediction.id) {
+      return res.status(500).json({
+        error: "No prediction ID returned from Replicate",
+      });
+    }
+
+    const imageUrl = await pollForResult(apiKey, prediction.id);
+    res.json({ imageUrl, model: "flux-pulid" });
   } catch (err) {
-    // Catch-all: never let Vercel return an HTML error page
     console.error("Unhandled error in generate-image:", err);
     res.status(500).json({
       error: `Unexpected server error: ${err.message || "Unknown"}`,

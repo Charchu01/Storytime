@@ -2,17 +2,10 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppContext, useToast } from "../App";
 
-const STYLE_GRADIENTS = {
-  Watercolor: "linear-gradient(135deg, #F9C6D0, #FDDFC4, #FEF0E7)",
-  "Pixar 3D": "linear-gradient(135deg, #1a1a4e, #2d1b6b, #0d0d2b)",
-  "Storybook Sketch": "linear-gradient(135deg, #F5EDD6, #EDE0C4, #E5D5B0)",
-  Anime: "linear-gradient(135deg, #C850C0, #4158D0, #FFCC70)",
-  Realistic: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)",
-  "Soft Plush": "linear-gradient(135deg, #FFDEE9, #B5FFFC, #FFE9D9)",
-};
+import { STYLE_GRADIENTS } from "../api/story";
 
-function isDarkStyle(style) {
-  return ["Pixar 3D", "Realistic"].includes(style);
+function isDarkStyle() {
+  return false; // All new styles are light gradients
 }
 
 export default function LibraryPage() {

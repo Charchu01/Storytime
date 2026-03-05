@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { SPARKS, LOVES, MOODS, SPARK_REACTIONS } from "../constants/data";
-import { generateStory, generateAllImages, analyzeCharacterPhotos, uploadHeroPhoto } from "../api/story";
+import { generateStory, generateAllImages, analyzeCharacterPhotos, uploadHeroPhoto, STYLE_GRADIENTS } from "../api/story";
 
 const OCCASIONS = [
   { emoji: "🎂", label: "Birthday" },
@@ -11,6 +11,15 @@ const OCCASIONS = [
   { emoji: "🐾", label: "Pet Story" },
   { emoji: "✈️", label: "Big Trip" },
   { emoji: "🌟", label: "Just Because" },
+];
+
+const WRITING_PHRASES = [
+  "Crafting the perfect adventure...",
+  "Adding just the right amount of magic...",
+  "Making sure the hero saves the day...",
+  "Choosing the most exciting moments...",
+  "Sprinkling in some wonder...",
+  "Building a world worth exploring...",
 ];
 
 function TypingIndicator() {
@@ -30,7 +39,6 @@ function Message({ message }) {
   if (message.type === "typing") return <TypingIndicator />;
 
   if (message.type === "ai") {
-    // Safe bold rendering without dangerouslySetInnerHTML
     const parts = message.text.split(/\*\*(.*?)\*\*/g);
     return (
       <div className="mrow ai">
@@ -51,37 +59,85 @@ function Message({ message }) {
   );
 }
 
-function LoadingScreen({ step, error, onRetry }) {
-  const steps = [
-    "Analyzing character photos…",
-    "Writing the story…",
-    "Generating illustrations…",
-    "Adding the finishing touches…",
-  ];
+function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, error, onRetry }) {
+  const [phraseIdx, setPhraseIdx] = useState(0);
+  const gradient = STYLE_GRADIENTS[style] || STYLE_GRADIENTS["Storybook"];
+  const completedCount = pageImages.filter((url) => url !== undefined).length;
+
+  useEffect(() => {
+    if (loadPhase !== "writing") return;
+    const interval = setInterval(() => {
+      setPhraseIdx((prev) => (prev + 1) % WRITING_PHRASES.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [loadPhase]);
+
+  if (error) {
+    return (
+      <div className="gen-screen">
+        <div style={{ fontSize: 56 }}>😔</div>
+        <div className="gen-headline">Something went wrong</div>
+        <div style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", marginBottom: 16, lineHeight: 1.6, maxWidth: 400, textAlign: "center", wordBreak: "break-word" }}>
+          {error}
+        </div>
+        <button className="br-end-btn" onClick={onRetry}>Try Again</button>
+      </div>
+    );
+  }
 
   return (
-    <div className="loading">
-      <div style={{ fontSize: 56 }}>{error ? "😔" : "📚"}</div>
-      {!error && <div className="load-ring" />}
-      <div className="load-h">{error ? "Something went wrong" : "Creating your storybook…"}</div>
-      {error ? (
-        <div style={{ textAlign: "center", maxWidth: 400 }}>
-          <div style={{ fontSize: 14, color: "var(--mid)", marginBottom: 16, lineHeight: 1.6, wordBreak: "break-word" }}>
-            {error}
+    <div className="gen-screen">
+      {loadPhase === "photos" && (
+        <>
+          <div className="gen-emoji">📷</div>
+          <div className="gen-headline">Studying {heroName}'s photo...</div>
+          <div className="gen-sub">Learning every freckle and curl</div>
+        </>
+      )}
+
+      {loadPhase === "writing" && (
+        <>
+          <div className="gen-emoji gen-emoji-write">✍️</div>
+          <div className="gen-headline">Writing {heroName}'s story...</div>
+          <div className="gen-sub gen-phrase-fade" key={phraseIdx}>{WRITING_PHRASES[phraseIdx]}</div>
+        </>
+      )}
+
+      {loadPhase === "illustrating" && (
+        <>
+          <div className="gen-emoji">🎨</div>
+          <div className="gen-headline">Now illustrating...</div>
+
+          <div className="gen-thumbs">
+            {Array.from({ length: pageCount }).map((_, i) => {
+              const imageUrl = pageImages[i];
+              const hasImage = imageUrl && imageUrl !== "pending";
+              return (
+                <div key={i} className="gen-thumb-slot">
+                  {hasImage ? (
+                    <img className="gen-thumb-img gen-thumb-pop" src={imageUrl} alt={`Page ${i + 1}`} />
+                  ) : (
+                    <div className="gen-thumb-placeholder" style={{ background: gradient }}>
+                      <div className="gen-thumb-shimmer" />
+                      <span className="gen-thumb-num">{i + 1}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-          <button className="big-btn" style={{ maxWidth: 240, margin: "0 auto" }} onClick={onRetry}>
-            Try Again
-          </button>
-        </div>
-      ) : (
-        <div className="load-steps">
-          {steps.map((label, i) => (
-            <div key={i} className={`ls${step === i ? " act" : step > i ? " dn" : ""}`}>
-              <span>{step > i ? "✓" : "→"}</span>
-              {label}
-            </div>
-          ))}
-        </div>
+
+          <div className="gen-progress-text">
+            {completedCount} of {pageCount} illustrations complete
+          </div>
+        </>
+      )}
+
+      {loadPhase === "finishing" && (
+        <>
+          <div className="gen-emoji">✨</div>
+          <div className="gen-headline">Adding the finishing touches...</div>
+        </>
       )}
     </div>
   );
@@ -95,11 +151,13 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
   const [dedication, setDedication] = useState(
-    `For ${cast.filter((c) => ["child", "baby"].includes(c.role)).map((c) => c.name).join(" & ") || "our little ones"}, who make every day magical. ❤️`
+    `For ${cast.filter((c) => ["child", "baby"].includes(c.role)).map((c) => c.name).join(" & ") || "our little ones"}, who make every day magical.`
   );
   const [showTray, setShowTray] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loadStep, setLoadStep] = useState(0);
+  const [loadPhase, setLoadPhase] = useState("photos"); // photos | writing | illustrating | finishing
+  const [pageImages, setPageImages] = useState([]);
+  const [pageCount, setPageCount] = useState(length);
   const [error, setError] = useState(null);
   const [booted, setBooted] = useState(false);
 
@@ -130,9 +188,9 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
     if (booted) return;
     setBooted(true);
     const names = cast.map((c) => c.name).join(", ");
-    addAI(`I've got your cast — **${names}**! 🎉 They're all going to be in this story.`, () => {
+    addAI(`I've got your cast — **${names}**! They're all going to be in this story.`, () => {
       setTimeout(() => {
-        addAI("Before we dive in — what's the occasion? Pick one or just skip and tell me your idea! 🌟", () => {
+        addAI("Before we dive in — what's the occasion? Pick one or just skip and tell me your idea!", () => {
           setShowTray(true);
         });
       }, 600);
@@ -145,7 +203,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
     setAnswers((prev) => ({ ...prev, occasion: label }));
     addUser(label === "skip" ? "No specific occasion" : label);
     setTimeout(() => {
-      const reaction = label === "skip" ? "No problem!" : `${label} — love it! 🎉`;
+      const reaction = label === "skip" ? "No problem!" : `${label} — love it!`;
       addAI(`${reaction} Now, what kind of adventure should this be? Pick one of my ideas below — or just type your own!`, () => {
         setPhase("spark");
         setShowTray(true);
@@ -160,7 +218,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
     setInputText("");
     addUser(text);
     setTimeout(() => {
-      addAI(SPARK_REACTIONS[id] || "Love it! ✨", () => {
+      addAI(SPARK_REACTIONS[id] || "Love it!", () => {
         setTimeout(() => {
           addAI("Who should be the **star** of this story? Tap their name below — or just type it!", () => {
             setPhase("hero");
@@ -179,7 +237,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
     const character = cast.find((c) => c.id === id);
     addUser(`${character?.emoji || ""} ${name}`);
     setTimeout(() => {
-      addAI(`**${name}** is the perfect hero! 🌟`, () => {
+      addAI(`**${name}** is the perfect hero!`, () => {
         setTimeout(() => {
           addAI(`What does **${name}** absolutely love? I'll weave it into the story! Tap below or type anything.`, () => {
             setPhase("loves");
@@ -197,7 +255,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
     setInputText("");
     addUser(text);
     setTimeout(() => {
-      addAI(`${text}! That's going right into the story 🎯`, () => {
+      addAI(`${text}! That's going right into the story`, () => {
         setTimeout(() => {
           addAI("Last one — what's the **vibe** of this book? Tap below or describe it!", () => {
             setPhase("mood");
@@ -215,7 +273,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
     setInputText("");
     addUser(text);
     setTimeout(() => {
-      addAI(`${text} — that's going to be so beautiful 🥹`, () => {
+      addAI(`${text} — that's going to be beautiful`, () => {
         setTimeout(() => {
           addAI("One last touch — want to add a **dedication page**? I wrote one below. Edit it or skip!", () => {
             setPhase("ded");
@@ -229,10 +287,10 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
   function pickDedication(value) {
     setShowTray(false);
     setAnswers((prev) => ({ ...prev, dedication: value }));
-    if (value !== "skip") addUser(`"${value.slice(0, 55)}…"`);
+    if (value !== "skip") addUser(`"${value.slice(0, 55)}..."`);
     else addUser("Skip the dedication");
     setTimeout(() => {
-      addAI("One last thing — what name should go on the cover as the author? This is YOUR book too! ✨", () => {
+      addAI("One last thing — what name should go on the cover as the author? This is YOUR book too!", () => {
         setPhase("author");
         setShowTray(true);
       });
@@ -245,7 +303,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
     setAnswers((prev) => ({ ...prev, authorName: name }));
     addUser(name);
     setTimeout(() => {
-      addAI(`By **${name}** — perfect! ✨ I have everything I need. Check the summary below — then let's create your book!`, () => {
+      addAI(`By **${name}** — perfect! I have everything I need. Check the summary below — then let's create your book!`, () => {
         setPhase("done");
         setShowTray(true);
       });
@@ -269,11 +327,11 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
   async function handleGenerate() {
     setLoading(true);
     setError(null);
-    setLoadStep(0);
+    setPageImages([]);
 
     try {
-      // Step 0: Analyze character photos for better image generation
-      setLoadStep(0);
+      // Phase 1: Analyze character photos
+      setLoadPhase("photos");
       const hasPhotos = cast.some((c) => c.photo);
       let enrichedCast = cast;
       if (hasPhotos) {
@@ -281,8 +339,8 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
       }
       await new Promise((r) => setTimeout(r, 300));
 
-      // Step 1: Generate story text
-      setLoadStep(1);
+      // Phase 2: Generate story text + scene_descriptions
+      setLoadPhase("writing");
       const story = await generateStory(enrichedCast, style, {
         hero: answers.heroName || hero.name,
         spark: answers.sparkText || answers.spark,
@@ -291,23 +349,36 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
         pageCount: length,
       });
 
-      // Step 2: Upload hero photo once, then generate all illustrations
-      setLoadStep(2);
+      // Phase 3: Upload hero photo + generate ALL illustrations in PARALLEL
+      setLoadPhase("illustrating");
+      setPageCount(story.pages.length);
+      setPageImages(new Array(story.pages.length).fill(undefined));
+
       const heroPhotoUrl = await uploadHeroPhoto(enrichedCast);
-      const { pageImages, coverImageUrl } = await generateAllImages(
+
+      // onPageImage callback — fires as each image completes
+      const onPageImage = (pageIdx, url) => {
+        setPageImages((prev) => {
+          const next = [...prev];
+          next[pageIdx] = url || null;
+          return next;
+        });
+      };
+
+      const { pageImages: finalImages, coverImageUrl } = await generateAllImages(
         story.pages, enrichedCast, style, heroPhotoUrl,
-        (current, total) => { /* per-image progress */ },
+        onPageImage,
         story.coverScene
       );
 
-      // Step 3: Finalize
-      setLoadStep(3);
+      // Phase 4: Finalize
+      setLoadPhase("finishing");
       await new Promise((r) => setTimeout(r, 500));
 
       // Merge images into pages
       const pagesWithImages = story.pages.map((page, i) => ({
         ...page,
-        imageUrl: pageImages[i] || null,
+        imageUrl: finalImages[i] || null,
       }));
 
       onNext({
@@ -324,7 +395,19 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
     }
   }
 
-  if (loading || error) return <LoadingScreen step={loadStep} error={error} onRetry={() => { setError(null); setLoading(false); }} />;
+  if (loading || error) {
+    return (
+      <LoadingScreen
+        heroName={answers.heroName || hero.name}
+        loadPhase={loadPhase}
+        pageImages={pageImages}
+        pageCount={pageCount}
+        style={style}
+        error={error}
+        onRetry={() => { setError(null); setLoading(false); }}
+      />
+    );
+  }
 
   const progressMap = { occasion: 50, spark: 58, hero: 67, loves: 76, mood: 84, ded: 90, author: 95, done: 100 };
 
@@ -352,25 +435,11 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
         <div ref={endRef} />
       </div>
 
-      {error && (
-        <div className="tray">
-          <div style={{ color: "#e53e3e", fontSize: 14, fontWeight: 700, textAlign: "center", padding: 12 }}>
-            {error}
-            <button
-              style={{ display: "block", margin: "10px auto 0", background: "var(--terra)", color: "white", border: "none", borderRadius: 10, padding: "8px 20px", fontWeight: 800, cursor: "pointer" }}
-              onClick={handleGenerate}
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      )}
-
       {showTray && (
         <div className="tray">
           {phase === "occasion" && !answers.occasion && (
             <>
-              <div className="tray-lbl">🎉 What's the occasion?</div>
+              <div className="tray-lbl">What's the occasion?</div>
               <div className="occ-grid">
                 {OCCASIONS.map((o) => (
                   <button key={o.label} className="occ-card" onClick={() => pickOccasion(o.label)}>
@@ -385,7 +454,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
 
           {phase === "spark" && !answers.spark && (
             <>
-              <div className="tray-lbl">💡 Quick ideas — or type your own below</div>
+              <div className="tray-lbl">Quick ideas — or type your own below</div>
               <div className="sug-grid">
                 {SPARKS.map((spark) => (
                   <div
@@ -404,7 +473,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
 
           {phase === "hero" && !answers.hero && (
             <>
-              <div className="tray-lbl">👥 Your cast — tap to pick, or type a name</div>
+              <div className="tray-lbl">Your cast — tap to pick, or type a name</div>
               <div className="pill-row">
                 {cast.map((character) => (
                   <button key={character.id} className="pill" onClick={() => pickHero(character.id, character.name)}>
@@ -417,7 +486,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
 
           {phase === "loves" && !answers.loves && (
             <>
-              <div className="tray-lbl">❤️ Things kids love — or type your own</div>
+              <div className="tray-lbl">Things kids love — or type your own</div>
               <div className="pill-row">
                 {LOVES.map((love) => (
                   <button key={love.id} className="pill" onClick={() => pickLoves(love.id, `${love.emoji} ${love.label}`)}>
@@ -430,7 +499,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
 
           {phase === "mood" && !answers.mood && (
             <>
-              <div className="tray-lbl">🎭 Pick the vibe — or describe it</div>
+              <div className="tray-lbl">Pick the vibe — or describe it</div>
               <div className="pill-row">
                 {MOODS.map((mood) => (
                   <button key={mood.id} className="pill" onClick={() => pickMood(mood.id, `${mood.emoji} ${mood.label}`)}>
@@ -443,7 +512,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
 
           {phase === "ded" && !answers.dedication && (
             <>
-              <div className="tray-lbl">📖 Dedication page — edit or skip</div>
+              <div className="tray-lbl">Dedication page — edit or skip</div>
               <textarea
                 className="ded-ta"
                 rows={3}
@@ -452,14 +521,14 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
               />
               <div className="ded-row">
                 <button className="ded-skip" onClick={() => pickDedication("skip")}>Skip</button>
-                <button className="ded-use" onClick={() => pickDedication(dedication)}>✓ Add dedication</button>
+                <button className="ded-use" onClick={() => pickDedication(dedication)}>Add dedication</button>
               </div>
             </>
           )}
 
           {phase === "author" && !answers.authorName && (
             <>
-              <div className="tray-lbl">✍️ Author name for the cover</div>
+              <div className="tray-lbl">Author name for the cover</div>
               <input
                 className="f-inp"
                 style={{ marginBottom: 10 }}
@@ -473,7 +542,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
                 disabled={!authorName.trim()}
                 onClick={() => pickAuthor(authorName.trim())}
               >
-                ✓ Use this name
+                Use this name
               </button>
             </>
           )}
@@ -503,7 +572,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
                 </div>
               </div>
               <button className="final-cta" onClick={handleGenerate}>
-                🪄 Write My Storybook!
+                Write My Storybook
               </button>
             </>
           )}
@@ -530,10 +599,10 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
                 }
               }}
               placeholder={
-                phase === "spark" ? "Type your story idea… or pick one above"
-                : phase === "hero" ? "Type a name… or tap above"
-                : phase === "loves" ? "Type what they love… or tap above"
-                : "Describe the vibe… or tap above"
+                phase === "spark" ? "Type your story idea... or pick one above"
+                : phase === "hero" ? "Type a name... or tap above"
+                : phase === "loves" ? "Type what they love... or tap above"
+                : "Describe the vibe... or tap above"
               }
             />
             <button className="isend" onClick={handleSend} disabled={!inputText.trim()}>→</button>
