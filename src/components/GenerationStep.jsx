@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import {
-  generateStory,
-  generateAllImagesChained,
-  generateCoverImage,
+  generateStoryAndVisualPlan,
+  generateAllImages,
   analyzeCharacterPhotos,
   uploadHeroPhoto,
   STYLE_GRADIENTS,
@@ -19,6 +18,8 @@ const WRITING_PHRASES = [
   "Choosing the most exciting moments...",
   "Sprinkling in some wonder...",
   "Building a world worth exploring...",
+  "Designing every illustration...",
+  "Planning the perfect page layouts...",
 ];
 
 function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, error, onRetry }) {
@@ -60,7 +61,7 @@ function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, erro
       {loadPhase === "writing" && (
         <>
           <div className="gen-emoji gen-spin">📖</div>
-          <div className="gen-headline">Writing {heroName}'s story...</div>
+          <div className="gen-headline">Writing {heroName}'s story and designing every page...</div>
           <div className="gen-sub gen-phrase-fade" key={phraseIdx}>{WRITING_PHRASES[phraseIdx]}</div>
         </>
       )}
@@ -74,14 +75,15 @@ function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, erro
             {Array.from({ length: pageCount }).map((_, i) => {
               const imageUrl = pageImages[i];
               const hasImage = imageUrl && imageUrl !== "pending";
+              const labels = ["Cover", ...Array.from({ length: pageCount - 2 }, (_, j) => `Spread ${j + 1}`), "Back"];
               return (
                 <div key={i} className="gen-thumb-slot">
                   {hasImage ? (
-                    <img className="gen-thumb-img gen-thumb-pop" src={imageUrl} alt={`Page ${i + 1}`} />
+                    <img className="gen-thumb-img gen-thumb-pop" src={imageUrl} alt={labels[i] || `Image ${i + 1}`} />
                   ) : (
                     <div className="gen-thumb-placeholder" style={{ background: gradient }}>
                       <div className="gen-thumb-shimmer" />
-                      <span className="gen-thumb-num">{i + 1}</span>
+                      <span className="gen-thumb-num">{labels[i] || i + 1}</span>
                     </div>
                   )}
                 </div>
@@ -112,7 +114,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
   const [loading, setLoading] = useState(false);
   const [loadPhase, setLoadPhase] = useState("photos");
   const [pageImages, setPageImages] = useState([]);
-  const [pageCount, setPageCount] = useState(length);
+  const [pageCount, setPageCount] = useState(0);
   const [error, setError] = useState(null);
   const [started, setStarted] = useState(false);
 
@@ -124,7 +126,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
     }
   }, [started]);
 
-  // ── Main generation flow (no paywall — straight through) ───────────────────
+  // ── Main generation flow ───────────────────────────────────────────────────
   async function handleGenerate() {
     setLoading(true);
     setError(null);
@@ -139,67 +141,53 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         enrichedCast = await analyzeCharacterPhotos(cast);
       }
 
-      // Phase 2: Upload hero photo (one upload, used for all pages)
+      // Phase 2: Upload hero photo (one upload, used for all images)
       let heroPhotoUrl = null;
       if (hasPhotos) {
         heroPhotoUrl = await uploadHeroPhoto(enrichedCast);
       }
 
-      // Phase 3: Generate story text
+      // Phase 3: Claude writes story + designs all visual spreads
       setLoadPhase("writing");
-      const story = await generateStory(enrichedCast, style, {
-        heroName: wizardData?.heroName || heroName,
-        heroAge: wizardData?.heroAge || null,
-        storyIdea: wizardData?.storyIdea || wizardData?.sparkText || wizardData?.spark || "A magical adventure",
-        spark: wizardData?.spark || null,
-        pageCount: length,
-        storyFormat: wizardData?.storyFormat || "classic",
-        personalIngredient: wizardData?.personalIngredient || null,
-        tone: wizardData?.tone || null,
-      });
+      const storyPlan = await generateStoryAndVisualPlan(
+        enrichedCast, style, {
+          heroName: wizardData?.heroName || heroName,
+          heroAge: wizardData?.heroAge || null,
+          storyIdea: wizardData?.storyIdea || wizardData?.sparkText || wizardData?.spark || "A magical adventure",
+          spark: wizardData?.spark || null,
+          pageCount: length,
+          storyFormat: wizardData?.storyFormat || "classic",
+          personalIngredient: wizardData?.personalIngredient || null,
+          tone: wizardData?.tone || null,
+        }
+      );
 
-      // Phase 4: Generate cover FIRST (style anchor for chaining)
+      // Phase 4: Generate all images (cover + spreads + back cover)
       setLoadPhase("illustrating");
-      setPageCount(story.pages.length);
-      setPageImages(new Array(story.pages.length).fill(undefined));
+      const totalImages = 1 + storyPlan.spreads.length + 1; // cover + spreads + back
+      setPageCount(totalImages);
+      setPageImages(new Array(totalImages).fill(undefined));
 
-      let coverImageUrl = null;
-      if (story.coverScene) {
-        coverImageUrl = await generateCoverImage(
-          story.coverScene, style, tier,
-          story.title, wizardData?.heroName, wizardData?.authorName,
-          heroPhotoUrl,
-          wizardData?.tone || "Cozy",
-          wizardData?.storyFormat || "classic"
-        );
-      }
-
-      // Phase 5: Generate pages SEQUENTIALLY (chained — each page references previous)
-      const onPageImage = (pageIdx, url) => {
-        setPageImages((prev) => {
+      const onImageReady = (key, url) => {
+        setPageImages(prev => {
           const next = [...prev];
-          next[pageIdx] = url || null;
+          if (key === "cover") next[0] = url;
+          else if (key === "backCover") next[totalImages - 1] = url;
+          else {
+            const idx = parseInt(key.split("_")[1]) + 1;
+            next[idx] = url;
+          }
           return next;
         });
       };
 
-      const finalResult = await generateAllImagesChained(
-        story.pages, enrichedCast, style, heroPhotoUrl,
-        onPageImage, coverImageUrl, tier,
-        wizardData?.heroName,
-        wizardData?.heroAge,
-        wizardData?.tone || "Cozy",
-        wizardData?.storyFormat || "classic",
-        wizardData?.personalIngredient || null
+      const images = await generateAllImages(
+        storyPlan, heroPhotoUrl, onImageReady, tier
       );
 
+      // Phase 5: Assemble final result
       setLoadPhase("finishing");
       await new Promise((r) => setTimeout(r, 500));
-
-      const pagesWithImages = story.pages.map((page, i) => ({
-        ...page,
-        imageUrl: finalResult.pageImages[i] || null,
-      }));
 
       // Save photo to vault for premium
       if (tier === "premium" && heroPhotoUrl) {
@@ -208,7 +196,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
           await saveToVault({
             name: heroChar.name,
             photoUrl: heroPhotoUrl,
-            thumbnailUrl: finalResult.pageImages[0],
+            thumbnailUrl: images.cover || images[`spread_0`],
           });
         } catch {
           // Vault save is non-critical
@@ -222,8 +210,9 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       }
 
       onNext({
-        story: { ...story, pages: pagesWithImages, coverImageUrl: coverImageUrl || finalResult.coverImageUrl },
-        dedication: wizardData?.dedication || null,
+        story: storyPlan,
+        images,
+        dedication: wizardData?.dedication || storyPlan.dedication || null,
         authorName: wizardData?.authorName || "A loving family",
         style,
         enrichedCast,
