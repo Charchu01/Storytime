@@ -362,7 +362,7 @@ function buildKontextPrompt(sceneDescription, styleName, mood) {
     ? words.slice(0, 25).join(" ")
     : sceneDescription;
 
-  return `Turn this person into ${style}. Scene: ${scene}. Compose as a wide landscape scene, ${moodStr} atmosphere. Show full-body, naturally in the scene. Keep their exact face and features from the photo. No text or words.`;
+  return `Turn this person into ${style}. Scene: ${scene}. ${moodStr} atmosphere. Show full-body, naturally in the scene. Keep their exact face and features from the photo. No text or words.`;
 }
 
 // ── Generate a single page image with fallback chain ────────────────────────
