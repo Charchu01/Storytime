@@ -97,7 +97,7 @@ export async function cacheImageAsBlob(url) {
     const contentType = resp.headers.get("content-type");
     if (!contentType?.startsWith("image/")) return url;
     const blob = await resp.blob();
-    if (blob.size < 50000 || blob.size > 15000000) return url;
+    if (blob.size > 15000000) return url;
     return URL.createObjectURL(blob);
   } catch {
     return url;
@@ -107,16 +107,18 @@ export async function cacheImageAsBlob(url) {
 // ── Image validation ──────────────────────────────────────────────────────────
 async function validateImageUrl(url) {
   if (!url) return false;
+  // Blob URLs and data URIs are already local — always valid
+  if (url.startsWith("blob:") || url.startsWith("data:")) return true;
   try {
     const resp = await fetch(url, { method: "HEAD" });
     if (!resp.ok) return false;
     const ct = resp.headers.get("content-type");
-    if (!ct?.startsWith("image/")) return false;
-    const size = parseInt(resp.headers.get("content-length") || "0", 10);
-    if (size > 0 && (size < 50000 || size > 15000000)) return false;
+    if (ct && !ct.startsWith("image/")) return false;
+    // Skip size check — Replicate images vary widely and the URL existing means it succeeded
     return true;
   } catch {
-    return false;
+    // Network error on HEAD — still try to use the URL (GET may work)
+    return true;
   }
 }
 
