@@ -536,7 +536,7 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
   }
 
   // Ensure top-level fields for prompt assembly
-  parsed.characterAppearances = parsed.characterAppearances || { hero: `${heroName}`, supporting: {} };
+  parsed.characterAppearances = parsed.characterAppearances || { hero: `${storyData.heroName || "the character"}`, supporting: {} };
   parsed.textBoxDesign = parsed.textBoxDesign || "Simple rectangular box, thin dark brown ornate border, small corner flourishes, warm cream fill, dark brown elegant serif text, centred";
   parsed.artStyle = parsed.artStyle || NANO_STYLES[styleName] || NANO_STYLES["Storybook"];
 
