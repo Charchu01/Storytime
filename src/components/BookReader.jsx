@@ -364,8 +364,8 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       const pdfH = pdf.internal.pageSize.getHeight();
       pdf.addImage(imgData, "JPEG", 0, 0, pdfW, pdfH);
 
-      const title = story.title || "My StoriKids Book";
-      pdf.save(`${title} - StoriKids.pdf`);
+      const title = story.title || "My Storytime Book";
+      pdf.save(`${title} - Storytime.pdf`);
 
       // Log activity
       try {
@@ -376,7 +376,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
 
       addToast("📚 Your book is saved! Check your downloads.", "magic");
     } catch (err) {
-      console.error("PDF generation failed:", err);
+      // PDF generation failed — toast already shown
       addToast("PDF generation failed — try again", "error");
     }
     setPdfGenerating(false);
@@ -457,8 +457,8 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       {/* The book */}
       <div className="br-book-area">
         {/* Nav arrows */}
-        <button className="br-nav-arrow br-nav-prev" onClick={goPrev} disabled={currentPage <= 0 || isFlipping}>‹</button>
-        <button className="br-nav-arrow br-nav-next" onClick={goNext} disabled={isLastPage || isFlipping}>›</button>
+        <button className="br-nav-arrow br-nav-prev" onClick={goPrev} disabled={currentPage <= 0 || isFlipping} aria-label="Previous page">‹</button>
+        <button className="br-nav-arrow br-nav-next" onClick={goNext} disabled={isLastPage || isFlipping} aria-label="Next page">›</button>
 
         <div
           className={`br-book ${isFlipping ? "br-flipping" : ""}`}
@@ -481,7 +481,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                 <p className="br-cc-for">A story written for</p>
                 <p className="br-cc-name">{heroName}</p>
                 <p className="br-cc-author">By {authorName}</p>
-                <div className="br-cc-watermark">StoriKids</div>
+                <div className="br-cc-watermark">Storytime</div>
               </div>
             </div>
           )}
@@ -589,7 +589,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
               <div className="br-cover-content" style={{ justifyContent: 'center' }}>
                 <h1 className="br-cc-title" style={{ fontSize: 32, opacity: 0.9 }}>The End</h1>
                 <div className="br-cc-line" />
-                <p className="br-cc-for">A StoriKids Original</p>
+                <p className="br-cc-for">A Storytime Original</p>
                 <div className="br-end-actions">
                   <button className="br-end-btn" onClick={handleShare}>Share</button>
                   <button className="br-end-btn" onClick={onReset}>New Story</button>
@@ -611,9 +611,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       )}
 
       {/* Progress dots */}
-      <div className="br-dots">
+      <div className="br-dots" role="tablist" aria-label="Page navigation">
         {Array.from({ length: totalPages }).map((_, i) => (
-          <div key={i} className={`br-dot${i === currentPage ? " br-dot-on" : ""}`} />
+          <div key={i} className={`br-dot${i === currentPage ? " br-dot-on" : ""}`} role="tab" aria-selected={i === currentPage} aria-label={`Page ${i + 1}`} />
         ))}
       </div>
     </div>

@@ -32,6 +32,22 @@ export const STYLE_COVER_GRADIENTS = {
   "Sketch & Color": "linear-gradient(160deg, #A16207, #854D0E, #713F12)",
 };
 
+// ── World visual vocabularies ────────────────────────────────────────────────
+const WORLD_VOCABULARY = {
+  "Magical Forest": "ancient twisted trees, dappled golden sunlight, glowing mushrooms, fireflies, moss-covered stones, emerald greens and warm ambers",
+  "Space Explorer": "cosmic purple and deep blue, stars and nebulae, metallic surfaces, curved futuristic architecture, lens flares",
+  "Ocean Discovery": "turquoise and coral palette, underwater caustic light, bubbles, colourful fish, coral reef, bioluminescence",
+  "Dragon Friends": "dramatic cliff faces, ember-glowing caves, vast skies with silhouetted wings, warm amber and deep crimson",
+  "The Kingdom": "castle spires, banners, cobblestone paths, rolling green hills, golden crowns, royal purple and stone grey",
+  "Enchanted Garden": "oversized flowers, hidden pathways, soft pastel petals, dew drops, butterfly wings, gentle morning light",
+  "Dinosaur Island": "volcanic peaks, lush prehistoric jungle, massive fern fronds, ancient eggs, earth tones and vibrant greens",
+  "Robot City": "gleaming chrome buildings, neon accent lights, friendly rounded robots, circuit patterns, cool blue and warm orange",
+  "Magical Circus": "striped tent peaks, floating stars, trapeze silhouettes, confetti, bold red and gold and deep purple",
+  "The Great Mountain": "snow-capped peaks, winding trails, alpine meadows, crystal-clear streams, sunrise golds and deep blues",
+  "Dream World": "floating islands, impossible staircases, cotton-candy clouds, soft rainbow gradients, surreal gentle lighting",
+  "Baking Kingdom": "candy-coloured buildings, frosting rivers, cookie paths, sugar crystal trees, warm pinks and creamy whites",
+};
+
 // ── Mood → lighting presets ───────────────────────────────────────────────────
 const MOOD_LIGHTING = {
   wonder: "soft magical golden light, gentle god rays, sparkles",
@@ -42,9 +58,67 @@ const MOOD_LIGHTING = {
   tender: "soft diffused light, pastel tones, gentle and loving",
 };
 
+const TONE_LIGHTING = {
+  "Cozy & Calming": "warm golden hour lighting, soft shadows, sunset palette",
+  "Exciting & Dramatic": "dynamic lighting, high contrast, dramatic sky",
+  "Warm & Heartfelt": "soft warm light, gentle tones, tender atmosphere",
+  "Funny & Chaotic": "bright saturated colours, playful energy, exaggerated expressions",
+};
+
 // ── Quality tags appended to every prompt ─────────────────────────────────────
 const QUALITY_TAGS =
   "children's picture book quality, highly detailed illustration, award-winning picture book style, no text in image, no words, no letters, no watermarks";
+
+// ── Cost tracking ─────────────────────────────────────────────────────────────
+export function logCost(type, model, success, durationMs, error) {
+  try {
+    const log = JSON.parse(localStorage.getItem("st_costs") || "[]");
+    log.push({
+      ts: Date.now(),
+      type,
+      model,
+      success,
+      durationMs,
+      cost: type === "lora_train" ? 1.50 :
+            type === "pulid" ? 0.04 :
+            type === "lora_gen" ? 0.01 : 0,
+      error: error || null,
+    });
+    localStorage.setItem("st_costs", JSON.stringify(log.slice(-200)));
+  } catch {}
+}
+
+// ── Blob URL caching ──────────────────────────────────────────────────────────
+export async function cacheImageAsBlob(url) {
+  if (!url || url.startsWith("blob:") || url.startsWith("data:")) return url;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return url;
+    const contentType = resp.headers.get("content-type");
+    if (!contentType?.startsWith("image/")) return url;
+    const blob = await resp.blob();
+    if (blob.size < 50000 || blob.size > 15000000) return url;
+    return URL.createObjectURL(blob);
+  } catch {
+    return url;
+  }
+}
+
+// ── Image validation ──────────────────────────────────────────────────────────
+async function validateImageUrl(url) {
+  if (!url) return false;
+  try {
+    const resp = await fetch(url, { method: "HEAD" });
+    if (!resp.ok) return false;
+    const ct = resp.headers.get("content-type");
+    if (!ct?.startsWith("image/")) return false;
+    const size = parseInt(resp.headers.get("content-length") || "0", 10);
+    if (size > 0 && (size < 50000 || size > 15000000)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // ── Character description helpers ─────────────────────────────────────────────
 function buildCharacterDescription(cast) {
@@ -73,7 +147,6 @@ function buildDetailedCharacterPrompt(cast) {
         parts.push(`${ageDesc} ${role.toLowerCase()} named ${character.name}`.trim());
       }
 
-      // Include the rich appearance description from photo analysis
       if (character.appearanceDescription) {
         parts.push(`— ${character.appearanceDescription}`);
       }
@@ -85,25 +158,24 @@ function buildDetailedCharacterPrompt(cast) {
 }
 
 // ── Build the panoramic spread prompt for a scene ─────────────────────────────
-function buildScenePrompt(sceneDescription, cast, styleName, mood) {
+function buildScenePrompt(sceneDescription, cast, styleName, mood, worldVocab, toneLighting) {
   const styleAnchor = STYLE_ANCHORS[styleName] || STYLE_ANCHORS["Storybook"];
   const lighting = MOOD_LIGHTING[mood] || MOOD_LIGHTING["wonder"];
+  const worldDesc = worldVocab ? `${worldVocab} — ` : "";
+  const toneDesc = toneLighting ? `${toneLighting}, ` : "";
 
-  // Build detailed character appearance for the image prompt
   const hero = cast.find((c) => c.isHero) || cast[0];
   const heroAppearance = hero?.appearanceDescription || "";
   const heroAge = hero?.age ? `${hero.age}-year-old` : "young";
   const heroName = hero?.name || "the child";
 
-  // Compact character reference for the image prompt
   const characterRef = heroAppearance
     ? `${heroAge} child: ${heroAppearance}`
     : `a ${heroAge} child named ${heroName}`;
 
-  // Ultra-wide panoramic composition for double-page spread
-  // Scene/environment FIRST, character secondary, explicit anti-portrait
   return [
     styleAnchor,
+    worldDesc,
     `Ultra-wide cinematic panoramic illustration for a double-page picture book spread.`,
     `Rich detailed environment filling the entire frame:`,
     sceneDescription,
@@ -111,6 +183,7 @@ function buildScenePrompt(sceneDescription, cast, styleName, mood) {
     `Show the character full-body at medium distance in the left-center of the frame, roughly 25-35% of the frame height, naturally placed within the scene.`,
     `The right half of the image continues the same rich environment with beautiful atmospheric depth, environmental storytelling, lush detailed scenery.`,
     `NEVER a close-up, NEVER a portrait, NEVER a headshot. Show expansive landscape with detailed foreground, middleground, and deep background.`,
+    toneDesc,
     lighting,
     QUALITY_TAGS,
   ].join(" ");
@@ -140,7 +213,7 @@ Format as a single flowing paragraph. Do NOT mention clothing. Do NOT use vague 
     );
     return description;
   } catch (err) {
-    console.error("Failed to analyze character photo:", err);
+    // Photo analysis failed — continue without appearance description
     return null;
   }
 }
@@ -149,36 +222,29 @@ export async function analyzeCharacterPhotos(cast) {
   const enrichedCast = await Promise.all(
     cast.map(async (character) => {
       const photos = character.photos?.filter((p) => p.dataUri) || [];
-      // Fall back to single photo field for backward compat
       if (photos.length === 0 && character.photo) {
         const description = await analyzeCharacterPhotos_single(character, character.photo);
         return description ? { ...character, appearanceDescription: description } : character;
       }
       if (photos.length === 0) return character;
 
-      // Analyze ALL photos for a richer description
       if (photos.length === 1) {
         const description = await analyzeCharacterPhotos_single(character, photos[0].dataUri);
         return description ? { ...character, appearanceDescription: description } : character;
       }
 
-      // Multiple photos: analyze the best one in detail, note features from others
       const primaryIdx = character.primaryPhotoIndex || 0;
       const primaryPhoto = photos[primaryIdx] || photos[0];
       const otherPhotos = photos.filter((_, i) => i !== primaryIdx);
 
-      // Analyze primary photo
       const primaryDesc = await analyzeCharacterPhotos_single(character, primaryPhoto.dataUri);
 
-      // Analyze one additional photo for supplementary details (different angle)
       let supplementDesc = null;
       if (otherPhotos.length > 0) {
-        // Pick the best quality supplementary photo
         const bestOther = otherPhotos.find((p) => p.quality === "good") || otherPhotos[0];
         supplementDesc = await analyzeCharacterPhotos_single(character, bestOther.dataUri);
       }
 
-      // Merge descriptions
       let finalDesc = primaryDesc || "";
       if (supplementDesc && primaryDesc) {
         finalDesc = await claudeCall(
@@ -203,35 +269,29 @@ export async function generateStory(cast, styleName, storyData) {
     .map((c) => `${c.name}: ${c.appearanceDescription}`)
     .join("\n");
 
-  const systemPrompt = `You are Stori, a magical children's book author and illustrator. You create personalized picture books for families.
-
-You will receive information about the main character(s) — their name, age, personality, and physical description. You will also receive the story theme, mood, and length.
+  const systemPrompt = `You are a master storyteller. You write with the emotional depth of Oliver Jeffers, the playful language of Julia Donaldson, and the worldbuilding of Maurice Sendak.
 
 Generate a complete picture book with this exact JSON structure:
 
-{"title":"Story title (creative, evocative, 3-6 words)","coverScene":"A breathtaking wide establishing shot description of the story world — epic scale, no characters visible, pure world-building, the kind of image that makes a child gasp","coverEmoji":"Single emoji representing the story world","pages":[{"text":"The story text for this page. 2-4 sentences. Warm, vivid, age-appropriate. Written in third person. Include the character name naturally. End each page at a moment of anticipation or discovery.","scene_description":"A detailed description of a WIDE or MEDIUM SHOT illustration for this page. Describe the full scene as if directing an illustrator: the character doing something specific in a rich environment, their emotional expression, the atmosphere, the lighting. The character should occupy 20-40% of the frame surrounded by the world they inhabit. NEVER describe a close-up or portrait. NEVER describe the character just standing still. Make the scene tell the story visually even without words.","scene_emoji":"Single emoji representing this page scene","mood":"One of: wonder, adventure, cozy, tense, triumphant, tender"}]}
+{"title":"Story title (creative, evocative, 3-6 words)","coverScene":"A breathtaking wide establishing shot description of the story world — epic scale, no characters visible, pure world-building","coverEmoji":"Single emoji representing the story world","pages":[{"pageNumber":1,"text":"The story text for this page. 2-4 sentences.","scene_description":"A detailed WIDE or MEDIUM SHOT illustration description.","scene_emoji":"Single emoji for this scene","mood":"One of: wonder, adventure, cozy, tense, triumphant, tender","characters_present":["Name1","Name2"]}]}
 
 Story writing rules:
-* Exactly ${storyData.pageCount || 5} pages
-* Each page ends at a moment that makes you want to turn to the next page
-* Use the character's name often — it feels magical to hear your own name in a story
+* Exactly ${storyData.pageCount || 6} pages
+* Each page ends at a moment that compels turning the page
+* Use the character's name often
 * Include sensory details: what things look, sound, smell, and feel like
-* The world should feel vast and real
-* The character should show growth and courage
-* The ending should feel earned and warm
-* Make it magical, age-appropriate, and emotionally resonant
 * The story should have a clear arc: setup, adventure, challenge, resolution, warm ending
+* The ending should feel earned and warm
+${storyData.personalIngredient ? `* PRIORITY: Weave this personal detail into the emotional core of the story: "${storyData.personalIngredient}"` : ""}
+${storyData.storyLesson ? `* Lesson "${storyData.storyLesson}" must emerge naturally — NEVER stated directly.` : ""}
+${storyData.storyFormat === "rhyming" ? "* Write in strict AABB rhyme scheme. 8-10 syllables per line." : ""}
+${storyData.storyFormat === "funny" ? "* Every page needs a genuine surprise. Setup on one page, punchline on the next." : ""}
 
-Illustration description rules:
-* Think like a professional picture book illustrator describing their next painting
-* Wide establishing shots for big moments
-* Medium shots for emotional character moments
-* Always show the character IN the world, not isolated against a plain background
-* Include other story elements: creatures, objects, weather, architecture, nature
-* Color and light should match the mood
-* The composition should naturally draw the eye from the illustration into the text
-* Include: environment details, lighting, atmosphere, weather/time of day, foreground and background elements, character's body language and actions, clothing colors
-* The character should be roughly 30-40% of the frame height, never filling the whole image
+Illustration rules:
+* Wide establishing shots for big moments, medium shots for emotional moments
+* Always show the character IN the world, not isolated
+* Each page's characters_present must list which characters are visible in that scene
+* The character should be 30-40% of frame height, never filling the whole image
 
 Return ONLY valid JSON. No preamble. No markdown code blocks. Just the raw JSON object.`;
 
@@ -241,9 +301,11 @@ Hero: ${storyData.hero}
 Story theme: ${storyData.spark}
 They love: ${storyData.loves}
 Mood: ${storyData.mood}
+${storyData.storyWorld ? `World: ${storyData.storyWorld}` : ""}
+${storyData.storyTone ? `Tone: ${storyData.storyTone}` : ""}
 Art style: ${styleName}`;
 
-  const maxTokens = (storyData.pageCount || 5) > 6 ? 3000 : 1800;
+  const maxTokens = (storyData.pageCount || 6) > 6 ? 3000 : 1800;
   const raw = await claudeCall(systemPrompt, userPrompt, maxTokens);
 
   let parsed;
@@ -251,30 +313,95 @@ Art style: ${styleName}`;
     const cleaned = raw.replace(/```json\s*|```\s*/g, "").trim();
     parsed = JSON.parse(cleaned);
   } catch {
-    throw new Error("Failed to parse story response. Please try again.");
+    // Try to extract JSON from markdown code blocks
+    const jsonMatch = raw.match(/```json?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      try {
+        parsed = JSON.parse(jsonMatch[1]);
+      } catch {
+        // Last resort: retry once
+        try {
+          const retryRaw = await claudeCall(systemPrompt, userPrompt, maxTokens);
+          const retryCleaned = retryRaw.replace(/```json\s*|```\s*/g, "").trim();
+          parsed = JSON.parse(retryCleaned);
+        } catch {
+          throw new Error("Failed to parse story response after retry. Please try again.");
+        }
+      }
+    } else {
+      throw new Error("Failed to parse story response. Please try again.");
+    }
   }
 
   if (!parsed.title || !Array.isArray(parsed.pages) || parsed.pages.length === 0) {
     throw new Error("Invalid story structure returned. Please try again.");
   }
 
+  // Validate each page has required fields
+  parsed.pages = parsed.pages.map((page, i) => ({
+    pageNumber: page.pageNumber || i + 1,
+    text: page.text || "",
+    scene_description: page.scene_description || page.text || "",
+    scene_emoji: page.scene_emoji || "🌟",
+    mood: page.mood || "wonder",
+    characters_present: page.characters_present || [],
+  }));
+
   return parsed;
 }
 
-// ── Generate a single page image ──────────────────────────────────────────────
-// Uses flux-1.1-pro-ultra with detailed text descriptions (most reliable).
-// The character appearance from photo analysis is baked into the prompt.
-export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood) {
-  const prompt = buildScenePrompt(sceneDescription, cast, styleName, mood || "wonder");
-  // Use text-only generation — character appearance is in the prompt from photo analysis.
-  // This produces better illustration-style results than face-reference models.
-  return generateImage(prompt, null, false);
+// ── Generate a single page image with fallback chain ────────────────────────
+export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood, worldVocab, toneLighting) {
+  const prompt = buildScenePrompt(sceneDescription, cast, styleName, mood || "wonder", worldVocab, toneLighting);
+  const startTime = Date.now();
+
+  // ATTEMPT 1: Primary model
+  try {
+    const url = await generateImage(prompt, heroPhotoUrl, !!heroPhotoUrl);
+    if (await validateImageUrl(url)) {
+      const blobUrl = await cacheImageAsBlob(url);
+      logCost("pulid", "primary", true, Date.now() - startTime, null);
+      return blobUrl;
+    }
+  } catch (err) {
+    // Primary attempt failed — trying fallback
+  }
+
+  // ATTEMPT 2: Retry with different approach (no face ref)
+  try {
+    const url = await generateImage(prompt, null, false);
+    if (await validateImageUrl(url)) {
+      const blobUrl = await cacheImageAsBlob(url);
+      logCost("pulid", "retry_no_face", true, Date.now() - startTime, null);
+      return blobUrl;
+    }
+  } catch (err) {
+    // Fallback attempt also failed
+  }
+
+  // ATTEMPT 3: Return null (will show styled fallback in UI)
+  logCost("pulid", "all_failed", false, Date.now() - startTime, "All attempts failed");
+  return null;
 }
 
 // ── Generate a Premium page image using LoRA ──────────────────────────────────
-export async function generatePremiumPageImage(sceneDescription, cast, styleName, loraUrl, triggerWord, mood) {
-  const prompt = buildScenePrompt(sceneDescription, cast, styleName, mood || "wonder");
-  return generateLoraImage(prompt, loraUrl, triggerWord);
+export async function generatePremiumPageImage(sceneDescription, cast, styleName, loraUrl, triggerWord, mood, worldVocab, toneLighting) {
+  const prompt = buildScenePrompt(sceneDescription, cast, styleName, mood || "wonder", worldVocab, toneLighting);
+  const startTime = Date.now();
+
+  try {
+    const url = await generateLoraImage(prompt, loraUrl, triggerWord);
+    if (await validateImageUrl(url)) {
+      const blobUrl = await cacheImageAsBlob(url);
+      logCost("lora_gen", loraUrl, true, Date.now() - startTime, null);
+      return blobUrl;
+    }
+  } catch (err) {
+    // Premium gen failed — falling back to standard
+  }
+
+  // Fallback to standard
+  return generatePageImage(sceneDescription, cast, styleName, null, mood, worldVocab, toneLighting);
 }
 
 // ── Upload hero photo once ────────────────────────────────────────────────────
@@ -282,16 +409,13 @@ export async function uploadHeroPhoto(cast) {
   const heroChar = cast.find((c) => c.isHero) || cast[0];
   if (!heroChar) return null;
 
-  // Pick the best photo: prefer primary from photos array, fall back to single photo field
   let bestPhotoUri = null;
   const photos = heroChar.photos?.filter((p) => p.dataUri) || [];
   if (photos.length > 0) {
     const primaryIdx = heroChar.primaryPhotoIndex || 0;
-    // Prefer good quality, then fair, avoid poor
     const goodPhotos = photos.filter((p) => p.quality === "good");
     const fairPhotos = photos.filter((p) => p.quality === "fair");
     if (goodPhotos.length > 0) {
-      // Use the primary if it's good, otherwise first good
       bestPhotoUri = (photos[primaryIdx]?.quality === "good" ? photos[primaryIdx] : goodPhotos[0]).dataUri;
     } else if (fairPhotos.length > 0) {
       bestPhotoUri = fairPhotos[0].dataUri;
@@ -307,7 +431,7 @@ export async function uploadHeroPhoto(cast) {
   try {
     return await uploadPhoto(bestPhotoUri);
   } catch (err) {
-    console.error("Failed to upload hero photo, falling back to text-only:", err);
+    // Photo upload failed — falling back to text-only generation
     return null;
   }
 }
@@ -319,52 +443,38 @@ export async function generateCoverImage(coverScene, styleName) {
   const prompt = `${styleAnchor} A breathtaking wide establishing shot of ${coverScene}, cinematic composition, epic scale, no characters visible, pure world-building, evocative and magical, ${QUALITY_TAGS}`;
 
   try {
-    // Cover has no character face, so no referencePhotoUrl
-    return await generateImage(prompt, null);
+    const url = await generateImage(prompt, null);
+    const blobUrl = await cacheImageAsBlob(url);
+    return blobUrl;
   } catch (err) {
-    console.error("Cover image generation failed:", err);
+    // Cover generation is non-critical
     return null;
   }
 }
 
-// ── Generate ALL page images in batches ──────────────────────────────────────
-const BATCH_SIZE = 3; // Max concurrent image requests to avoid rate limiting
-
-export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, onPageImage, coverScene) {
-  // Start cover generation (runs alongside batches)
+// ── Generate ALL page images in parallel ──────────────────────────────────────
+export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, onPageImage, coverScene, worldVocab, toneLighting) {
   const coverPromise = generateCoverImage(coverScene, styleName);
 
-  // Generate page images in batches of BATCH_SIZE to avoid Replicate rate limits
-  const pageImages = new Array(pages.length).fill(null);
+  // Generate ALL pages in parallel
+  const pagePromises = pages.map((page, i) => {
+    const sceneDesc = page.scene_description || page.imagePrompt || page.text;
+    const mood = page.mood || "wonder";
+    return generatePageImage(sceneDesc, cast, styleName, heroPhotoUrl, mood, worldVocab, toneLighting)
+      .then((url) => {
+        if (onPageImage) onPageImage(i, url);
+        return url;
+      })
+      .catch((err) => {
+        // Page image failed — will show styled fallback
+        if (onPageImage) onPageImage(i, null);
+        return null;
+      });
+  });
 
-  for (let batchStart = 0; batchStart < pages.length; batchStart += BATCH_SIZE) {
-    const batchEnd = Math.min(batchStart + BATCH_SIZE, pages.length);
-    const batchPromises = [];
-
-    for (let i = batchStart; i < batchEnd; i++) {
-      const page = pages[i];
-      const sceneDesc = page.scene_description || page.imagePrompt || page.text;
-      const mood = page.mood || "wonder";
-      batchPromises.push(
-        generatePageImage(sceneDesc, cast, styleName, heroPhotoUrl, mood)
-          .then((url) => {
-            pageImages[i] = url;
-            if (onPageImage) onPageImage(i, url);
-          })
-          .catch((err) => {
-            console.error(`Failed to generate image for page ${i + 1}:`, err);
-            pageImages[i] = null;
-            if (onPageImage) onPageImage(i, null);
-          })
-      );
-    }
-
-    await Promise.all(batchPromises);
-  }
-
+  const pageImages = await Promise.all(pagePromises);
   const coverImageUrl = await coverPromise;
 
-  // If ALL page images failed, throw
   if (pageImages.every((url) => url === null)) {
     throw new Error("All illustrations failed. Please try again.");
   }
@@ -372,37 +482,26 @@ export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, on
   return { pageImages, coverImageUrl };
 }
 
-// ── Generate ALL Premium page images in batches ─────────────────────────────
-export async function generateAllPremiumImages(pages, cast, styleName, loraUrl, triggerWord, onPageImage, coverScene) {
+// ── Generate ALL Premium page images ─────────────────────────────────────────
+export async function generateAllPremiumImages(pages, cast, styleName, loraUrl, triggerWord, onPageImage, coverScene, worldVocab, toneLighting) {
   const coverPromise = generateCoverImage(coverScene, styleName);
 
-  const pageImages = new Array(pages.length).fill(null);
+  const pagePromises = pages.map((page, i) => {
+    const sceneDesc = page.scene_description || page.imagePrompt || page.text;
+    const mood = page.mood || "wonder";
+    return generatePremiumPageImage(sceneDesc, cast, styleName, loraUrl, triggerWord, mood, worldVocab, toneLighting)
+      .then((url) => {
+        if (onPageImage) onPageImage(i, url);
+        return url;
+      })
+      .catch((err) => {
+        // Premium page image failed — will show styled fallback
+        if (onPageImage) onPageImage(i, null);
+        return null;
+      });
+  });
 
-  for (let batchStart = 0; batchStart < pages.length; batchStart += BATCH_SIZE) {
-    const batchEnd = Math.min(batchStart + BATCH_SIZE, pages.length);
-    const batchPromises = [];
-
-    for (let i = batchStart; i < batchEnd; i++) {
-      const page = pages[i];
-      const sceneDesc = page.scene_description || page.imagePrompt || page.text;
-      const mood = page.mood || "wonder";
-      batchPromises.push(
-        generatePremiumPageImage(sceneDesc, cast, styleName, loraUrl, triggerWord, mood)
-          .then((url) => {
-            pageImages[i] = url;
-            if (onPageImage) onPageImage(i, url);
-          })
-          .catch((err) => {
-            console.error(`Failed to generate premium image for page ${i + 1}:`, err);
-            pageImages[i] = null;
-            if (onPageImage) onPageImage(i, null);
-          })
-      );
-    }
-
-    await Promise.all(batchPromises);
-  }
-
+  const pageImages = await Promise.all(pagePromises);
   const coverImageUrl = await coverPromise;
 
   if (pageImages.every((url) => url === null)) {

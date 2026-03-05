@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 
 export default function TermsPage() {
-  useEffect(() => { document.title = "Terms of Service — StoriKids"; }, []);
+  useEffect(() => { document.title = "Terms of Service — Storytime"; }, []);
 
   return (
     <div className="legal-page">
@@ -12,13 +12,13 @@ export default function TermsPage() {
         <p className="legal-updated">Last updated: March 4, 2026</p>
 
         <p className="legal-intro">
-          Welcome to StoriKids! These terms are written in plain language because we believe you shouldn't
+          Welcome to Storytime! These terms are written in plain language because we believe you shouldn't
           need a law degree to understand how a children's storybook app works. Here's the deal:
         </p>
 
-        <h2>Who can use StoriKids</h2>
+        <h2>Who can use Storytime</h2>
         <p>
-          You must be 18 years or older to create an account. StoriKids is designed for parents, grandparents,
+          You must be 18 years or older to create an account. Storytime is designed for parents, grandparents,
           and guardians to create stories for the children in their lives. The little ones get to enjoy the stories —
           but the grown-ups run the account.
         </p>
@@ -32,7 +32,7 @@ export default function TermsPage() {
 
         <h2>How we use AI</h2>
         <p>
-          StoriKids uses artificial intelligence to write stories and generate illustrations. While we work hard to make
+          Storytime uses artificial intelligence to write stories and generate illustrations. While we work hard to make
           every story wonderful, AI can sometimes produce unexpected results. We recommend parents review each story
           before sharing it with children — think of it as a final read-through before bedtime.
         </p>
@@ -45,7 +45,7 @@ export default function TermsPage() {
         </p>
 
         <h2>Acceptable use</h2>
-        <p>Please use StoriKids the way it's intended — to create wonderful stories for kids. Don't use it to:</p>
+        <p>Please use Storytime the way it's intended — to create wonderful stories for kids. Don't use it to:</p>
         <ul>
           <li>Create harmful, abusive, or inappropriate content</li>
           <li>Upload photos of people without their consent (or their parent's consent for minors)</li>
@@ -56,14 +56,14 @@ export default function TermsPage() {
 
         <h2>How we improve the product</h2>
         <p>
-          We may use anonymized, non-identifiable usage patterns to improve StoriKids. For example, we might analyze
+          We may use anonymized, non-identifiable usage patterns to improve Storytime. For example, we might analyze
           which art styles are most popular or how long story generation takes — but we never use your personal stories,
           names, or photos for this purpose. It's all aggregate, anonymous data.
         </p>
 
         <h2>Availability</h2>
         <p>
-          We do our best to keep StoriKids running smoothly, but we can't guarantee 100% uptime. Sometimes we need to
+          We do our best to keep Storytime running smoothly, but we can't guarantee 100% uptime. Sometimes we need to
           do maintenance, and occasionally things break (we're human!). We're not liable for any downtime or service interruptions.
         </p>
 
@@ -76,7 +76,7 @@ export default function TermsPage() {
         <h2>Getting in touch</h2>
         <p>
           Questions about these terms? We're always happy to chat:<br />
-          <strong>hello@storikids.com</strong>
+          <strong>dom@ready.cards</strong>
         </p>
       </div>
     </div>

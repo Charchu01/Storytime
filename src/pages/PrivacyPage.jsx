@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 
 export default function PrivacyPage() {
-  useEffect(() => { document.title = "Privacy Policy — StoriKids"; }, []);
+  useEffect(() => { document.title = "Privacy Policy — Storytime"; }, []);
 
   return (
     <div className="legal-page">
@@ -12,13 +12,13 @@ export default function PrivacyPage() {
         <p className="legal-updated">Last updated: March 5, 2026</p>
 
         <p className="legal-intro">
-          Hi there! We're the team behind StoriKids, and we take your family's privacy seriously.
+          Hi there! We're the team behind Storytime, and we take your family's privacy seriously.
           We built this product for parents like us, so we treat your data the way we'd want ours treated — with care,
           transparency, and respect. Here's exactly what we do (and don't do) with your information.
         </p>
 
         <h2>What we collect</h2>
-        <p>When you use StoriKids, we collect:</p>
+        <p>When you use Storytime, we collect:</p>
         <ul>
           <li><strong>Account info:</strong> Your name and email address when you sign up (optional — the app works without an account).</li>
           <li><strong>Child's information (provided by parent):</strong> Your child's name, age, and role in the story. This is entered by you, the parent or guardian.</li>
@@ -53,7 +53,7 @@ export default function PrivacyPage() {
         <h2>We never sell your data. Ever.</h2>
         <p>
           This is non-negotiable. We don't sell, rent, or share your personal information with advertisers or data brokers.
-          Your family's stories and photos are yours. Period. There is <strong>no third-party advertising</strong> on StoriKids,
+          Your family's stories and photos are yours. Period. There is <strong>no third-party advertising</strong> on Storytime,
           and we will never monetize your family's data.
         </p>
 
@@ -68,7 +68,7 @@ export default function PrivacyPage() {
 
         <h2>Children's privacy (COPPA compliance)</h2>
         <p>
-          StoriKids is a service directed at <strong>parents and guardians</strong>, not at children under 13.
+          Storytime is a service directed at <strong>parents and guardians</strong>, not at children under 13.
           We comply with the Children's Online Privacy Protection Act (COPPA):
         </p>
         <ul>

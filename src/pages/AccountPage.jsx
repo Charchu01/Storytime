@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAppContext, useToast } from "../App";
 
 export default function AccountPage() {
-  useEffect(() => { document.title = "Account & Billing — StoriKids"; }, []);
+  useEffect(() => { document.title = "Account & Billing — Storytime"; }, []);
   const { stories, deleteStory } = useAppContext();
   const { addToast } = useToast();
   const [waitlistEmail, setWaitlistEmail] = useState("");

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /status
+
+Sitemap: https://storytime.app/sitemap.xml

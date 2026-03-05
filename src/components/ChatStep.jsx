@@ -131,7 +131,7 @@ function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, erro
 
       {loadPhase === "writing" && (
         <>
-          <div className="gen-emoji gen-emoji-write">✍️</div>
+          <div className="gen-emoji gen-spin">📖</div>
           <div className="gen-headline">Writing {heroName}'s story...</div>
           <div className="gen-sub gen-phrase-fade" key={phraseIdx}>{WRITING_PHRASES[phraseIdx]}</div>
         </>
@@ -177,7 +177,7 @@ function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, erro
   );
 }
 
-export default function ChatStep({ cast, style, length = 6, occasion, tier, storySessionId, vaultChar, onNext, onBack }) {
+export default function ChatStep({ cast, style, length = 6, occasion, tier, storySessionId, vaultChar, onNext, onBack, wizardData = {} }) {
   const hero = cast.find((c) => c.isHero) || cast[0];
   const [phase, setPhase] = useState("occasion");
   const [answers, setAnswers] = useState({});
@@ -430,15 +430,13 @@ export default function ChatStep({ cast, style, length = 6, occasion, tier, stor
             } else if (result.status === "failed") {
               clearInterval(pollInterval);
               setShowTraining(false);
-              console.error("LoRA training failed:", result.error);
               resolve(false);
             }
-          } catch (err) {
-            console.error("Training poll error:", err);
+          } catch {
+            // Poll error — will retry on next interval
           }
         }, 5000);
-      } catch (err) {
-        console.error("LoRA training setup failed:", err);
+      } catch {
         setShowTraining(false);
         resolve(false);
       }
@@ -479,6 +477,7 @@ export default function ChatStep({ cast, style, length = 6, occasion, tier, stor
         loves: answers.lovesText || answers.loves,
         mood: answers.moodText || answers.mood,
         pageCount: length,
+        ...wizardData,
       });
 
       // Phase 3: Generate page 1 as preview
@@ -518,7 +517,6 @@ export default function ChatStep({ cast, style, length = 6, occasion, tier, stor
       setShowPaywall(true);
       setLoading(false);
     } catch (err) {
-      console.error("Story generation failed:", err);
       setError(err.message || "Something went wrong. Please try again.");
     }
   }
@@ -577,8 +575,8 @@ export default function ChatStep({ cast, style, length = 6, occasion, tier, stor
             triggerWord: triggerWordRef.current,
             thumbnailUrl: previewImageUrl,
           });
-        } catch (err) {
-          console.error("Failed to save to vault:", err);
+        } catch {
+          // Vault save is non-critical — story still delivers
         }
       }
 
@@ -592,7 +590,6 @@ export default function ChatStep({ cast, style, length = 6, occasion, tier, stor
         tier,
       });
     } catch (err) {
-      console.error("Post-payment generation failed:", err);
       setError(err.message || "Something went wrong generating the remaining pages.");
     }
   }
@@ -811,8 +808,12 @@ export default function ChatStep({ cast, style, length = 6, occasion, tier, stor
                 error={consentError}
               />
 
-              <button className="final-cta" onClick={handleGenerate}>
-                Write My Storybook ✨
+              <button className="final-cta" onClick={handleGenerate} disabled={loading}>
+                {loading ? (
+                  <><span className="btn-spinner" /> Creating...</>
+                ) : (
+                  "Write My Storybook ✨"
+                )}
               </button>
             </>
           )}

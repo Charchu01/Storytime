@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import ModeSelector from "../components/ModeSelector";
 import TierSelector from "../components/TierSelector";
+import OnboardingWizard from "../components/OnboardingWizard";
 import CastStep from "../components/CastStep";
 import StyleStep from "../components/StyleStep";
 import ChatStep from "../components/ChatStep";
 import BookReader from "../components/BookReader";
 import { useAppContext } from "../App";
 import { useToast } from "../App";
+import { STYLES, STORY_WORLDS, STORY_TONES, STORY_LESSONS, STORY_FORMATS } from "../constants/data";
 
 const DRAFT_KEY = "sk_draft";
 
@@ -29,7 +32,7 @@ function loadDraft() {
 function clearDraft() { localStorage.removeItem(DRAFT_KEY); }
 
 function ResumeModal({ draft, onResume, onFresh }) {
-  const heroName = draft?.cast?.find(c => c.isHero)?.name || draft?.cast?.[0]?.name || "someone special";
+  const heroName = draft?.cast?.find(c => c.isHero)?.name || draft?.cast?.[0]?.name || draft?.wizardData?.heroName || "someone special";
   return (
     <div className="overlay">
       <div className="modal resume-modal">
@@ -50,7 +53,11 @@ export default function CreatePage() {
   const [searchParams] = useSearchParams();
   const { addStory } = useAppContext();
   const { addToast } = useToast();
-  const [step, setStep] = useState("tier");
+
+  // Flow: mode → tier → wizard → chat → preview
+  const [step, setStep] = useState("mode");
+  const [mode, setMode] = useState(searchParams.get("mode") || null);
+  const [isGift, setIsGift] = useState(false);
   const [tier, setTier] = useState(null);
   const [cast, setCast] = useState([]);
   const [style, setStyle] = useState(null);
@@ -58,6 +65,7 @@ export default function CreatePage() {
   const [result, setResult] = useState(null);
   const [showResume, setShowResume] = useState(false);
   const [occasion, setOccasion] = useState(searchParams.get("occasion") || null);
+  const [wizardData, setWizardData] = useState(null);
   const [storySessionId] = useState(() => Date.now().toString(36) + Math.random().toString(36).slice(2));
 
   // Check for vault character from Family Vault
@@ -69,7 +77,6 @@ export default function CreatePage() {
         if (stored) {
           setVaultChar(stored);
           sessionStorage.removeItem("sk_vault_char");
-          // Auto-set to premium and skip to cast
           setTier("premium");
           setStep("cast");
         }
@@ -77,32 +84,43 @@ export default function CreatePage() {
     }
   }, []);
 
-  useEffect(() => { document.title = "Create Your Story — StoriKids"; }, []);
+  // If mode is passed via URL, skip mode selector
+  useEffect(() => {
+    const urlMode = searchParams.get("mode");
+    if (urlMode && ["child", "pet", "family", "special", "imagination"].includes(urlMode)) {
+      setMode(urlMode);
+      setStep("tier");
+    }
+  }, []);
+
+  useEffect(() => { document.title = "Create Your Story — Storytime"; }, []);
 
   // Check for draft on mount
   useEffect(() => {
     const draft = loadDraft();
-    if (draft && draft.step && draft.step !== "tier" && draft.step !== "cast") {
+    if (draft && draft.step && draft.step !== "mode" && draft.step !== "tier") {
       setShowResume(true);
     }
   }, []);
 
   // Auto-save draft
   useEffect(() => {
-    if (step !== "preview" && step !== "tier" && step !== "cast") {
-      saveDraft({ step, tier, cast, style, length, occasion });
+    if (!["preview", "mode", "tier"].includes(step)) {
+      saveDraft({ step, mode, tier, cast, style, length, occasion, wizardData });
     }
-  }, [step, tier, cast, style, length, occasion]);
+  }, [step, mode, tier, cast, style, length, occasion, wizardData]);
 
   function handleResume() {
     const draft = loadDraft();
     if (draft) {
+      if (draft.mode) setMode(draft.mode);
       if (draft.tier) setTier(draft.tier);
       if (draft.cast) setCast(draft.cast);
       if (draft.style) setStyle(draft.style);
       if (draft.length) setLength(draft.length);
       if (draft.occasion) setOccasion(draft.occasion);
-      setStep(draft.step || "tier");
+      if (draft.wizardData) setWizardData(draft.wizardData);
+      setStep(draft.step || "mode");
     }
     setShowResume(false);
   }
@@ -112,10 +130,49 @@ export default function CreatePage() {
     setShowResume(false);
   }
 
+  function handleModeSelect(selectedMode, gift) {
+    setMode(selectedMode);
+    setIsGift(gift);
+    setStep("tier");
+  }
+
   function handleTierSelect(selectedTier) {
     setTier(selectedTier);
     setLength(selectedTier === "premium" ? 10 : 6);
-    setStep("cast");
+    setStep("wizard");
+  }
+
+  function handleWizardComplete(data) {
+    setWizardData(data);
+
+    // Build cast from wizard data
+    const heroCast = [];
+    if (data.heroName) {
+      heroCast.push({
+        id: Date.now(),
+        name: data.heroName,
+        role: data.heroRole || "child",
+        age: data.heroAge || "",
+        isHero: true,
+        emoji: mode === "pet" ? "🐾" : "🧒",
+        photo: null,
+        photos: [],
+      });
+    }
+
+    // Add companions from wizard
+    if (data.cast?.length > 0) {
+      heroCast.push(...data.cast.map((c) => ({ ...c, isHero: false })));
+    }
+
+    setCast(heroCast);
+
+    // Set style from wizard
+    const styleName = STYLES.find((s) => s.id === data.style)?.name || data.style;
+    setStyle(styleName);
+
+    // Go directly to chat with enriched data
+    setStep("chat");
   }
 
   function handleStoryComplete(storyResult) {
@@ -126,6 +183,7 @@ export default function CreatePage() {
       styleName: style,
       cast,
       tier,
+      mode,
     });
     setStep("preview");
     navigate(`/book/${id}`, { replace: true });
@@ -133,31 +191,59 @@ export default function CreatePage() {
 
   function reset() {
     clearDraft();
+    setMode(null);
     setTier(null);
     setCast([]);
     setStyle(null);
     setResult(null);
-    setStep("tier");
+    setWizardData(null);
+    setStep("mode");
   }
 
   if (step === "preview" && result) {
     return <BookReader data={result} cast={cast} styleName={style} onReset={reset} />;
   }
 
+  // Build enriched storyData for ChatStep from wizard selections
+  const enrichedStoryData = wizardData ? {
+    storyWorld: STORY_WORLDS.find((w) => w.id === wizardData.world)?.label || null,
+    storyTone: STORY_TONES.find((t) => t.id === wizardData.tone)?.label || null,
+    storyFormat: wizardData.format || "classic",
+    storyLesson: STORY_LESSONS.find((l) => l.id === wizardData.lesson)?.label || null,
+    personalIngredient: wizardData.secret || null,
+    personality: wizardData.personality || [],
+    loves: wizardData.loves || [],
+  } : {};
+
   return (
     <div className="create-page">
       {showResume && <ResumeModal draft={loadDraft()} onResume={handleResume} onFresh={handleFresh} />}
 
+      {step === "mode" && (
+        <ModeSelector
+          onSelect={handleModeSelect}
+          onBack={() => navigate("/")}
+        />
+      )}
       {step === "tier" && (
         <TierSelector
           onSelect={handleTierSelect}
-          onBack={() => navigate("/")}
+          onBack={() => setStep("mode")}
+        />
+      )}
+      {step === "wizard" && (
+        <OnboardingWizard
+          mode={mode}
+          isGift={isGift}
+          tier={tier}
+          onComplete={handleWizardComplete}
+          onBack={() => setStep("tier")}
         />
       )}
       {step === "cast" && (
         <CastStep
           onNext={(characters) => { setCast(characters); setStep("style"); }}
-          onBack={() => setStep("tier")}
+          onBack={() => setStep(wizardData ? "wizard" : "tier")}
           initialCast={cast}
           tier={tier}
           vaultChar={vaultChar}
@@ -179,7 +265,8 @@ export default function CreatePage() {
           storySessionId={storySessionId}
           vaultChar={vaultChar}
           onNext={handleStoryComplete}
-          onBack={() => setStep("style")}
+          onBack={() => setStep(wizardData ? "wizard" : "style")}
+          wizardData={enrichedStoryData}
         />
       )}
     </div>

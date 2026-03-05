@@ -4,7 +4,7 @@ import { useAppContext } from "../App";
 import FamilyVault from "../components/FamilyVault";
 
 export default function ProfilePage() {
-  useEffect(() => { document.title = "My Profile — StoriKids"; }, []);
+  useEffect(() => { document.title = "My Profile — Storytime"; }, []);
   const { stories } = useAppContext();
 
   // Deduplicate family members from all stories

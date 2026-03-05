@@ -2,17 +2,13 @@ import Replicate from "replicate";
 
 export const config = { maxDuration: 30 };
 
-// Resolve a community model to its latest version hash, then create a prediction.
-// Official models (black-forest-labs/*) can use the model shortcut directly.
 async function createPrediction(replicate, modelRef, input) {
   const [owner, name] = modelRef.split("/");
 
-  // Official Replicate models support the model shortcut — no version lookup needed
   if (owner === "black-forest-labs") {
     return replicate.predictions.create({ model: modelRef, input });
   }
 
-  // Community models need a version hash
   const model = await replicate.models.get(owner, name);
   const version = model.latest_version?.id;
   if (!version) {
@@ -21,7 +17,18 @@ async function createPrediction(replicate, modelRef, input) {
   return replicate.predictions.create({ version, input });
 }
 
+function logCost(type, model, success, durationMs, error) {
+  // Cost tracking is client-side via localStorage; server logs to console
+  const entry = {
+    ts: Date.now(), type, model, success, durationMs,
+    cost: type === "lora_train" ? 1.50 : type === "pulid" ? 0.04 : type === "lora_gen" ? 0.01 : 0,
+    error: error || null,
+  };
+  console.log("COST_LOG:", JSON.stringify(entry));
+}
+
 export default async function handler(req, res) {
+  const startTime = Date.now();
   try {
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
@@ -32,7 +39,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "REPLICATE_KEY not configured" });
     }
 
-    const { prompt, referencePhotoUrl, loraUrl, triggerWord, useFaceRef } = req.body || {};
+    const { prompt, referencePhotoUrl, loraUrl, triggerWord, useFaceRef, isMaleCharacter } = req.body || {};
     if (!prompt) {
       return res.status(400).json({ error: "prompt is required" });
     }
@@ -40,12 +47,14 @@ export default async function handler(req, res) {
     const replicate = new Replicate({ auth: apiKey });
     let modelRef;
     let input;
+    let costType = "pulid";
 
     if (loraUrl && triggerWord) {
-      // Premium LoRA path — trained model for perfect face consistency
+      // Premium LoRA path
       modelRef = "black-forest-labs/flux-dev-lora";
+      costType = "lora_gen";
       input = {
-        prompt: `${triggerWord} child, ${prompt}`,
+        prompt: `${triggerWord} person, ${prompt}`,
         hf_loras: [loraUrl],
         lora_scales: [0.85],
         num_inference_steps: 28,
@@ -55,27 +64,26 @@ export default async function handler(req, res) {
         output_quality: 90,
       };
     } else if (useFaceRef && referencePhotoUrl) {
-      // Face-reference path using PuLID — only used when explicitly requested
-      // start_step: 0 for stylized/illustration images (stronger face similarity)
-      // id_weight: 1.2 for stronger identity preservation
+      // Face-reference path using PuLID
+      // CRITICAL: id_start=0 for illustrated/stylized images (not default 4 which is for photorealistic)
       modelRef = "zsxkib/flux-pulid";
+      costType = "pulid";
       input = {
         prompt,
-        width: 1344,
-        height: 576,
-        num_steps: 20,
-        start_step: 0,
-        id_weight: 1.2,
-        guidance_scale: 4,
-        true_cfg: 1.0,
-        output_format: "webp",
-        output_quality: 90,
         main_face_image: referencePhotoUrl,
+        num_steps: 20,
+        guidance_scale: 4,
+        id_weight: 0.8,
+        id_start: 0,        // CRITICAL: 0 for illustrated styles
+        num_outputs: isMaleCharacter ? 2 : 1, // Generate 2 for males due to known PuLID fidelity issues
+        output_format: "png",
+        width: 1024,
+        height: 768,
       };
     } else {
-      // Primary path — flux-1.1-pro-ultra for highest quality illustrations.
-      // Character appearance comes from detailed text description in the prompt.
+      // Primary path — flux-1.1-pro-ultra for highest quality illustrations
       modelRef = "black-forest-labs/flux-1.1-pro-ultra";
+      costType = "pulid";
       input = {
         prompt,
         aspect_ratio: "21:9",
@@ -90,7 +98,6 @@ export default async function handler(req, res) {
     try {
       prediction = await createPrediction(replicate, modelRef, input);
     } catch (err) {
-      // If flux-pulid fails, fall back to flux-1.1-pro-ultra (text-only, no face ref)
       if (modelRef === "zsxkib/flux-pulid") {
         console.warn(`flux-pulid failed (${err.message}), falling back to flux-1.1-pro-ultra`);
         modelRef = "black-forest-labs/flux-1.1-pro-ultra";
@@ -108,9 +115,11 @@ export default async function handler(req, res) {
     }
 
     if (!prediction?.id) {
-      console.error("No prediction ID returned:", JSON.stringify(prediction).slice(0, 300));
+      logCost(costType, modelRef, false, Date.now() - startTime, "No prediction ID");
       return res.status(500).json({ error: "Failed to start image generation" });
     }
+
+    logCost(costType, modelRef, true, Date.now() - startTime, null);
 
     res.json({
       predictionId: prediction.id,
@@ -118,6 +127,7 @@ export default async function handler(req, res) {
       model: modelRef,
     });
   } catch (err) {
+    logCost("pulid", "unknown", false, Date.now() - startTime, err.message);
     console.error("generate-image error:", err);
     res.status(500).json({
       error: `Failed to start image generation: ${err.message || "Unknown"}`,

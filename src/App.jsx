@@ -11,12 +11,14 @@ import SharedPage from "./pages/SharedPage";
 import PrivacyPage from "./pages/PrivacyPage";
 import TermsPage from "./pages/TermsPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import StatusPage from "./pages/StatusPage";
 import Navbar from "./components/Navbar";
 import CookieBanner from "./components/CookieBanner";
 import ToastContainer from "./components/ToastContainer";
 import OfflineBanner from "./components/OfflineBanner";
 import InstallPrompt from "./components/InstallPrompt";
 import "./styles.css";
+import "./styles/homepage.css";
 
 // ── Toast context ────────────────────────────────────────────────────────────
 const ToastContext = createContext();
@@ -88,6 +90,7 @@ export default function App() {
           <Route path="/shared" element={<SharedPage />} />
           <Route path="/privacy" element={<><Navbar /><PrivacyPage /></>} />
           <Route path="/terms" element={<><Navbar /><TermsPage /></>} />
+          <Route path="/status" element={<><Navbar /><StatusPage /></>} />
           <Route path="*" element={<><Navbar /><NotFoundPage /></>} />
         </Routes>
         <CookieBanner />
