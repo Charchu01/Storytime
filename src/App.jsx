@@ -57,11 +57,11 @@ export default function App() {
 
   function addStory(story) {
     const entry = { ...story, id: story.id || Date.now().toString(36) + Math.random().toString(36).slice(2), createdAt: new Date().toISOString() };
-    setStories((prev) => {
-      const updated = [entry, ...prev];
-      saveStories(updated); // Synchronous save so /book/:id can find it immediately
-      return updated;
-    });
+    // Save to localStorage BEFORE React processes the state update,
+    // so /book/:id can find it immediately even if navigate() fires first
+    const current = loadStories();
+    saveStories([entry, ...current]);
+    setStories([entry, ...current]);
     return entry.id;
   }
 
