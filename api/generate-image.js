@@ -33,13 +33,14 @@ export default async function handler(req, res) {
     // ── TIER-BASED MODEL SELECTION WITH FALLBACK CHAIN ──────────────────
 
     // Premium with face: Kontext Max (highest quality face fidelity)
+    // The prompt is ALREADY optimized for Kontext by the client — pass through.
     if (tier === "premium" && referencePhotoUrl) {
       try {
         modelUsed = "black-forest-labs/flux-kontext-max";
         prediction = await replicate.predictions.create({
           model: modelUsed,
           input: {
-            prompt: `Create a children's picture book illustration: ${prompt}. Place the person from the reference image naturally into this scene while preserving their exact facial features, expression proportions, and identity. Render in ${style || "painterly storybook"} illustration style. The character should feel integrated into the illustrated world, not pasted on top.`,
+            prompt: prompt,
             input_image: referencePhotoUrl,
             aspect_ratio: "3:4",
             output_format: "jpg",
@@ -60,7 +61,7 @@ export default async function handler(req, res) {
         prediction = await replicate.predictions.create({
           model: modelUsed,
           input: {
-            prompt: `Create a children's picture book illustration: ${prompt}. Place the person from the reference image into this scene while preserving their facial features and identity. Render in ${style || "painterly storybook"} illustration style. Character should be naturally integrated into the scene.`,
+            prompt: prompt,
             input_image: referencePhotoUrl,
             aspect_ratio: "3:4",
             output_format: "jpg",
@@ -74,14 +75,15 @@ export default async function handler(req, res) {
       }
     }
 
-    // No face reference OR all face models failed: plain Flux Pro
+    // No face reference OR all face models failed: Flux Pro Ultra
+    // This path gets the full descriptive prompt from the client — wrap minimally.
     if (!prediction) {
       try {
         modelUsed = "black-forest-labs/flux-1.1-pro-ultra";
         prediction = await replicate.predictions.create({
           model: modelUsed,
           input: {
-            prompt: `Children's picture book illustration: ${prompt}. ${style || "Painterly storybook"} style. Rich detailed environment, warm lighting, magical atmosphere.`,
+            prompt: `Children's picture book illustration: ${prompt}. Rich detailed environment, warm lighting, magical atmosphere.`,
             aspect_ratio: "3:4",
             output_format: "webp",
             output_quality: 90,

@@ -327,39 +327,72 @@ Based on the story idea, choose the perfect world setting, character personality
   return parsed;
 }
 
+// ── Build a Kontext-optimized prompt (short, instructional) ─────────────────
+// Kontext is image-to-image: you give it a photo and INSTRUCT what to do.
+// Prompts must be under 100 words to stay within Kontext's 512-token limit.
+// NO appearance description (the photo handles identity).
+function buildKontextPrompt(sceneDescription, styleName, mood) {
+  const styleKeywords = {
+    "Storybook": "warm painterly children's book illustration, bold outlines, saturated colors",
+    "Watercolor": "soft watercolor children's book illustration, visible brushstrokes, dreamy washes",
+    "Bold & Bright": "vibrant modern children's book illustration, bold flat colors, thick outlines",
+    "Cozy & Soft": "gentle pastel children's book illustration, soft rounded shapes, warm muted tones",
+    "Sketch & Color": "hand-drawn children's book illustration, pencil linework with color wash",
+  };
+
+  const moodKeywords = {
+    "wonder": "magical golden light, sparkles in the air",
+    "adventure": "dramatic lighting, energetic atmosphere",
+    "cozy": "warm lamplight, soft gentle glow",
+    "tense": "cool dramatic shadows, atmospheric",
+    "triumphant": "radiant sunlight, everything glowing",
+    "tender": "soft diffused light, gentle and loving",
+  };
+
+  const styleStr = styleKeywords[styleName] || styleKeywords["Storybook"];
+  const moodStr = moodKeywords[mood] || moodKeywords["wonder"];
+
+  return [
+    `Place this person into the following scene as an illustrated storybook character.`,
+    `Scene: ${sceneDescription}`,
+    `Show them full-body at medium distance, about 35% of the frame, naturally part of the world.`,
+    `Render as ${styleStr}, ${moodStr}.`,
+    `Preserve their exact facial features and identity from the photo.`,
+    `No text, no words, no watermarks.`,
+  ].join(" ");
+}
+
 // ── Generate a single page image with fallback chain ────────────────────────
 export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood, worldVocab, toneLighting, tier = "standard") {
-  const prompt = buildScenePrompt(sceneDescription, cast, styleName, mood || "wonder", worldVocab, toneLighting);
   const startTime = Date.now();
 
-  // ATTEMPT 1: With face reference (Kontext Max for premium, Kontext Pro for standard)
+  // ATTEMPT 1: With face reference → use Kontext prompt (short, instructional)
   if (heroPhotoUrl) {
+    const kontextPrompt = buildKontextPrompt(sceneDescription, styleName, mood || "wonder");
     try {
-      const url = await generateImage(prompt, heroPhotoUrl, tier, styleName);
+      const url = await generateImage(kontextPrompt, heroPhotoUrl, tier, styleName);
       if (await validateImageUrl(url)) {
-        const blobUrl = await cacheImageAsBlob(url);
         logCost(tier === "premium" ? "kontext_max" : "kontext", tier, true, Date.now() - startTime, null);
-        return blobUrl;
+        return url;
       }
     } catch (err) {
-      console.warn("Face-ref generation failed:", err.message);
+      console.warn("Kontext generation failed:", err.message);
     }
   }
 
-  // ATTEMPT 2: Without face reference (scene only)
+  // ATTEMPT 2: No face ref → use full descriptive prompt for Flux Pro Ultra
+  const fullPrompt = buildScenePrompt(sceneDescription, cast, styleName, mood || "wonder", worldVocab, toneLighting);
   try {
-    const url = await generateImage(prompt, null, tier, styleName);
+    const url = await generateImage(fullPrompt, null, tier, styleName);
     if (await validateImageUrl(url)) {
-      const blobUrl = await cacheImageAsBlob(url);
       logCost("flux", "no_face", true, Date.now() - startTime, null);
       if (heroPhotoUrl) imageGenFlags.faceRefLostCount++;
-      return blobUrl;
+      return url;
     }
   } catch (err) {
     console.warn("Scene-only generation failed:", err.message);
   }
 
-  // ATTEMPT 3: Return null (UI shows styled fallback)
   logCost("all", "failed", false, Date.now() - startTime, "All failed");
   return null;
 }
