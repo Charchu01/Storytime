@@ -167,8 +167,10 @@ const StorySpreadLeft = React.forwardRef(({ imageUrl, text, pageNum, gradient, e
           <span className="st-illustrating-badge">Illustrating...</span>
         </div>
       ) : isSafe ? (
-        <img src={imageUrl} className="st-spread-img st-spread-left" alt=""
-          onError={(e) => { e.target.style.display = "none"; }} />
+        <div className="st-spread-clip st-clip-left">
+          <img src={imageUrl} alt=""
+            onError={(e) => { e.target.style.display = "none"; }} />
+        </div>
       ) : (
         <div className="st-illust-fallback" style={{ background: gradient }}>
           <span className="st-fallback-emoji">{emoji}</span>
@@ -193,8 +195,10 @@ const StorySpreadRight = React.forwardRef(({ imageUrl, text, pageNum, gradient, 
           <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
         </div>
       ) : isSafe ? (
-        <img src={imageUrl} className="st-spread-img st-spread-right" alt=""
-          onError={(e) => { e.target.style.display = "none"; }} />
+        <div className="st-spread-clip st-clip-right">
+          <img src={imageUrl} alt=""
+            onError={(e) => { e.target.style.display = "none"; }} />
+        </div>
       ) : (
         <div className="st-illust-fallback" style={{ background: gradient }}>
           <span className="st-fallback-emoji">{emoji}</span>

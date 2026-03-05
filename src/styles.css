@@ -2702,14 +2702,24 @@
 .st-pn-right { right: 14px; }
 .st-pn-left { left: 14px; }
 
-/* Spread image split — two-panel / wide-cinematic layouts split across two flipbook pages */
-.st-spread-img {
+/* Spread image split — landscape image split across two flipbook pages */
+.st-spread-clip {
   position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  overflow: hidden;
+}
+.st-spread-clip img {
+  display: block;
   width: 200%; height: 100%;
   object-fit: cover;
 }
-.st-spread-left { object-position: left center; }
-.st-spread-right { object-position: right center; margin-left: -100%; }
+.st-spread-clip.st-clip-left img {
+  object-position: left center;
+}
+.st-spread-clip.st-clip-right img {
+  margin-left: -100%;
+  object-position: right center;
+}
 
 /* Fallback when no illustration */
 .st-illust-fallback {
