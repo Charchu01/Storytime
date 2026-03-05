@@ -57,7 +57,11 @@ export default function App() {
 
   function addStory(story) {
     const entry = { ...story, id: story.id || Date.now().toString(36) + Math.random().toString(36).slice(2), createdAt: new Date().toISOString() };
-    setStories((prev) => [entry, ...prev]);
+    setStories((prev) => {
+      const updated = [entry, ...prev];
+      saveStories(updated); // Synchronous save so /book/:id can find it immediately
+      return updated;
+    });
     return entry.id;
   }
 
