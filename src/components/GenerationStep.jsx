@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import {
   generateStory,
   generateAllImages,
-  generatePageImage,
   generateCoverImage,
   analyzeCharacterPhotos,
   uploadHeroPhoto,
@@ -12,7 +11,6 @@ import {
 import {
   saveToVault,
 } from "../api/client";
-import Paywall from "./Paywall";
 
 const WRITING_PHRASES = [
   "Crafting the perfect adventure...",
@@ -118,13 +116,6 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
   const [error, setError] = useState(null);
   const [started, setStarted] = useState(false);
 
-  // Paywall state
-  const [showPaywall, setShowPaywall] = useState(false);
-  const [previewImageUrl, setPreviewImageUrl] = useState(null);
-  const [pendingStory, setPendingStory] = useState(null);
-  const [pendingEnrichedCast, setPendingEnrichedCast] = useState(null);
-  const [pendingHeroPhotoUrl, setPendingHeroPhotoUrl] = useState(null);
-
   // Auto-start generation on mount or after retry
   useEffect(() => {
     if (!started) {
@@ -133,7 +124,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
     }
   }, [started]);
 
-  // ── Main generation flow ────────────────────────────────────────────────────
+  // ── Main generation flow (no paywall — straight through) ───────────────────
   async function handleGenerate() {
     setLoading(true);
     setError(null);
@@ -167,91 +158,48 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         tone: wizardData?.tone || null,
       });
 
-      // Phase 4: Generate page 1 as preview
+      // Phase 4: Generate cover FIRST, then all page images
       setLoadPhase("illustrating");
       setPageCount(story.pages.length);
       setPageImages(new Array(story.pages.length).fill(undefined));
 
-      const page1 = story.pages[0];
-      const sceneDesc = page1.scene_description || page1.imagePrompt || page1.text;
-      const mood = page1.mood || "wonder";
-
-      const page1Url = await generatePageImage(
-        sceneDesc, enrichedCast, style, heroPhotoUrl,
-        mood, null, null, tier
-      );
-
-      setPageImages((prev) => {
-        const next = [...prev];
-        next[0] = page1Url;
-        return next;
-      });
-      setPreviewImageUrl(page1Url);
-
-      setPendingStory(story);
-      setPendingEnrichedCast(enrichedCast);
-      setPendingHeroPhotoUrl(heroPhotoUrl);
-
-      // Show paywall
-      setShowPaywall(true);
-      setLoading(false);
-    } catch (err) {
-      console.error("Generation error:", err);
-      setError(err.message || "Something went wrong. Please try again.");
-      setLoading(false);
-    }
-  }
-
-  // ── After payment: generate remaining pages ─────────────────────────────────
-  async function handlePaymentSuccess() {
-    setShowPaywall(false);
-    setLoading(true);
-    setLoadPhase("illustrating");
-    setError(null);
-
-    try {
-      const story = pendingStory;
-      const enrichedCast = pendingEnrichedCast;
-
-      // Generate cover FIRST (fast, no face ref, no competition for API slots)
+      // Cover first (fast, no face ref, no competition for API slots)
       let coverImageUrl = null;
       if (story.coverScene) {
         coverImageUrl = await generateCoverImage(story.coverScene, style, tier);
       }
 
-      const remainingPages = story.pages.slice(1);
+      // All pages with progress updates
       const onPageImage = (pageIdx, url) => {
         setPageImages((prev) => {
           const next = [...prev];
-          next[pageIdx + 1] = url || null;
+          next[pageIdx] = url || null;
           return next;
         });
       };
 
-      // Pass null coverScene — cover already generated above
+      // Generate all pages (cover already done, pass null coverScene)
       const finalResult = await generateAllImages(
-        remainingPages, enrichedCast, style, pendingHeroPhotoUrl,
+        story.pages, enrichedCast, style, heroPhotoUrl,
         onPageImage, null, null, null, tier
       );
-
-      const allPageImages = [previewImageUrl, ...finalResult.pageImages];
 
       setLoadPhase("finishing");
       await new Promise((r) => setTimeout(r, 500));
 
       const pagesWithImages = story.pages.map((page, i) => ({
         ...page,
-        imageUrl: allPageImages[i] || null,
+        imageUrl: finalResult.pageImages[i] || null,
       }));
 
       // Save photo to vault for premium
-      if (tier === "premium" && pendingHeroPhotoUrl) {
+      if (tier === "premium" && heroPhotoUrl) {
         try {
           const heroChar = enrichedCast.find((c) => c.isHero) || enrichedCast[0];
           await saveToVault({
             name: heroChar.name,
-            photoUrl: pendingHeroPhotoUrl,
-            thumbnailUrl: previewImageUrl,
+            photoUrl: heroPhotoUrl,
+            thumbnailUrl: finalResult.pageImages[0],
           });
         } catch {
           // Vault save is non-critical
@@ -270,30 +218,17 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         authorName: wizardData?.authorName || "A loving family",
         style,
         enrichedCast,
-        heroPhotoUrl: pendingHeroPhotoUrl,
+        heroPhotoUrl,
         tier,
       });
     } catch (err) {
-      console.error("Post-payment generation error:", err);
-      setError(err.message || "Something went wrong generating the remaining pages.");
+      console.error("Generation error:", err);
+      setError(err.message || "Something went wrong. Please try again.");
       setLoading(false);
     }
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
-
-  if (showPaywall) {
-    return (
-      <Paywall
-        tier={tier}
-        previewImageUrl={previewImageUrl}
-        pageCount={length}
-        price={tier === "premium" ? "$19.99" : "$9.99"}
-        storySessionId={storySessionId}
-        onPaid={handlePaymentSuccess}
-      />
-    );
-  }
 
   return (
     <LoadingScreen
