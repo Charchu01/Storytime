@@ -89,12 +89,17 @@ function buildScenePrompt(sceneDescription, cast, styleName, mood) {
   const characterDesc = buildDetailedCharacterPrompt(cast);
   const lighting = MOOD_LIGHTING[mood] || MOOD_LIGHTING["wonder"];
 
-  // PART 1: Style anchor
-  // PART 2: Character description
-  // PART 3: Scene action (from scene_description)
-  // PART 4+5: Environment + mood lighting
-  // PART 6: Quality tags
-  return `${styleAnchor} The main character is ${characterDesc}, ${sceneDescription}, ${lighting}, ${QUALITY_TAGS}`;
+  // STRUCTURE: Style → Composition → Scene → Character (small in frame) → Lighting → Quality
+  // Leading with scene/composition prevents the model from generating close-up portraits
+  return [
+    styleAnchor,
+    `WIDE SHOT illustration showing a full scene with rich environment:`,
+    sceneDescription,
+    `The character (${characterDesc}) is shown at medium distance, occupying roughly 30% of the frame height, fully surrounded by the environment.`,
+    `NOT a close-up, NOT a portrait, NOT a headshot — show the full scene with foreground, middleground, and background.`,
+    lighting,
+    QUALITY_TAGS,
+  ].join(" ");
 }
 
 // ── Analyze character photos ──────────────────────────────────────────────────
