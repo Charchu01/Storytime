@@ -14,8 +14,8 @@ export default async function handler(req, res) {
 
   const amount = tier === 'premium' ? 1999 : 999;
   const description = tier === 'premium'
-    ? 'StoriKids Premium Story (10 pages + Family Vault)'
-    : 'StoriKids Standard Story (6 pages)';
+    ? 'Storytime Premium Story (10 pages + Family Vault)'
+    : 'Storytime Standard Story (6 pages)';
 
   try {
     const paymentIntent = await stripe.paymentIntents.create({

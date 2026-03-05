@@ -17,7 +17,7 @@ export default function SharedPage() {
   useEffect(() => {
     if (sharedData) {
       const name = sharedData.heroName || "a child";
-      document.title = `${name}'s Story — Made with StoriKids`;
+      document.title = `${name}'s Story — Made with Storytime`;
       // Update meta tags for social sharing
       const desc = `A personalized AI storybook created just for ${name}. Create yours free.`;
       let meta = document.querySelector('meta[name="description"]');
@@ -25,7 +25,7 @@ export default function SharedPage() {
       meta.content = desc;
       let ogTitle = document.querySelector('meta[property="og:title"]');
       if (!ogTitle) { ogTitle = document.createElement("meta"); ogTitle.setAttribute("property", "og:title"); document.head.appendChild(ogTitle); }
-      ogTitle.content = `${name}'s Story — Made with StoriKids`;
+      ogTitle.content = `${name}'s Story — Made with Storytime`;
       let ogDesc = document.querySelector('meta[property="og:description"]');
       if (!ogDesc) { ogDesc = document.createElement("meta"); ogDesc.setAttribute("property", "og:description"); document.head.appendChild(ogDesc); }
       ogDesc.content = desc;
@@ -38,7 +38,7 @@ export default function SharedPage() {
         <div className="p404-book">📖</div>
         <h1 className="p404-h">This shared link seems broken</h1>
         <p className="p404-p">The story data couldn't be decoded. Ask the sender for a new link.</p>
-        <Link to="/" className="p404-btn">Go to StoriKids →</Link>
+        <Link to="/" className="p404-btn">Go to Storytime →</Link>
       </div>
     );
   }
@@ -50,7 +50,7 @@ export default function SharedPage() {
       {/* Shared banner */}
       {!dismissed && (
         <div className="shared-banner">
-          <span className="shared-banner-text">✨ {name}'s story — made with StoriKids</span>
+          <span className="shared-banner-text">✨ {name}'s story — made with Storytime</span>
           <Link to="/create" className="shared-banner-cta">Create your own story free →</Link>
           <button className="shared-banner-x" onClick={() => setDismissed(true)}>✕</button>
         </div>

@@ -17,7 +17,6 @@ import {
   checkTraining,
   saveToVault,
 } from "../api/client";
-import { STORY_WORLDS, STORY_TONES } from "../constants/data";
 import Paywall from "./Paywall";
 
 const WRITING_PHRASES = [
@@ -253,18 +252,14 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       // Phase 2: Generate story text
       setLoadPhase("writing");
       const story = await generateStory(enrichedCast, style, {
-        hero: heroName,
-        spark: wizardData?.sparkText || wizardData?.spark,
-        loves: wizardData?.loves?.join(", ") || "",
-        mood: wizardData?.tone || "cozy",
+        heroName: wizardData?.heroName || heroName,
+        heroAge: wizardData?.heroAge || null,
+        storyIdea: wizardData?.storyIdea || wizardData?.sparkText || wizardData?.spark || "A magical adventure",
+        spark: wizardData?.spark || null,
         pageCount: length,
-        storyWorld: wizardData?.storyWorld || null,
-        storyTone: wizardData?.storyTone || null,
         storyFormat: wizardData?.storyFormat || "classic",
-        storyLesson: wizardData?.storyLesson || null,
         personalIngredient: wizardData?.personalIngredient || null,
-        personality: wizardData?.personality || [],
-        occasion: wizardData?.occasion || null,
+        tone: wizardData?.tone || null,
       });
 
       // Phase 3: Generate page 1 as preview
@@ -272,15 +267,10 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       setPageCount(story.pages.length);
       setPageImages(new Array(story.pages.length).fill(undefined));
 
-      // Look up world vocabulary and tone lighting for image prompts
-      const worldData = STORY_WORLDS.find(w =>
-        w.label === wizardData?.storyWorld || w.id === wizardData?.world
-      );
-      const worldVocab = worldData?.vocab || null;
-      const toneData = STORY_TONES.find(t =>
-        t.label === wizardData?.storyTone || t.id === wizardData?.tone
-      );
-      const toneLighting = toneData?.lighting || null;
+      // World/tone are now inferred by Claude from the storyIdea
+      // Scene descriptions in the story JSON contain rich environmental details
+      const worldVocab = null;
+      const toneLighting = null;
 
       let heroPhotoUrl = null;
       if (!useLoRA) {

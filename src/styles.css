@@ -4300,44 +4300,42 @@ button, a, input[type="checkbox"], .pill, .occ-card, .sgcard, .add-btn, .cm-role
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  background: #FEF7ED;
+}
+.wiz-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0 8px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #FEF7ED;
+}
+.wiz-prog-wrap { flex: 1; }
+.wiz-prog {
+  height: 4px;
+  background: rgba(200,93,42,0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.wiz-prog-fill {
+  height: 100%;
+  background: var(--terra, #C85D2A);
+  border-radius: 4px;
+  transition: width 0.3s ease;
 }
 .wiz-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-bottom: 100px;
 }
 .wiz-footer {
   position: sticky;
   bottom: 0;
-  background: linear-gradient(to top, var(--bg, #FAF9F6) 80%, transparent);
+  background: linear-gradient(to top, #FEF7ED 80%, transparent);
   padding: 16px 0 24px;
-}
-
-/* ── Live story strip ────────────────────────────────────────────────────── */
-.wiz-live-strip {
-  display: flex;
-  gap: 8px;
-  padding: 10px 0;
-  overflow-x: auto;
-  margin-bottom: 12px;
-  -webkit-overflow-scrolling: touch;
-}
-.wiz-live-mode {
-  font-weight: 700;
-  font-size: 13px;
-  background: rgba(200,93,42,0.1);
-  color: #C85D2A;
-  padding: 4px 10px;
-  border-radius: 20px;
-  white-space: nowrap;
-}
-.wiz-live-tag {
-  font-size: 12px;
-  background: rgba(0,0,0,0.05);
-  padding: 4px 10px;
-  border-radius: 20px;
-  white-space: nowrap;
-  color: var(--mid, #666);
 }
 
 /* ── Wizard step ─────────────────────────────────────────────────────────── */
@@ -4810,4 +4808,521 @@ button, a, input[type="checkbox"], .pill, .occ-card, .sgcard, .add-btn, .cm-role
 }
 .wiz-summary-edit:hover {
   background: rgba(200,93,42,0.08);
+}
+
+/* ── ModeAndTierSelector ───────────────────────────────────────────────────── */
+.mts-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100dvh;
+  background: #FEF7ED;
+  position: relative;
+}
+.mts-h1 {
+  font-family: 'Fraunces', serif;
+  font-size: 32px;
+  font-weight: 900;
+  color: #1A0A00;
+  margin: 40px 0 8px;
+  text-align: center;
+}
+.mts-sub {
+  text-align: center;
+  font-size: 15px;
+  color: #6B4C3B;
+  margin-bottom: 28px;
+}
+.mts-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+@media (min-width: 480px) {
+  .mts-mode-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.mts-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 20px 12px;
+  border: 2.5px solid transparent;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  font-family: inherit;
+  min-height: 44px;
+}
+.mts-mode:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(44,24,16,0.1);
+}
+.mts-mode.on {
+  border-color: var(--terra, #C85D2A);
+  box-shadow: 0 0 0 3px rgba(200,93,42,0.15), 0 4px 16px rgba(44,24,16,0.1);
+}
+.mts-mode.dim { opacity: 0.5; transform: scale(0.97); }
+.mts-mode-em { font-size: 36px; }
+.mts-mode-lbl {
+  font-family: 'Fraunces', serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1A0A00;
+}
+.mts-mode-desc { font-size: 12px; color: #6B4C3B; }
+
+.mts-gift-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.mts-gift-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  color: #6B4C3B;
+  font-weight: 600;
+}
+.mts-gift-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: #C85D2A;
+}
+
+.mts-tier-section {
+  animation: mtsSlideUp 0.3s ease;
+  margin-bottom: 24px;
+}
+@keyframes mtsSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.mts-tier-h {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 16px;
+  color: #1A0A00;
+}
+.mts-tier-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.mts-tier {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 24px 16px;
+  border: 2.5px solid #e5e5e0;
+  border-radius: 16px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  min-height: 44px;
+}
+.mts-tier:hover {
+  border-color: var(--terra, #C85D2A);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(44,24,16,0.1);
+}
+.mts-tier.on {
+  border-color: var(--terra, #C85D2A);
+  background: rgba(200,93,42,0.06);
+  box-shadow: 0 0 0 3px rgba(200,93,42,0.15);
+}
+.mts-tier-badge {
+  position: absolute;
+  top: -10px;
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #1a1a1a;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 12px;
+  border-radius: 20px;
+}
+.mts-tier-price {
+  font-family: 'Fraunces', serif;
+  font-size: 28px;
+  font-weight: 900;
+  color: #1A0A00;
+}
+.mts-tier-name {
+  font-family: 'Fraunces', serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1A0A00;
+}
+.mts-tier-desc {
+  font-size: 13px;
+  color: #6B4C3B;
+  text-align: center;
+}
+
+/* ── New wizard slide animations ───────────────────────────────────────────── */
+.wiz-slide-in-right {
+  animation: wizSlideRight 0.2s ease;
+}
+.wiz-slide-in-left {
+  animation: wizSlideLeft 0.2s ease;
+}
+@keyframes wizSlideRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes wizSlideLeft {
+  from { opacity: 0; transform: translateX(-40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Hero form (name + age inline) ─────────────────────────────────────────── */
+.wiz-hero-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.wiz-name-input {
+  flex: 1;
+  padding: 14px 16px;
+  border: 2.5px solid #e5e5e0;
+  border-radius: 14px;
+  font-size: 18px;
+  font-family: inherit;
+  font-weight: 700;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+.wiz-name-input:focus {
+  outline: none;
+  border-color: var(--terra, #C85D2A);
+  box-shadow: 0 0 0 3px rgba(200,93,42,0.1);
+}
+.wiz-age-input {
+  width: 80px;
+  padding: 14px 12px;
+  border: 2.5px solid #e5e5e0;
+  border-radius: 14px;
+  font-size: 18px;
+  font-family: inherit;
+  font-weight: 700;
+  background: #fff;
+  text-align: center;
+  transition: border-color 0.2s;
+}
+.wiz-age-input:focus {
+  outline: none;
+  border-color: var(--terra, #C85D2A);
+  box-shadow: 0 0 0 3px rgba(200,93,42,0.1);
+}
+
+/* ── Photo zone (inline on hero screen) ────────────────────────────────────── */
+.wiz-photo-zone {
+  margin-bottom: 24px;
+}
+.wiz-photo-zone-h {
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1A0A00;
+  margin-bottom: 12px;
+}
+.wiz-photo-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 16px;
+  border: 3px solid transparent;
+  pointer-events: none;
+}
+.wiz-ring-good { border-color: #34D399; }
+.wiz-ring-fair { border-color: #FBBF24; }
+.wiz-ring-poor { border-color: #F87171; }
+.wiz-photo-skip-note {
+  font-size: 13px;
+  color: #8C6B5A;
+  font-style: italic;
+  margin-top: 8px;
+}
+
+/* ── Cast expandable (details/summary) ─────────────────────────────────────── */
+.wiz-cast-expand {
+  margin-top: 20px;
+  border: 1.5px solid #e5e5e0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.wiz-cast-expand summary {
+  padding: 14px 16px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--terra, #C85D2A);
+  list-style: none;
+}
+.wiz-cast-expand summary::-webkit-details-marker { display: none; }
+.wiz-cast-inline {
+  padding: 0 16px 16px;
+}
+.wiz-cast-add-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.wiz-cast-add-row input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 2px solid #e5e5e0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+}
+.wiz-cast-add-row input:focus {
+  outline: none;
+  border-color: var(--terra);
+}
+.wiz-cast-add-row select {
+  padding: 10px 12px;
+  border: 2px solid #e5e5e0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+}
+.wiz-cast-add-row button {
+  padding: 10px 16px;
+  background: var(--terra, #C85D2A);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  min-height: 44px;
+}
+
+/* ── Idea grid (story sparks) ──────────────────────────────────────────────── */
+.wiz-idea-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+@media (min-width: 480px) {
+  .wiz-idea-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.wiz-idea-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 10px;
+  border: 2.5px solid #e5e5e0;
+  border-radius: 16px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  font-family: inherit;
+  min-height: 44px;
+}
+.wiz-idea-card:hover {
+  border-color: var(--terra, #C85D2A);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(44,24,16,0.08);
+}
+.wiz-idea-card.on {
+  border-color: var(--terra, #C85D2A);
+  background: rgba(200,93,42,0.06);
+  box-shadow: 0 0 0 3px rgba(200,93,42,0.12), 0 0 12px rgba(255,215,0,0.15);
+}
+.wiz-idea-em { font-size: 32px; }
+.wiz-idea-sub { font-size: 11px; color: #8C6B5A; }
+.wiz-idea-or {
+  text-align: center;
+  font-size: 14px;
+  color: #B8A090;
+  font-weight: 700;
+  margin: 8px 0;
+  text-transform: lowercase;
+}
+.wiz-idea-text {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2.5px solid #e5e5e0;
+  border-radius: 14px;
+  font-size: 15px;
+  font-family: inherit;
+  background: #fff;
+  resize: none;
+  transition: border-color 0.2s;
+  line-height: 1.5;
+}
+.wiz-idea-text:focus {
+  outline: none;
+  border-color: var(--terra, #C85D2A);
+  box-shadow: 0 0 0 3px rgba(200,93,42,0.1);
+}
+
+/* ── Review card ───────────────────────────────────────────────────────────── */
+.wiz-review-card {
+  background: #fff;
+  border: 1.5px solid #F0DDD4;
+  border-radius: 16px;
+  padding: 4px 0;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(44,24,16,0.06);
+}
+.wiz-review-row {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  gap: 12px;
+  border-bottom: 1px solid #F0DDD4;
+}
+.wiz-review-row:last-child { border-bottom: none; }
+.wiz-review-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #8C6B5A;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 70px;
+  flex-shrink: 0;
+}
+.wiz-review-row > span:nth-child(2) {
+  flex: 1;
+  font-size: 14px;
+  color: #1A0A00;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.wiz-review-edit {
+  font-size: 13px;
+  color: var(--terra, #C85D2A);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+  min-height: auto;
+  transition: background 0.2s;
+}
+.wiz-review-edit:hover { background: rgba(200,93,42,0.08); }
+
+/* ── Collapsible extras ────────────────────────────────────────────────────── */
+.wiz-extras {
+  border: 1.5px solid #e5e5e0;
+  border-radius: 14px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.wiz-extras-toggle {
+  display: block;
+  padding: 14px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  color: #8C6B5A;
+  list-style: none;
+}
+.wiz-extras-toggle::-webkit-details-marker { display: none; }
+.wiz-extras-content {
+  padding: 0 16px 20px;
+}
+.wiz-extras-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6B4C3B;
+  margin: 14px 0 6px;
+}
+.wiz-extras-label:first-child { margin-top: 0; }
+.wiz-extras-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #e5e5e0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: none;
+  background: #fff;
+}
+.wiz-extras-textarea:focus {
+  outline: none;
+  border-color: var(--terra);
+}
+.wiz-extras-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #e5e5e0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+}
+.wiz-extras-input:focus {
+  outline: none;
+  border-color: var(--terra);
+}
+
+/* ── Chip row (for tone/format selectors) ──────────────────────────────────── */
+.wiz-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.wiz-chip.on {
+  border-color: var(--terra, #C85D2A);
+  background: rgba(200,93,42,0.1);
+  color: var(--terra, #C85D2A);
+  font-weight: 700;
+}
+
+/* ── Generate button (review screen) ───────────────────────────────────────── */
+.wiz-generate-btn {
+  display: block;
+  width: 100%;
+  padding: 18px 24px;
+  background: var(--terra, #C85D2A);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Fraunces', serif;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(200,93,42,0.35);
+  transition: all 0.2s;
+  margin-top: 16px;
+  min-height: 44px;
+}
+.wiz-generate-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 6px 28px rgba(200,93,42,0.5);
+}
+.wiz-generate-btn:active {
+  transform: scale(0.98);
+}
+
+/* ── Wizard background override ────────────────────────────────────────────── */
+.create-page {
+  background: #FEF7ED;
+  min-height: 100dvh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiz-slide-in-right, .wiz-slide-in-left,
+  .mts-tier-section { animation: none !important; }
 }

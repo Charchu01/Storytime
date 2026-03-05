@@ -45,7 +45,7 @@ export default function InstallPrompt() {
 
   return (
     <div className="install-prompt">
-      <span className="install-prompt-text">📱 Add StoriKids to your home screen</span>
+      <span className="install-prompt-text">📱 Add Storytime to your home screen</span>
       <button className="install-prompt-btn" onClick={handleInstall}>Add</button>
       <button className="install-prompt-skip" onClick={dismiss}>Not now</button>
     </div>
