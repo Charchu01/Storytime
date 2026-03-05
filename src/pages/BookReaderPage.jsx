@@ -1,12 +1,18 @@
 import { useEffect, useState, lazy, Suspense } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAppContext } from "../App";
 const BookReader = lazy(() => import("../components/BookReader"));
 const PrintUpsell = lazy(() => import("../components/PrintUpsell"));
 
+function loadStoriesFromDisk() {
+  try { return JSON.parse(localStorage.getItem("sk_stories") || "[]"); }
+  catch { return []; }
+}
+
 export default function BookReaderPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { stories } = useAppContext();
   const [showPrint, setShowPrint] = useState(false);
   const [demoData, setDemoData] = useState(null);
@@ -48,7 +54,12 @@ export default function BookReaderPage() {
     }
   }, [id]);
 
-  const story = id === "demo" ? demoData : stories.find((s) => s.id === id);
+  // Try context first, then navigation state, then localStorage directly (race condition fallback)
+  const story = id === "demo"
+    ? demoData
+    : stories.find((s) => s.id === id)
+      || location.state?.storyData
+      || loadStoriesFromDisk().find((s) => s.id === id);
 
   useEffect(() => {
     if (story && id !== "demo") document.title = `${story.story?.title || "Your Book"} — Storytime`;

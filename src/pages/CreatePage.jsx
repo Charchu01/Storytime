@@ -135,15 +135,16 @@ export default function CreatePage() {
   function handleStoryComplete(storyResult) {
     setResult(storyResult);
     clearDraft();
-    const id = addStory({
+    const storyEntry = {
       ...storyResult,
       styleName: style,
       cast,
       tier,
       mode,
-    });
+    };
+    const id = addStory(storyEntry);
     setStep("preview");
-    navigate(`/book/${id}`, { replace: true });
+    navigate(`/book/${id}`, { replace: true, state: { storyData: { ...storyEntry, id } } });
   }
 
   function reset() {
