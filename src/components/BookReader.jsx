@@ -125,8 +125,9 @@ const CoverPage = React.forwardRef(({ title, heroName, authorName, coverGradient
   <div ref={ref} className="st-page st-cover" data-density="hard">
     <div className="st-cover-inner" style={{ background: coverImageUrl ? '#000' : coverGradient }}>
       {coverImageUrl && <img src={coverImageUrl} className="st-cover-img" alt="" />}
-      {coverImageUrl && <div className="st-cover-overlay" />}
+      <div className="st-cover-overlay" />
       <div className="st-cover-content">
+        <div className="st-cover-deco">✦</div>
         <h1 className="st-cover-title">{title}</h1>
         <div className="st-cover-line" />
         <p className="st-cover-for">A story for {heroName}</p>
@@ -492,9 +493,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
 
         <div className={`st-closed-book ${phase === "opening" ? "st-book-flip" : "st-book-enter"}`}>
           <div className="st-cb-spine" />
-          <div className="st-cb-face" style={{ background: coverGradient }}>
+          <div className="st-cb-face" style={{ background: coverImageUrl ? '#000' : coverGradient }}>
             {coverImageUrl && <img src={coverImageUrl} className="st-cb-img" alt="" />}
-            {coverImageUrl && <div className="st-cb-overlay" />}
+            <div className="st-cb-overlay" />
             <h1 className="st-cb-title">{story.title}</h1>
             <div className="st-cb-line" />
             <p className="st-cb-for">A story for {heroName}</p>
@@ -532,14 +533,14 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         <div className="st-tool-right">
           {storyIdx >= 0 && (
             <button className="st-tool-icon" onClick={handleNarrate} title={narrating ? "Pause" : "Read to me"}>
-              {narrating ? "\u23F8 Pause" : "\uD83D\uDD0A Read to me"}
+              {narrating ? "⏸ Pause" : "🔊 Read to me"}
             </button>
           )}
           <button className="st-tool-icon" onClick={handleDownloadPdf} disabled={pdfGenerating} title="Save PDF">
-            {pdfGenerating ? "\u23F3" : "\u2B07"} Save PDF
+            {pdfGenerating ? "⏳" : "⬇"} Save PDF
           </button>
-          <button className="st-tool-icon" onClick={handleShare} title="Share">\uD83D\uDD17</button>
-          <button className="st-tool-icon" onClick={onReset} title="New Story">\u2728</button>
+          <button className="st-tool-icon" onClick={handleShare} title="Share">🔗 Share</button>
+          <button className="st-tool-icon" onClick={onReset} title="New Story">✨ New</button>
         </div>
       </div>
 
@@ -581,7 +582,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                   text={bp.page.text}
                   pageNum={bp.index + 1}
                   gradient={gradient}
-                  emoji={bp.page.scene_emoji || "\uD83C\uDF1F"}
+                  emoji={bp.page.scene_emoji || "🌟"}
                   heroPhotoUrl={data.heroPhotoUrl}
                   isRegenerating={regeneratingImage === bp.index}
                   onEdit={() => setActiveEdit(activeEdit ? null : { index: bp.index, type: "story" })}
@@ -593,7 +594,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                   text={bp.page.text}
                   pageNum={bp.index + 1}
                   gradient={gradient}
-                  emoji={bp.page.scene_emoji || "\uD83C\uDF1F"}
+                  emoji={bp.page.scene_emoji || "🌟"}
                   heroPhotoUrl={data.heroPhotoUrl}
                   isRegenerating={regeneratingImage === bp.index} />;
               case "back-cover":
