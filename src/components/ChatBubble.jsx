@@ -14,7 +14,7 @@ export default function ChatBubble({ message }) {
     <div className={`cb-wrap ${isUser ? "cb-user" : "cb-assistant"}`}>
       {!isUser && <div className="cb-avatar">📖</div>}
       <div className={`cb-bubble ${isUser ? "cb-bubble-user" : "cb-bubble-ai"}`}>
-        <p className="cb-text">{message.content}</p>
+        <p className="cb-text">{message.displayText || message.content}</p>
         {message.imageDataUrl && (
           <div className="cb-image">
             <img src={message.imageDataUrl} alt="Uploaded photo" />

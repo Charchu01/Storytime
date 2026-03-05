@@ -25,9 +25,21 @@ export default function StoryStudio({ heroType, tier, isGift, onComplete, onBack
     setBlueprintData((prev) => {
       const next = { ...prev };
 
-      // Merge characters array rather than replace
+      // Merge characters — deduplicate by name (case-insensitive)
       if (update.characters) {
-        next.characters = [...(prev.characters || []), ...update.characters];
+        const existing = [...(prev.characters || [])];
+        for (const newChar of update.characters) {
+          const idx = existing.findIndex(
+            (c) => c.name.toLowerCase() === newChar.name.toLowerCase()
+          );
+          if (idx >= 0) {
+            // Update existing character with new data
+            existing[idx] = { ...existing[idx], ...newChar };
+          } else {
+            existing.push(newChar);
+          }
+        }
+        next.characters = existing;
       }
 
       // Merge all other fields

@@ -88,10 +88,12 @@ export default function StoryChat({ heroType, onDataUpdate, onReady }) {
 
       const data = await response.json();
 
-      // Add assistant message
+      // Add assistant message — store the raw JSON as content for API history
+      // so Claude sees its own format, but display only the friendly message
       const assistantMsg = {
         role: "assistant",
-        content: data.message,
+        content: data._raw || JSON.stringify({ message: data.message, suggestions: data.suggestions || [], action: data.action || null, dataUpdate: data.dataUpdate || {} }),
+        displayText: data.message,
         suggestions: data.suggestions || [],
         action: data.action,
         timestamp: Date.now(),
