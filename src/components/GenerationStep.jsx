@@ -245,6 +245,12 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       let heroPhotoUrl = null;
       if (hasPhotos) {
         heroPhotoUrl = await uploadHeroPhoto(enrichedCast);
+        if (!heroPhotoUrl) {
+          throw new Error(
+            "We couldn't upload the photo. Please check your connection and try again."
+          );
+        }
+        console.log("Hero photo uploaded:", heroPhotoUrl.substring(0, 60));
       }
 
       // Phase 3: Claude writes story + designs all visual spreads
