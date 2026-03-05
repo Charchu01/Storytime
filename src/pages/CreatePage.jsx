@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import WelcomeScreen from "../components/WelcomeScreen";
 import StoryStudio from "../components/StoryStudio";
 import GenerationStep from "../components/GenerationStep";
-import BookReader from "../components/BookReader";
 import { useAppContext } from "../App";
 import { STYLES } from "../constants/data";
 
@@ -38,7 +37,6 @@ export default function CreatePage() {
   const [cast, setCast] = useState([]);
   const [style, setStyle] = useState(null);
   const [length, setLength] = useState(6);
-  const [result, setResult] = useState(null);
   const [wizardData, setWizardData] = useState(null);
   const [storySessionId] = useState(() => Date.now().toString(36) + Math.random().toString(36).slice(2));
 
@@ -125,7 +123,6 @@ export default function CreatePage() {
   }
 
   function handleStoryComplete(storyResult) {
-    setResult(storyResult);
     clearDraft();
     const storyEntry = {
       ...storyResult,
@@ -135,8 +132,10 @@ export default function CreatePage() {
       mode: heroType,
     };
     const id = addStory(storyEntry);
-    setStep("preview");
-    navigate(`/book/${id}`, { replace: true, state: { storyData: { ...storyEntry, id } } });
+    // Navigate without state — story is already in localStorage.
+    // Passing the full entry as history state would crash the browser
+    // (History API size limit) because cast contains base64 photo data.
+    navigate(`/book/${id}`, { replace: true });
   }
 
   function reset() {
@@ -145,13 +144,8 @@ export default function CreatePage() {
     setTier(null);
     setCast([]);
     setStyle(null);
-    setResult(null);
     setWizardData(null);
     setStep("welcome");
-  }
-
-  if (step === "preview" && result) {
-    return <BookReader data={result} cast={cast} styleName={style} onReset={reset} />;
   }
 
   return (
