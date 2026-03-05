@@ -2324,9 +2324,12 @@
   min-height: 100vh; min-height: 100dvh;
   position: relative; overflow: hidden;
   display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 60px 20px 40px;
   background:
-    repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.02) 3px, rgba(0,0,0,0.02) 5px),
-    linear-gradient(160deg, #3D2417 0%, #5C3A2A 20%, #4A2E1E 45%, #6B4330 70%, #3D2417 100%);
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 50% 40%, #4A3728 0%, #3B2A1E 30%, #2C1E14 60%, #1A110A 100%);
+  background-size: 256px 256px, 100% 100%;
 }
 .st-reveal-scene {
   position: fixed; inset: 0; z-index: 200;
@@ -2335,17 +2338,17 @@
 }
 .st-desk-vignette {
   position: fixed; inset: 0;
-  background: radial-gradient(ellipse at 50% 40%, transparent 20%, rgba(15,8,3,0.5) 100%);
+  background: radial-gradient(ellipse at 50% 45%, transparent 40%, rgba(10,6,3,0.5) 100%);
   pointer-events: none; z-index: 1;
 }
 .st-desk-glow {
-  position: fixed; top: -120px; left: -120px;
-  width: 500px; height: 500px;
-  background: radial-gradient(circle, rgba(255,190,90,0.10) 0%, transparent 65%);
+  position: fixed; top: 35%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%; height: 60%;
   pointer-events: none; z-index: 1;
-  animation: stGlow 5s ease-in-out infinite;
+  background: radial-gradient(ellipse, rgba(255,200,120,0.06) 0%, transparent 70%);
 }
-@keyframes stGlow { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+/* No animation on desk glow — static warm pool of light */
 
 /* ── Sparkles ────────────────────────────────────────────────────────────── */
 .st-sparkles {
@@ -2365,7 +2368,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .st-sparkle { animation: none !important; opacity: 0.3; }
-  .st-desk-glow { animation: none !important; }
 }
 
 /* ── Confetti layer ──────────────────────────────────────────────────────── */
@@ -2453,83 +2455,106 @@
 
 /* ── Toolbar ─────────────────────────────────────────────────────────────── */
 .st-toolbar {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 12px 24px; position: relative; z-index: 10;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 20px;
+  background: linear-gradient(to bottom, rgba(26,17,10,0.85) 0%, rgba(26,17,10,0.4) 70%, transparent 100%);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   color: rgba(255,255,255,0.7);
 }
 .st-tool-btn {
-  background: none; border: none; color: rgba(255,255,255,0.6);
-  font-family: 'Inter', sans-serif; font-size: 13px; cursor: pointer;
-  transition: color .15s;
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.85); border-radius: 8px; padding: 6px 14px;
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .2s; backdrop-filter: blur(4px);
 }
-.st-tool-btn:hover { color: white; }
-.st-tool-right { display: flex; gap: 12px; }
+.st-tool-btn:hover { background: rgba(255,255,255,0.2); color: white; border-color: rgba(255,255,255,0.3); }
+.st-tool-right { display: flex; gap: 8px; align-items: center; }
 .st-tool-icon {
-  height: 32px; border-radius: 999px;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+  height: 32px; border-radius: 8px;
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
   font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: all .15s; padding: 0 12px; gap: 4px;
-  color: rgba(255,255,255,0.5); font-family: 'Inter', sans-serif;
+  transition: all .2s; padding: 0 12px; gap: 4px;
+  color: rgba(255,255,255,0.85); font-family: 'Inter', sans-serif; font-weight: 600;
+  backdrop-filter: blur(4px);
 }
-.st-tool-icon:hover { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.8); border-color: rgba(255,255,255,0.15); }
+.st-tool-icon:hover { background: rgba(255,255,255,0.2); color: white; border-color: rgba(255,255,255,0.3); }
 
 /* ── Book wrapper + binding ──────────────────────────────────────────────── */
 .st-book-wrapper {
   position: relative; z-index: 2;
-  flex: 1; display: flex; align-items: center; justify-content: center;
-  padding: 16px 32px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto;
 }
 .st-flipbook {
   z-index: 2;
   position: relative;
 }
-.st-binding {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: calc(100% - 24px); height: calc(100% + 16px);
-  max-width: 1116px;
-  background: linear-gradient(135deg, #2C3E6B, #1A2744, #2C3E6B);
-  border-radius: 6px; z-index: 1;
-  box-shadow:
-    0 25px 60px rgba(0,0,0,0.45),
-    0 10px 20px rgba(0,0,0,0.35),
-    0 3px 8px rgba(0,0,0,0.25);
-  pointer-events: none;
-}
-.st-page-stack {
-  position: absolute; bottom: calc(50% - 50% - 6px); left: 50%;
+
+/* Shadow underneath the book — grounds it on the surface */
+.st-book-shadow {
+  position: absolute; bottom: -20px; left: 50%;
   transform: translateX(-50%);
-  width: calc(100% - 56px); max-width: 1076px; height: 12px; z-index: 0;
-  pointer-events: none;
+  width: 92%; height: 30px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.15) 40%, transparent 70%);
+  filter: blur(10px);
+  pointer-events: none; z-index: 0;
 }
-.st-page-stack::before,
-.st-page-stack::after {
-  content: ''; position: absolute; left: 0; right: 0; height: 2px;
-  background: #FFF5EB; border-radius: 0 0 2px 2px;
+
+/* Hardcover binding strip (visible spine between pages) */
+.st-binding {
+  position: absolute; top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 16px; height: 100%;
+  background: linear-gradient(to right,
+    rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.3) 30%,
+    rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.3) 70%,
+    rgba(0,0,0,0.15) 100%);
+  z-index: 10; pointer-events: none; border-radius: 2px;
 }
-.st-page-stack::before { bottom: 0; margin: 0 4px; }
-.st-page-stack::after { bottom: 3px; margin: 0 8px; opacity: 0.7; }
+
+/* Visible page stack on the right edge (book thickness) */
+.st-page-stack {
+  position: absolute; top: 4px; right: -6px;
+  width: 6px; height: calc(100% - 8px);
+  z-index: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom,
+    #F5EDE4 0px, #F5EDE4 1px, #E8DDD2 1px, #E8DDD2 2px);
+  border-radius: 0 2px 2px 0;
+  box-shadow: 1px 0 2px rgba(0,0,0,0.1), 2px 0 4px rgba(0,0,0,0.05);
+}
+
+/* Page stack on left edge (mirrored) */
+.st-page-stack-left {
+  position: absolute; top: 4px; left: -6px;
+  width: 6px; height: calc(100% - 8px);
+  z-index: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom,
+    #F5EDE4 0px, #F5EDE4 1px, #E8DDD2 1px, #E8DDD2 2px);
+  border-radius: 2px 0 0 2px;
+  box-shadow: -1px 0 2px rgba(0,0,0,0.1), -2px 0 4px rgba(0,0,0,0.05);
+}
 
 /* ── Nav arrows ──────────────────────────────────────────────────────────── */
 .st-nav-arrows {
-  position: fixed; inset: 0;
+  position: absolute; top: 50%; left: 0; right: 0;
+  transform: translateY(-50%);
+  display: flex; justify-content: space-between;
+  padding: 0 10px;
   pointer-events: none; z-index: 20;
 }
 .st-nav-arrow {
-  position: absolute; top: 50%; transform: translateY(-50%);
-  width: 48px; height: 48px; border-radius: 50%;
-  background: rgba(255,255,255,0.08); backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.7);
-  font-size: 22px; cursor: pointer;
   pointer-events: auto;
-  opacity: 0; transition: opacity .25s, background .15s, transform .15s;
+  width: 44px; height: 44px; border-radius: 50%; border: none;
+  background: rgba(0,0,0,0.3); color: rgba(255,255,255,0.7);
+  font-size: 22px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s; backdrop-filter: blur(4px);
+  opacity: 0;
 }
 .st-scene:hover .st-nav-arrow { opacity: 1; }
-.st-nav-arrow:hover { background: rgba(255,255,255,0.15); color: white; transform: translateY(-50%) scale(1.06); }
-.st-nav-arrow:active { transform: translateY(-50%) scale(0.94); }
-.st-nav-prev { left: max(16px, calc(50% - 600px)); }
-.st-nav-next { right: max(16px, calc(50% - 600px)); }
+.st-nav-arrow:hover { background: rgba(0,0,0,0.5); color: white; transform: scale(1.1); }
+.st-nav-arrow:active { transform: scale(0.94); }
 
 /* ── Page indicator ──────────────────────────────────────────────────────── */
 .st-page-indicator {
@@ -2549,7 +2574,7 @@
    PAGE COMPONENTS — shared base
    ═══════════════════════════════════════════════════════════════════════════════ */
 .st-page {
-  background: #FFF9F2; /* warm cream — not pure white */
+  background: #F8F3ED; /* warm off-white paper */
   position: relative;
   overflow: hidden;
 }
@@ -2558,15 +2583,17 @@
 .st-paper-texture {
   position: absolute; inset: 0;
   pointer-events: none; z-index: 3;
-  opacity: 0.04;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  background-image: repeating-linear-gradient(0deg,
+    transparent, transparent 3px,
+    rgba(139, 109, 80, 0.08) 3px, rgba(139, 109, 80, 0.08) 4px);
   mix-blend-mode: multiply;
 }
 
-/* ── Spine shadows ───────────────────────────────────────────────────────── */
+/* ── Spine shadows (gutter between pages) ───────────────────────────────── */
 .st-spine-shadow {
-  position: absolute; top: 0; bottom: 0; width: 20px;
-  z-index: 4; pointer-events: none;
+  position: absolute; top: 0; bottom: 0; width: 30px;
+  z-index: 5; pointer-events: none;
 }
 .st-spine-right {
   right: 0;
@@ -2583,19 +2610,11 @@
 .st-cover {
   background: #0C0A09;
 }
-.st-cover-inner {
+/* Fallback cover (no AI image) */
+.st-cover-fallback {
   position: absolute; inset: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: 48px 32px; overflow: hidden;
-}
-.st-cover-img {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: cover; z-index: 0;
-}
-.st-cover-overlay {
-  position: absolute; inset: 0; z-index: 1;
-  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 40%, transparent 100%);
-  pointer-events: none;
 }
 .st-cover-content {
   position: relative; z-index: 2;
@@ -2656,69 +2675,32 @@
 }
 .st-blank-page { background: #FFF9F2; }
 
-/* ── Page illustration container (edge-to-edge AI image) ─────── */
-.st-page-illustration {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: 4px;
-}
-
-/* ── Consistent border overlay (CSS, not AI) ─────────
-   Identical on EVERY page for consistency. ────────── */
+/* ── CSS border overlay — identical on EVERY page ─── */
 .st-page-border {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2;
-  border-radius: 4px;
+  position: absolute; inset: 0;
+  pointer-events: none; z-index: 4;
   box-shadow:
-    inset 0 0 0 8px rgba(42, 30, 20, 0.5),
-    inset 0 0 0 10px rgba(42, 30, 20, 0.2),
-    inset 0 0 30px 5px rgba(42, 30, 20, 0.25);
-}
-
-/* Subtle paper texture overlay */
-.st-page-texture {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 3;
-  opacity: 0.04;
-  border-radius: 4px;
-  background-image:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(139, 109, 80, 0.15) 2px,
-      rgba(139, 109, 80, 0.15) 3px
-    );
-  mix-blend-mode: multiply;
+    inset 0 0 0 3px rgba(42, 30, 20, 0.12),
+    inset 0 0 20px 2px rgba(42, 30, 20, 0.08);
 }
 
 /* Cover gets a thicker hardcover border */
 .st-cover .st-page-border {
   box-shadow:
-    inset 0 0 0 12px rgba(42, 30, 20, 0.6),
-    inset 0 0 0 14px rgba(42, 30, 20, 0.3),
-    inset 0 0 40px 10px rgba(42, 30, 20, 0.3);
+    inset 0 0 0 4px rgba(42, 30, 20, 0.2),
+    inset 0 0 25px 4px rgba(42, 30, 20, 0.12);
 }
 
 /* ── Page numbers (CSS, not AI) ───────────────────── */
 .st-page-number {
-  position: absolute;
-  bottom: 12px;
-  z-index: 4;
-  font-family: 'Fraunces', serif;
-  font-size: 11px;
-  font-weight: 700;
-  color: rgba(42, 30, 20, 0.5);
-  text-shadow: 0 0 4px rgba(255, 250, 240, 0.8);
+  position: absolute; bottom: 10px; z-index: 6;
+  font-family: 'Fraunces', serif; font-size: 10px; font-weight: 700;
+  color: rgba(42, 30, 20, 0.35);
+  text-shadow: 0 0 6px rgba(255, 250, 240, 0.6);
   pointer-events: none;
 }
-.st-pn-right { right: 16px; }
-.st-pn-left { left: 16px; }
+.st-pn-right { right: 14px; }
+.st-pn-left { left: 14px; }
 
 /* Spread image split — two-panel / wide-cinematic layouts split across two flipbook pages */
 .st-spread-img {
@@ -3351,6 +3333,8 @@
   .st-cover-title { font-size: 24px; }
   .st-binding { display: none; }
   .st-page-stack { display: none; }
+  .st-page-stack-left { display: none; }
+  .st-book-shadow { display: none; }
 
   /* Library */
   .lib-grid { grid-template-columns: 1fr; }

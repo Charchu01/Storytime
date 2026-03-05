@@ -123,17 +123,24 @@ function Sparkles({ count = 16 }) {
 
 const CoverPage = React.forwardRef(({ title, heroName, authorName, coverGradient, coverImageUrl }, ref) => (
   <div ref={ref} className="st-page st-cover" data-density="hard">
-    <div className="st-cover-inner" style={{ background: coverImageUrl ? '#000' : coverGradient }}>
-      {coverImageUrl && <img src={coverImageUrl} className="st-cover-img" alt="" />}
-      <div className="st-cover-overlay" />
-      <div className="st-cover-content">
-        <div className="st-cover-deco">✦</div>
-        <h1 className="st-cover-title">{title}</h1>
-        <div className="st-cover-line" />
-        <p className="st-cover-for">A story for {heroName}</p>
-        <p className="st-cover-author">By {authorName}</p>
+    {coverImageUrl ? (
+      /* AI-generated cover — show ONLY the image, no text overlay (title is baked in) */
+      <>
+        <img src={coverImageUrl} className="st-full-page-img" alt={title} />
+        <div className="st-page-border" />
+      </>
+    ) : (
+      /* Fallback — CSS-only cover (when no image) */
+      <div className="st-cover-fallback" style={{ background: coverGradient }}>
+        <div className="st-cover-content">
+          <div className="st-cover-deco">&#10022;</div>
+          <h1 className="st-cover-title">{title}</h1>
+          <div className="st-cover-line" />
+          <p className="st-cover-for">A story for {heroName}</p>
+          <p className="st-cover-author">By {authorName}</p>
+        </div>
       </div>
-    </div>
+    )}
   </div>
 ));
 
@@ -150,56 +157,54 @@ const DedicationPage = React.forwardRef(({ dedication, gradient }, ref) => (
 ));
 
 // Left half of a spread (shows left half of 4:3 landscape image)
-const StorySpreadLeft = React.forwardRef(({ imageUrl, pageNum, gradient, emoji, heroPhotoUrl, isRegenerating }, ref) => {
+const StorySpreadLeft = React.forwardRef(({ imageUrl, text, pageNum, gradient, emoji, heroPhotoUrl, isRegenerating }, ref) => {
   const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
   return (
     <div ref={ref} className="st-page st-story-page">
-      <div className="st-page-illustration">
-        {isRegenerating ? (
-          <div className="st-illust-fallback" style={{ background: gradient }}>
-            <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
-            <span className="st-illustrating-badge">Illustrating...</span>
-          </div>
-        ) : isSafe ? (
-          <img src={imageUrl} className="st-spread-img st-spread-left" alt=""
-            onError={(e) => { e.target.style.display = "none"; }} />
-        ) : (
-          <div className="st-illust-fallback" style={{ background: gradient }}>
-            <span className="st-fallback-emoji">{emoji}</span>
-          </div>
-        )}
-      </div>
+      {isRegenerating ? (
+        <div className="st-illust-fallback" style={{ background: gradient }}>
+          <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
+          <span className="st-illustrating-badge">Illustrating...</span>
+        </div>
+      ) : isSafe ? (
+        <img src={imageUrl} className="st-spread-img st-spread-left" alt=""
+          onError={(e) => { e.target.style.display = "none"; }} />
+      ) : (
+        <div className="st-illust-fallback" style={{ background: gradient }}>
+          <span className="st-fallback-emoji">{emoji}</span>
+          {text && <p className="st-fallback-text">{text}</p>}
+        </div>
+      )}
+      <div className="st-paper-texture" />
       <div className="st-page-border" />
-      <div className="st-page-texture" />
-      <span className="st-page-number st-pn-left">{pageNum}</span>
       <div className="st-spine-shadow st-spine-right" />
+      <span className="st-page-number st-pn-left">{pageNum}</span>
     </div>
   );
 });
 
 // Right half of a spread
-const StorySpreadRight = React.forwardRef(({ imageUrl, pageNum, gradient, emoji, heroPhotoUrl, isRegenerating, onEdit }, ref) => {
+const StorySpreadRight = React.forwardRef(({ imageUrl, text, pageNum, gradient, emoji, heroPhotoUrl, isRegenerating, onEdit }, ref) => {
   const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
   return (
     <div ref={ref} className="st-page st-story-page">
-      <div className="st-page-illustration">
-        {isRegenerating ? (
-          <div className="st-illust-fallback" style={{ background: gradient }}>
-            <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
-          </div>
-        ) : isSafe ? (
-          <img src={imageUrl} className="st-spread-img st-spread-right" alt=""
-            onError={(e) => { e.target.style.display = "none"; }} />
-        ) : (
-          <div className="st-illust-fallback" style={{ background: gradient }}>
-            <span className="st-fallback-emoji">{emoji}</span>
-          </div>
-        )}
-      </div>
+      {isRegenerating ? (
+        <div className="st-illust-fallback" style={{ background: gradient }}>
+          <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
+        </div>
+      ) : isSafe ? (
+        <img src={imageUrl} className="st-spread-img st-spread-right" alt=""
+          onError={(e) => { e.target.style.display = "none"; }} />
+      ) : (
+        <div className="st-illust-fallback" style={{ background: gradient }}>
+          <span className="st-fallback-emoji">{emoji}</span>
+          {text && <p className="st-fallback-text">{text}</p>}
+        </div>
+      )}
+      <div className="st-paper-texture" />
       <div className="st-page-border" />
-      <div className="st-page-texture" />
-      <span className="st-page-number st-pn-right">{pageNum}</span>
       <div className="st-spine-shadow st-spine-left" />
+      <span className="st-page-number st-pn-right">{pageNum}</span>
       {onEdit && <button className="st-edit-toggle" onClick={(e) => { e.stopPropagation(); onEdit(); }}>✏️</button>}
     </div>
   );
@@ -492,11 +497,15 @@ export default function BookReader({ data, cast, styleName, onReset }) {
           <div className="st-cb-spine" />
           <div className="st-cb-face" style={{ background: coverImageUrl ? '#000' : coverGradient }}>
             {coverImageUrl && <img src={coverImageUrl} className="st-cb-img" alt="" />}
-            <div className="st-cb-overlay" />
-            <h1 className="st-cb-title">{story.title}</h1>
-            <div className="st-cb-line" />
-            <p className="st-cb-for">A story for {heroName}</p>
-            <p className="st-cb-author">By {authorName}</p>
+            {!coverImageUrl && (
+              <>
+                <div className="st-cb-overlay" />
+                <h1 className="st-cb-title">{story.title}</h1>
+                <div className="st-cb-line" />
+                <p className="st-cb-for">A story for {heroName}</p>
+                <p className="st-cb-author">By {authorName}</p>
+              </>
+            )}
           </div>
           <div className="st-cb-pages">
             <div className="st-cb-pg" style={{ right: 2 }} />
@@ -553,6 +562,10 @@ export default function BookReader({ data, cast, styleName, onReset }) {
 
       {/* Physical book wrapper */}
       <div className="st-book-wrapper">
+        {/* Shadow under the book */}
+        <div className="st-book-shadow" />
+        {/* Page stack edges (visible book thickness) */}
+        <div className="st-page-stack-left" />
         <HTMLFlipBook
           ref={bookRef}
           width={550}
@@ -591,6 +604,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
               case "spread-left":
                 return <StorySpreadLeft key={`sl-${bp.spreadIndex}`}
                   imageUrl={spreadImageUrl}
+                  text={bp.text}
                   pageNum={bp.pageNum}
                   gradient={gradient} emoji="🌟"
                   heroPhotoUrl={data.heroPhotoUrl}
@@ -598,6 +612,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
               case "spread-right":
                 return <StorySpreadRight key={`sr-${bp.spreadIndex}`}
                   imageUrl={spreadImageUrl}
+                  text={bp.text}
                   pageNum={bp.pageNum}
                   gradient={gradient} emoji="🌟"
                   heroPhotoUrl={data.heroPhotoUrl}
