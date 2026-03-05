@@ -61,7 +61,7 @@ export async function generateImage(prompt, referencePhotoUrl = null) {
     response = await fetch("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, referencePhotoUrl, width: 768, height: 576 }),
+      body: JSON.stringify({ prompt, referencePhotoUrl }),
     });
   } catch (err) {
     throw new Error(`Network error calling /api/generate-image: ${err.message}`);

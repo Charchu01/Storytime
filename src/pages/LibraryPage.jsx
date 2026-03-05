@@ -4,10 +4,6 @@ import { useAppContext, useToast } from "../App";
 
 import { STYLE_GRADIENTS } from "../api/story";
 
-function isDarkStyle() {
-  return false; // All new styles are light gradients
-}
-
 export default function LibraryPage() {
   const { stories, deleteStory } = useAppContext();
   const { addToast } = useToast();
@@ -69,8 +65,7 @@ export default function LibraryPage() {
         {stories.map((s, i) => {
           const title = s.story?.title || "Untitled";
           const style = s.styleName || "Watercolor";
-          const grad = STYLE_GRADIENTS[style] || STYLE_GRADIENTS.Watercolor;
-          const dark = isDarkStyle(style);
+          const grad = STYLE_GRADIENTS[style] || STYLE_GRADIENTS.Storybook;
           const childName = s.cast?.find(c => c.isHero)?.name || s.cast?.[0]?.name || "";
           const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
           const hovered = hoveredId === s.id;
@@ -85,8 +80,8 @@ export default function LibraryPage() {
             >
               <div className="lib-card-cover" style={{ background: grad }}>
                 <div className="lib-card-spine" />
-                <h3 className={`lib-card-title ${dark ? "lib-card-title-light" : ""}`}>{title}</h3>
-                <div className={`lib-card-badge ${dark ? "lib-badge-light" : ""}`}>{style}</div>
+                <h3 className={`lib-card-title`}>{title}</h3>
+                <div className={`lib-card-badge`}>{style}</div>
 
                 {hovered && (
                   <div className="lib-card-overlay">

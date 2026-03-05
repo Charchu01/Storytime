@@ -150,8 +150,8 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const confettiRef = useRef();
   const bookRotation = useMemo(() => (Math.random() * 2 - 1).toFixed(2), []);
 
-  const gradient = STYLE_GRADIENTS[styleName] || STYLE_GRADIENTS.Watercolor;
-  const coverGradient = STYLE_COVER_GRADIENTS[styleName] || STYLE_COVER_GRADIENTS.Watercolor;
+  const gradient = STYLE_GRADIENTS[styleName] || STYLE_GRADIENTS.Storybook;
+  const coverGradient = STYLE_COVER_GRADIENTS[styleName] || STYLE_COVER_GRADIENTS.Storybook;
 
   const hasDedication = !!dedication;
   const totalPages = 1 + (hasDedication ? 1 : 0) + localPages.length; // cover + ded? + pages
@@ -230,9 +230,11 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     } else {
       setRegeneratingImage(pageIndex);
       try {
+        const sceneDesc = localPages[pageIndex].scene_description || localPages[pageIndex].text;
+        const mood = localPages[pageIndex].mood || "wonder";
         const newUrl = await generatePageImage(
-          `${localPages[pageIndex].imagePrompt || localPages[pageIndex].text}. ${instruction}`,
-          cast, styleName, data.heroPhotoUrl
+          `${sceneDesc}. ${instruction}`,
+          cast, styleName, data.heroPhotoUrl, mood
         );
         setLocalPages((prev) => prev.map((p, i) => (i === pageIndex ? { ...p, imageUrl: newUrl } : p)));
       } catch (err) { addToast("Failed to regenerate image", "error"); }
@@ -284,22 +286,37 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       narrationAudio.current = audio;
       setNarrating(true);
 
-      // Sentence highlighting
+      // Sentence highlighting — wait for metadata so duration is accurate
       const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-      const avgDuration = (audio.duration || 5) / sentences.length;
+      const sentenceTimers = [];
 
-      audio.addEventListener("playing", () => {
+      function startSentenceHighlighting() {
+        const avgDuration = (audio.duration || 5) / sentences.length;
         sentences.forEach((_, i) => {
-          setTimeout(() => setNarratingSentence(i), i * avgDuration * 1000);
+          sentenceTimers.push(setTimeout(() => setNarratingSentence(i), i * avgDuration * 1000));
         });
-      });
+      }
 
-      audio.addEventListener("ended", () => {
+      function cleanupTimers() {
+        sentenceTimers.forEach(clearTimeout);
+        sentenceTimers.length = 0;
+      }
+
+      function handlePlaying() {
+        cleanupTimers();
+        startSentenceHighlighting();
+      }
+
+      function handleEnded() {
+        cleanupTimers();
         setNarrating(false);
         setNarratingSentence(-1);
         // Auto-advance after 1.5s
         setTimeout(() => { if (!isLastPage) goNext(); }, 1500);
-      });
+      }
+
+      audio.addEventListener("playing", handlePlaying);
+      audio.addEventListener("ended", handleEnded);
 
       audio.play().catch(() => {
         setNarrating(false);
@@ -312,11 +329,19 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     }
   }
 
-  // Stop narration on page change
+  // Stop narration on page change — clean up audio and event listeners
   useEffect(() => {
-    narrationAudio.current?.pause();
-    setNarrating(false);
-    setNarratingSentence(-1);
+    return () => {
+      const audio = narrationAudio.current;
+      if (audio) {
+        audio.pause();
+        audio.removeAttribute("src");
+        audio.load(); // release resources
+        narrationAudio.current = null;
+      }
+      setNarrating(false);
+      setNarratingSentence(-1);
+    };
   }, [currentPage]);
 
   // ── PDF Download ───────────────────────────────────────────────────────
