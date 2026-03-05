@@ -168,7 +168,9 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         coverImageUrl = await generateCoverImage(
           story.coverScene, style, tier,
           story.title, wizardData?.heroName, wizardData?.authorName,
-          heroPhotoUrl
+          heroPhotoUrl,
+          wizardData?.tone || "Cozy",
+          wizardData?.storyFormat || "classic"
         );
       }
 
@@ -183,7 +185,12 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
 
       const finalResult = await generateAllImagesChained(
         story.pages, enrichedCast, style, heroPhotoUrl,
-        onPageImage, coverImageUrl, tier
+        onPageImage, coverImageUrl, tier,
+        wizardData?.heroName,
+        wizardData?.heroAge,
+        wizardData?.tone || "Cozy",
+        wizardData?.storyFormat || "classic",
+        wizardData?.personalIngredient || null
       );
 
       setLoadPhase("finishing");
