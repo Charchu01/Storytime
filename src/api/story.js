@@ -223,35 +223,56 @@ ${format === "rhyming" ? "Text boxes should feel whimsical and poetic." : ""}
 ${format === "funny" ? "Text boxes should feel playful and bouncy." : ""}
 
 ═══ ILLUSTRATION RULES FOR NANO BANANA PRO ═══
-Every image prompt you write MUST include these rules:
 
-CONSISTENCY RULES (include in EVERY prompt):
-- The illustration fills the ENTIRE image edge-to-edge — NO borders, NO frames, NO parchment edges around the illustration
-- Do NOT add any decorative border or frame (the app adds these)
-- Do NOT add page numbers (the app adds these)
-- Art style must be IDENTICAL across all spreads — same brush strokes, same colour palette, same line weight
-- Match the EXACT illustration style of the cover (Image 2 in the reference images)
-- All characters must look IDENTICAL on every spread — same proportions, hair, clothing, features
-- Characters can be viewed from different angles and distances, but their identity must be unmistakable
+The following rules MUST be included in EVERY imagePrompt you write. Copy them into every prompt — do NOT summarize or paraphrase. The image model needs to see these exact instructions every single time.
+
+REFERENCE IMAGES (include in EVERY spread prompt):
+- Image 1: Photo of ${heroName} — use ONLY for face identity. Transform into the illustrated art style. Keep their EXACT facial features, head shape, hair (or lack of hair), skin tone, and distinguishing features.
+- Image 2: The COVER of this book — your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and text box style.
+- Image 3 (when available): The PREVIOUS spread — maintain visual continuity. Characters must look IDENTICAL to how they appear in this image.
+
+CHARACTER IDENTITY LOCK (THE #1 MOST IMPORTANT RULE):
+This product FAILS if characters look different across pages. In every imagePrompt you write, you MUST:
+1. Describe ${heroName}'s appearance explicitly: "[name] — [hair description], [skin tone], [build], wearing [specific clothing with colours]." Copy this description WORD FOR WORD into every prompt.
+2. State: "The main character must look IDENTICAL to Image 1 (face) and Image 2 (art style). Same head shape, same hair, same skin tone, same outfit, same proportions."
+3. For supporting characters, describe them explicitly too and repeat their description on every prompt they appear in.
+4. NEVER describe a character differently from one spread to another.
+
+ART STYLE LOCK:
+- Art style must be IDENTICAL across all spreads — same brush strokes, same colour palette, same line weight, same level of detail
+- Match the EXACT illustration style of the cover (Image 2)
 - NOT photorealistic — this is an illustrated children's storybook
 
-TEXT BOX RULES (include in EVERY prompt that has text):
-- Story text goes in decorative text boxes with ornate scroll/flourish borders and corner decorations
-- Text boxes have warm cream/parchment background with elegant serif font
-- Text must be large and clearly legible
-- Same text box design style on every spread
+TEXT ACCURACY (CRITICAL):
+- Every word in the text boxes MUST be spelled correctly — NO garbled text, NO made-up words, NO letter substitutions
+- Copy the page text EXACTLY as written — do not change, abbreviate, or improvise any words
+- Read back every word before finalising — if any word is not a real, correctly spelled English word, fix it
+- This is a children's book — text errors are unacceptable
+
+TEXT BOX DESIGN (MUST BE IDENTICAL ON EVERY PAGE):
+- ALL text boxes use the EXACT SAME design on every spread: simple rectangular box, thin ornate border with small corner flourishes, warm cream fill, dark serif text, centred
+- Do NOT vary the style — no scrolls on one page, frames on another, ribbons on another. Same box. Every page.
+- Text boxes sit at the BOTTOM of the page, inside the safe zone
 - Text boxes should not cover more than 25-30% of the image
 - No text anywhere EXCEPT inside the text boxes
 
-REFERENCE IMAGES (include in EVERY page prompt, not the cover):
-- Image 1: Photo of ${heroName} — use for FACE and IDENTITY only. Transform into the illustrated style.
-- Image 2: The cover of this book — your STYLE BIBLE. Match this exactly.
-- Image 3 (when available): The previous spread — maintain visual continuity.
+COMPOSITION:
+- The illustration fills the ENTIRE image edge-to-edge — NO borders, NO frames
+- Do NOT add any decorative border or frame (the app adds these)
+- Do NOT add page numbers (the app adds these)
+- Keep all important content at least 5% inward from all edges (safe zone for cropping)
+
+DO NOT INCLUDE:
+- No page borders, frames, or parchment edges
+- No page numbers
+- No speech bubbles or comic-style word balloons
+- No watermarks or logos
 
 ═══ YOUR TASK ═══
-1. Write an incredible ${pageCount}-page children's story
-2. Design the visual layout for every single spread
-3. Write the COMPLETE Nano Banana Pro prompt for each image
+1. First, create a CHARACTER APPEARANCE STRING for each character — a short, specific visual description (hair, skin, build, clothing) that will be COPIED VERBATIM into every single image prompt. This is how you lock character identity across pages.
+2. Write an incredible ${pageCount}-page children's story
+3. Design the visual layout for every single spread
+4. Write the COMPLETE Nano Banana Pro prompt for each image, including the character appearance string in every one
 
 For each spread, YOU decide:
 - How to split the story text between the left and right page
@@ -275,8 +296,14 @@ Return ONLY valid JSON with this structure:
 {
   "title": "Story Title",
   "dedication": "A heartfelt dedication...",
+  "characterAppearances": {
+    "hero": "${heroName} — [hair], [skin tone], [build], wearing [specific clothing with colours]",
+    "supporting": {
+      "CharName": "CharName — [hair], [skin tone], wearing [clothing]"
+    }
+  },
   "cover": {
-    "imagePrompt": "COMPLETE Nano Banana Pro prompt for the cover...",
+    "imagePrompt": "COMPLETE prompt including character appearance string...",
     "aspectRatio": "3:4"
   },
   "spreads": [
@@ -284,18 +311,24 @@ Return ONLY valid JSON with this structure:
       "spreadNumber": 1,
       "leftPageText": "Story text for the left page...",
       "rightPageText": "Story text for the right page...",
-      "imagePrompt": "COMPLETE Nano Banana Pro prompt for this spread...",
+      "imagePrompt": "COMPLETE prompt including character appearance string, text content, layout, reference image instructions, text box rules, and all consistency rules...",
       "aspectRatio": "4:3",
-      "designNotes": "Brief note on why this layout works for this moment"
+      "designNotes": "Brief note on why this layout works"
     }
   ],
   "backCover": {
-    "imagePrompt": "COMPLETE Nano Banana Pro prompt for the back cover...",
+    "imagePrompt": "COMPLETE prompt for the back cover...",
     "aspectRatio": "3:4"
   }
 }
 
-CRITICAL: The imagePrompt for each spread must be a COMPLETE, standalone prompt that Nano Banana Pro can execute directly. Include ALL visual details — scene, characters, composition, lighting, text placement, text content, and the consistency rules. Each prompt should be 150-250 words.
+CRITICAL RULES FOR imagePrompt FIELDS:
+1. Each imagePrompt MUST be a COMPLETE standalone prompt — 200-300 words
+2. Each imagePrompt MUST include the full character appearance string from characterAppearances, copied VERBATIM. Every prompt featuring a character must contain their exact appearance string.
+3. Each imagePrompt MUST include the text box design rule: "Text in rectangular boxes with thin ornate border, small corner flourishes, warm cream fill, dark serif text, centred. Same box design on every page."
+4. Each imagePrompt MUST include: "The illustration fills the ENTIRE image edge-to-edge. NO borders, NO frames, NO page numbers. Match the EXACT style of Image 2 (the cover). Character must look IDENTICAL to Image 1 and Image 2."
+5. Each imagePrompt MUST include the exact page text to be rendered, with the instruction: "Render this text EXACTLY as written with no spelling errors."
+6. NEVER describe a character differently from one prompt to another. Use the SAME character appearance string on every prompt.
 
 ${format === "rhyming" ? "Write in strict AABB rhyme scheme. 8-10 syllables per line." : ""}
 ${format === "funny" ? "Make it genuinely funny with surprises and silly moments." : ""}
