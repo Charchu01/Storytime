@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import TierSelector from "../components/TierSelector";
 import CastStep from "../components/CastStep";
 import StyleStep from "../components/StyleStep";
 import ChatStep from "../components/ChatStep";
@@ -11,7 +12,6 @@ const DRAFT_KEY = "sk_draft";
 
 function saveDraft(data) {
   try {
-    // Don't save photo data URIs to avoid localStorage quota
     const safe = { ...data, cast: data.cast?.map(c => ({
       ...c,
       photo: c.photo ? "has_photo" : null,
@@ -50,39 +50,59 @@ export default function CreatePage() {
   const [searchParams] = useSearchParams();
   const { addStory } = useAppContext();
   const { addToast } = useToast();
-  const [step, setStep] = useState("cast");
+  const [step, setStep] = useState("tier");
+  const [tier, setTier] = useState(null);
   const [cast, setCast] = useState([]);
   const [style, setStyle] = useState(null);
   const [length, setLength] = useState(6);
   const [result, setResult] = useState(null);
   const [showResume, setShowResume] = useState(false);
   const [occasion, setOccasion] = useState(searchParams.get("occasion") || null);
+  const [storySessionId] = useState(() => Date.now().toString(36) + Math.random().toString(36).slice(2));
+
+  // Check for vault character from Family Vault
+  const [vaultChar, setVaultChar] = useState(null);
+  useEffect(() => {
+    if (searchParams.get("vaultChar")) {
+      try {
+        const stored = JSON.parse(sessionStorage.getItem("sk_vault_char"));
+        if (stored) {
+          setVaultChar(stored);
+          sessionStorage.removeItem("sk_vault_char");
+          // Auto-set to premium and skip to cast
+          setTier("premium");
+          setStep("cast");
+        }
+      } catch {}
+    }
+  }, []);
 
   useEffect(() => { document.title = "Create Your Story — StoriKids"; }, []);
 
   // Check for draft on mount
   useEffect(() => {
     const draft = loadDraft();
-    if (draft && draft.step && draft.step !== "cast") {
+    if (draft && draft.step && draft.step !== "tier" && draft.step !== "cast") {
       setShowResume(true);
     }
   }, []);
 
   // Auto-save draft
   useEffect(() => {
-    if (step !== "preview" && step !== "cast") {
-      saveDraft({ step, cast, style, length, occasion });
+    if (step !== "preview" && step !== "tier" && step !== "cast") {
+      saveDraft({ step, tier, cast, style, length, occasion });
     }
-  }, [step, cast, style, length, occasion]);
+  }, [step, tier, cast, style, length, occasion]);
 
   function handleResume() {
     const draft = loadDraft();
     if (draft) {
+      if (draft.tier) setTier(draft.tier);
       if (draft.cast) setCast(draft.cast);
       if (draft.style) setStyle(draft.style);
       if (draft.length) setLength(draft.length);
       if (draft.occasion) setOccasion(draft.occasion);
-      setStep(draft.step || "cast");
+      setStep(draft.step || "tier");
     }
     setShowResume(false);
   }
@@ -92,29 +112,34 @@ export default function CreatePage() {
     setShowResume(false);
   }
 
+  function handleTierSelect(selectedTier) {
+    setTier(selectedTier);
+    setLength(selectedTier === "premium" ? 10 : 6);
+    setStep("cast");
+  }
+
   function handleStoryComplete(storyResult) {
     setResult(storyResult);
     clearDraft();
-    // Save to library
     const id = addStory({
       ...storyResult,
       styleName: style,
       cast,
+      tier,
     });
     setStep("preview");
-    // Update URL to book reader
     navigate(`/book/${id}`, { replace: true });
   }
 
   function reset() {
     clearDraft();
+    setTier(null);
     setCast([]);
     setStyle(null);
     setResult(null);
-    setStep("cast");
+    setStep("tier");
   }
 
-  // If we navigated to /book/:id, render the book reader
   if (step === "preview" && result) {
     return <BookReader data={result} cast={cast} styleName={style} onReset={reset} />;
   }
@@ -123,11 +148,19 @@ export default function CreatePage() {
     <div className="create-page">
       {showResume && <ResumeModal draft={loadDraft()} onResume={handleResume} onFresh={handleFresh} />}
 
+      {step === "tier" && (
+        <TierSelector
+          onSelect={handleTierSelect}
+          onBack={() => navigate("/")}
+        />
+      )}
       {step === "cast" && (
         <CastStep
           onNext={(characters) => { setCast(characters); setStep("style"); }}
-          onBack={() => navigate("/")}
+          onBack={() => setStep("tier")}
           initialCast={cast}
+          tier={tier}
+          vaultChar={vaultChar}
         />
       )}
       {step === "style" && (
@@ -142,6 +175,9 @@ export default function CreatePage() {
           style={style}
           length={length}
           occasion={occasion}
+          tier={tier}
+          storySessionId={storySessionId}
+          vaultChar={vaultChar}
           onNext={handleStoryComplete}
           onBack={() => setStep("style")}
         />

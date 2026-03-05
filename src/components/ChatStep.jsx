@@ -1,6 +1,24 @@
 import { useState, useRef, useEffect } from "react";
 import { SPARKS, LOVES, MOODS, SPARK_REACTIONS } from "../constants/data";
-import { generateStory, generateAllImages, analyzeCharacterPhotos, uploadHeroPhoto, STYLE_GRADIENTS } from "../api/story";
+import {
+  generateStory,
+  generateAllImages,
+  generateAllPremiumImages,
+  generatePageImage,
+  generatePremiumPageImage,
+  analyzeCharacterPhotos,
+  uploadHeroPhoto,
+  STYLE_GRADIENTS,
+} from "../api/story";
+import {
+  uploadPhoto,
+  zipPhotos,
+  trainLora,
+  checkTraining,
+  saveToVault,
+} from "../api/client";
+import Paywall from "./Paywall";
+import ConsentCheckbox from "./ConsentCheckbox";
 
 const OCCASIONS = [
   { emoji: "🎂", label: "Birthday" },
@@ -55,6 +73,22 @@ function Message({ message }) {
   return (
     <div className="mrow hu">
       <div className="bub hu">{message.text}</div>
+    </div>
+  );
+}
+
+function TrainingScreen({ childName, progress }) {
+  return (
+    <div className="gen-screen">
+      <div className="gen-emoji train-sparkle">✨</div>
+      <div className="gen-headline">Teaching the AI {childName}'s face...</div>
+      <div className="train-bar-wrap">
+        <div className="train-bar">
+          <div className="train-bar-fill" style={{ width: `${Math.min(progress, 95)}%` }} />
+        </div>
+      </div>
+      <div className="gen-sub">This creates perfect face consistency across all 10 pages</div>
+      <div className="train-fine">Usually takes 1-3 minutes</div>
     </div>
   );
 }
@@ -143,7 +177,7 @@ function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, erro
   );
 }
 
-export default function ChatStep({ cast, style, length = 6, occasion, onNext, onBack }) {
+export default function ChatStep({ cast, style, length = 6, occasion, tier, storySessionId, vaultChar, onNext, onBack }) {
   const hero = cast.find((c) => c.isHero) || cast[0];
   const [phase, setPhase] = useState("occasion");
   const [answers, setAnswers] = useState({});
@@ -155,11 +189,30 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
   );
   const [showTray, setShowTray] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loadPhase, setLoadPhase] = useState("photos"); // photos | writing | illustrating | finishing
+  const [loadPhase, setLoadPhase] = useState("photos");
   const [pageImages, setPageImages] = useState([]);
   const [pageCount, setPageCount] = useState(length);
   const [error, setError] = useState(null);
   const [booted, setBooted] = useState(false);
+
+  // Consent
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [consentError, setConsentError] = useState(false);
+
+  // Paywall state
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState(null);
+  const [pendingStory, setPendingStory] = useState(null);
+  const [pendingEnrichedCast, setPendingEnrichedCast] = useState(null);
+  const [pendingHeroPhotoUrl, setPendingHeroPhotoUrl] = useState(null);
+
+  // LoRA training state
+  const [trainingStatus, setTrainingStatus] = useState(null);
+  const loraUrlRef = useRef(vaultChar?.loraUrl || null);
+  const triggerWordRef = useRef(vaultChar?.triggerWord || null);
+  const [trainingProgress, setTrainingProgress] = useState(0);
+  const [showTraining, setShowTraining] = useState(false);
 
   const endRef = useRef();
   const textareaRef = useRef();
@@ -324,7 +377,81 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
     else if (phase === "mood") pickMood("custom", value);
   }
 
+  // ── Premium LoRA training ───────────────────────────────────────────────────
+  function startLoraTraining(enrichedCast) {
+    return new Promise(async (resolve) => {
+      const heroChar = enrichedCast.find((c) => c.isHero) || enrichedCast[0];
+      if (!heroChar) { resolve(false); return; }
+
+      // Already have LoRA from vault
+      if (loraUrlRef.current && triggerWordRef.current) {
+        resolve(true);
+        return;
+      }
+
+      setShowTraining(true);
+      setTrainingProgress(0);
+
+      try {
+        const photos = heroChar.photos?.filter((p) => p.dataUri) || [];
+        const singlePhoto = heroChar.photo && heroChar.photo !== "has_photo" ? [heroChar.photo] : [];
+        const photoDataUris = photos.length > 0 ? photos.map((p) => p.dataUri) : singlePhoto;
+
+        if (photoDataUris.length === 0) {
+          setShowTraining(false);
+          resolve(false);
+          return;
+        }
+
+        const uploadedUrls = await Promise.all(photoDataUris.map((uri) => uploadPhoto(uri)));
+        const zipUrl = await zipPhotos(uploadedUrls);
+
+        const { trainingId, triggerWord: tw } = await trainLora(
+          zipUrl,
+          heroChar.name,
+          storySessionId
+        );
+
+        triggerWordRef.current = tw;
+
+        const startTime = Date.now();
+        const pollInterval = setInterval(async () => {
+          const elapsed = (Date.now() - startTime) / 1000;
+          setTrainingProgress(Math.min((elapsed / 120) * 100, 95));
+
+          try {
+            const result = await checkTraining(trainingId);
+            if (result.status === "succeeded") {
+              clearInterval(pollInterval);
+              loraUrlRef.current = result.loraUrl;
+              setTrainingProgress(100);
+              setShowTraining(false);
+              resolve(true);
+            } else if (result.status === "failed") {
+              clearInterval(pollInterval);
+              setShowTraining(false);
+              console.error("LoRA training failed:", result.error);
+              resolve(false);
+            }
+          } catch (err) {
+            console.error("Training poll error:", err);
+          }
+        }, 5000);
+      } catch (err) {
+        console.error("LoRA training setup failed:", err);
+        setShowTraining(false);
+        resolve(false);
+      }
+    });
+  }
+
+  // ── Main generation flow ────────────────────────────────────────────────────
   async function handleGenerate() {
+    if (!consentChecked) {
+      setConsentError(true);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setPageImages([]);
@@ -337,9 +464,14 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
       if (hasPhotos) {
         enrichedCast = await analyzeCharacterPhotos(cast);
       }
-      await new Promise((r) => setTimeout(r, 300));
 
-      // Phase 2: Generate story text + scene_descriptions
+      // For Premium: train LoRA (blocks until done, shows training screen)
+      let useLoRA = false;
+      if (tier === "premium") {
+        useLoRA = await startLoraTraining(enrichedCast);
+      }
+
+      // Phase 2: Generate story text
       setLoadPhase("writing");
       const story = await generateStory(enrichedCast, style, {
         hero: answers.heroName || hero.name,
@@ -349,52 +481,147 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
         pageCount: length,
       });
 
-      // Phase 3: Upload hero photo + generate ALL illustrations in PARALLEL
+      // Phase 3: Generate page 1 as preview
       setLoadPhase("illustrating");
       setPageCount(story.pages.length);
       setPageImages(new Array(story.pages.length).fill(undefined));
 
-      const heroPhotoUrl = await uploadHeroPhoto(enrichedCast);
+      let heroPhotoUrl = null;
+      if (!useLoRA) {
+        heroPhotoUrl = await uploadHeroPhoto(enrichedCast);
+      }
 
-      // onPageImage callback — fires as each image completes
-      const onPageImage = (pageIdx, url) => {
-        setPageImages((prev) => {
-          const next = [...prev];
-          next[pageIdx] = url || null;
-          return next;
-        });
-      };
+      const page1 = story.pages[0];
+      const sceneDesc = page1.scene_description || page1.imagePrompt || page1.text;
+      const mood = page1.mood || "wonder";
 
-      const { pageImages: finalImages, coverImageUrl } = await generateAllImages(
-        story.pages, enrichedCast, style, heroPhotoUrl,
-        onPageImage,
-        story.coverScene
-      );
+      let page1Url;
+      if (useLoRA && loraUrlRef.current) {
+        page1Url = await generatePremiumPageImage(sceneDesc, enrichedCast, style, loraUrlRef.current, triggerWordRef.current, mood);
+      } else {
+        page1Url = await generatePageImage(sceneDesc, enrichedCast, style, heroPhotoUrl, mood);
+      }
 
-      // Phase 4: Finalize
-      setLoadPhase("finishing");
-      await new Promise((r) => setTimeout(r, 500));
-
-      // Merge images into pages
-      const pagesWithImages = story.pages.map((page, i) => ({
-        ...page,
-        imageUrl: finalImages[i] || null,
-      }));
-
-      onNext({
-        story: { ...story, pages: pagesWithImages, coverImageUrl },
-        dedication: answers.dedication !== "skip" ? answers.dedication : null,
-        authorName: answers.authorName || "A loving family",
-        style,
-        enrichedCast,
-        heroPhotoUrl,
+      setPageImages((prev) => {
+        const next = [...prev];
+        next[0] = page1Url;
+        return next;
       });
+      setPreviewImageUrl(page1Url);
+
+      // Store pending state for after payment
+      setPendingStory(story);
+      setPendingEnrichedCast(enrichedCast);
+      setPendingHeroPhotoUrl(heroPhotoUrl);
+
+      // Show paywall
+      setShowPaywall(true);
+      setLoading(false);
     } catch (err) {
       console.error("Story generation failed:", err);
       setError(err.message || "Something went wrong. Please try again.");
     }
   }
 
+  // ── After payment: generate remaining pages ─────────────────────────────────
+  async function handlePaymentSuccess() {
+    setPaymentConfirmed(true);
+    setShowPaywall(false);
+    setLoading(true);
+    setLoadPhase("illustrating");
+    setError(null);
+
+    try {
+      const story = pendingStory;
+      const enrichedCast = pendingEnrichedCast;
+
+      const remainingPages = story.pages.slice(1);
+      const onPageImage = (pageIdx, url) => {
+        setPageImages((prev) => {
+          const next = [...prev];
+          next[pageIdx + 1] = url || null;
+          return next;
+        });
+      };
+
+      let finalResult;
+      if (tier === "premium" && loraUrlRef.current && triggerWordRef.current) {
+        finalResult = await generateAllPremiumImages(
+          remainingPages, enrichedCast, style, loraUrlRef.current, triggerWordRef.current,
+          onPageImage, story.coverScene
+        );
+      } else {
+        finalResult = await generateAllImages(
+          remainingPages, enrichedCast, style, pendingHeroPhotoUrl,
+          onPageImage, story.coverScene
+        );
+      }
+
+      const allPageImages = [previewImageUrl, ...finalResult.pageImages];
+
+      setLoadPhase("finishing");
+      await new Promise((r) => setTimeout(r, 500));
+
+      const pagesWithImages = story.pages.map((page, i) => ({
+        ...page,
+        imageUrl: allPageImages[i] || null,
+      }));
+
+      // Save LoRA to vault for premium
+      if (tier === "premium" && loraUrlRef.current && triggerWordRef.current) {
+        try {
+          const heroChar = enrichedCast.find((c) => c.isHero) || enrichedCast[0];
+          await saveToVault({
+            name: heroChar.name,
+            loraUrl: loraUrlRef.current,
+            triggerWord: triggerWordRef.current,
+            thumbnailUrl: previewImageUrl,
+          });
+        } catch (err) {
+          console.error("Failed to save to vault:", err);
+        }
+      }
+
+      onNext({
+        story: { ...story, pages: pagesWithImages, coverImageUrl: finalResult.coverImageUrl },
+        dedication: answers.dedication !== "skip" ? answers.dedication : null,
+        authorName: answers.authorName || "A loving family",
+        style,
+        enrichedCast,
+        heroPhotoUrl: pendingHeroPhotoUrl,
+        tier,
+      });
+    } catch (err) {
+      console.error("Post-payment generation failed:", err);
+      setError(err.message || "Something went wrong generating the remaining pages.");
+    }
+  }
+
+  // ── Training screen ─────────────────────────────────────────────────────────
+  if (showTraining) {
+    return (
+      <TrainingScreen
+        childName={(cast.find((c) => c.isHero) || cast[0])?.name || "your child"}
+        progress={trainingProgress}
+      />
+    );
+  }
+
+  // ── Paywall ─────────────────────────────────────────────────────────────────
+  if (showPaywall) {
+    return (
+      <Paywall
+        tier={tier}
+        previewImageUrl={previewImageUrl}
+        pageCount={length}
+        price={tier === "premium" ? "$19.99" : "$9.99"}
+        storySessionId={storySessionId}
+        onPaid={handlePaymentSuccess}
+      />
+    );
+  }
+
+  // ── Loading / error screen ──────────────────────────────────────────────────
   if (loading || error) {
     return (
       <LoadingScreen
@@ -570,9 +797,22 @@ export default function ChatStep({ cast, style, length = 6, occasion, onNext, on
                   <div className="rc-lbl">Vibe</div>
                   <div className="rc-val">{answers.moodText}</div>
                 </div>
+                <div>
+                  <div className="rc-lbl">Plan</div>
+                  <div className="rc-val">
+                    {tier === "premium" ? "✨ Premium — 10 pages" : "📖 Standard — 6 pages"}
+                  </div>
+                </div>
               </div>
+
+              <ConsentCheckbox
+                checked={consentChecked}
+                onChange={(v) => { setConsentChecked(v); setConsentError(false); }}
+                error={consentError}
+              />
+
               <button className="final-cta" onClick={handleGenerate}>
-                Write My Storybook
+                Write My Storybook ✨
               </button>
             </>
           )}

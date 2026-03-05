@@ -13,7 +13,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "REPLICATE_KEY not configured" });
     }
 
-    const { prompt, referencePhotoUrl } = req.body || {};
+    const { prompt, referencePhotoUrl, loraUrl, triggerWord } = req.body || {};
     if (!prompt) {
       return res.status(400).json({ error: "prompt is required" });
     }
@@ -22,7 +22,20 @@ export default async function handler(req, res) {
     let model;
     let input;
 
-    if (referencePhotoUrl) {
+    if (loraUrl && triggerWord) {
+      // Premium LoRA path — trained model for perfect face consistency
+      model = "black-forest-labs/flux-dev-lora";
+      input = {
+        prompt: `${triggerWord} child, ${prompt}`,
+        hf_loras: [loraUrl],
+        lora_scales: [0.85],
+        num_inference_steps: 28,
+        guidance_scale: 3.5,
+        aspect_ratio: "4:3",
+        output_format: "webp",
+        output_quality: 90,
+      };
+    } else if (referencePhotoUrl) {
       model = "zsxkib/flux-pulid";
       input = {
         prompt,
