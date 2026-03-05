@@ -43,7 +43,7 @@ export default function HomePage() {
             </h1>
             <p className="hp-sub">
               In 2 minutes, create a personalized picture book starring your family.
-              The gift they'll ask you to read again and again.
+              The gift they'll ask you to read again and again. Starting at $9.99.
             </p>
             <div className="hp-ctas">
               <Link to="/create" className="hp-cta-pri">Create Our Story ✨</Link>
@@ -114,7 +114,7 @@ export default function HomePage() {
             <div className="hp-step-desc">Read it together, share with family, or download as a PDF</div>
           </div>
         </div>
-        <Link to="/create" className="hp-how-cta">Start Creating Free →</Link>
+        <Link to="/create" className="hp-how-cta">Start Creating →</Link>
       </section>
 
       {/* Emotional testimonials */}
@@ -154,8 +154,8 @@ export default function HomePage() {
       {/* Bottom CTA */}
       <section className="hp-bottom-cta">
         <h2 className="hp-bot-h">Ready to create your family's story?</h2>
-        <p className="hp-bot-sub">No credit card · Takes 2 minutes · Free to try</p>
-        <Link to="/create" className="hp-bot-btn">Start for Free →</Link>
+        <p className="hp-bot-sub">From $9.99 · Takes 2 minutes · Pay after you see page 1</p>
+        <Link to="/create" className="hp-bot-btn">Create Your Story →</Link>
       </section>
 
       {/* Footer */}

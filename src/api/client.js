@@ -152,3 +152,148 @@ export async function generateImage(prompt, referencePhotoUrl = null) {
 
   throw new Error("Image generation timed out after 2 minutes");
 }
+
+// Generate an image using a LoRA model (Premium tier).
+export async function generateLoraImage(prompt, loraUrl, triggerWord) {
+  let response;
+  try {
+    response = await fetch("/api/generate-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, loraUrl, triggerWord }),
+    });
+  } catch (err) {
+    throw new Error(`Network error calling /api/generate-image: ${err.message}`);
+  }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    const text = await response.text().catch(() => "");
+    throw new Error(`/api/generate-image returned non-JSON (${response.status}): ${text.slice(0, 200)}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || `Image generation failed (${response.status})`);
+  }
+
+  const { predictionId } = data;
+  if (!predictionId) {
+    throw new Error("No prediction ID returned from server");
+  }
+
+  const POLL_INTERVAL = 2500;
+  const MAX_POLLS = 48;
+
+  for (let i = 0; i < MAX_POLLS; i++) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+
+    let pollRes;
+    try {
+      pollRes = await fetch(`/api/poll-image?id=${predictionId}`);
+    } catch {
+      continue;
+    }
+
+    let pollData;
+    try {
+      pollData = await pollRes.json();
+    } catch {
+      continue;
+    }
+
+    if (pollData.status === "succeeded") {
+      if (!pollData.imageUrl) throw new Error("Image generation succeeded but no URL returned");
+      return pollData.imageUrl;
+    }
+
+    if (pollData.status === "failed" || pollData.status === "canceled") {
+      throw new Error(pollData.error || `Image generation ${pollData.status}`);
+    }
+  }
+
+  throw new Error("Image generation timed out after 2 minutes");
+}
+
+// ── Payment helpers ─────────────────────────────────────────────────────────
+
+export async function createPaymentIntent(tier, storySessionId) {
+  const response = await fetch("/api/create-payment-intent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tier, storySessionId }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to create payment intent");
+  return data.clientSecret;
+}
+
+export async function checkPayment(sessionId) {
+  const response = await fetch(`/api/check-payment?sessionId=${sessionId}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to check payment");
+  return data;
+}
+
+// ── LoRA Training helpers ───────────────────────────────────────────────────
+
+export async function zipPhotos(photoUrls) {
+  const response = await fetch("/api/zip-photos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ photoUrls }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to zip photos");
+  return data.zipUrl;
+}
+
+export async function trainLora(zipUrl, childName, sessionId) {
+  const response = await fetch("/api/train-lora", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ zipUrl, childName, sessionId }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to start LoRA training");
+  return data;
+}
+
+export async function checkTraining(trainingId) {
+  const response = await fetch(`/api/check-training?trainingId=${trainingId}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to check training");
+  return data;
+}
+
+// ── Family Vault helpers ────────────────────────────────────────────────────
+
+export async function getVaultCharacters(userId = "anonymous") {
+  const response = await fetch(`/api/vault?userId=${userId}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to load vault");
+  return data.characters;
+}
+
+export async function saveToVault(character, userId = "anonymous") {
+  const response = await fetch("/api/vault", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-user-id": userId },
+    body: JSON.stringify(character),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to save to vault");
+  return data.character;
+}
+
+export async function deleteFromVault(characterId, userId = "anonymous") {
+  const response = await fetch("/api/vault", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", "x-user-id": userId },
+    body: JSON.stringify({ characterId }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to delete from vault");
+  return data;
+}

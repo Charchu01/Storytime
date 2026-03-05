@@ -1,4 +1,4 @@
-import { claudeCall, generateImage, uploadPhoto } from "./client";
+import { claudeCall, generateImage, generateLoraImage, uploadPhoto } from "./client";
 import { ROLES } from "../constants/data";
 
 // ── Style anchors — prepended to EVERY prompt for that style ──────────────────
@@ -238,6 +238,12 @@ export async function generatePageImage(sceneDescription, cast, styleName, heroP
   return generateImage(prompt, heroPhotoUrl || null);
 }
 
+// ── Generate a Premium page image using LoRA ──────────────────────────────────
+export async function generatePremiumPageImage(sceneDescription, cast, styleName, loraUrl, triggerWord, mood) {
+  const prompt = buildScenePrompt(sceneDescription, cast, styleName, mood || "wonder");
+  return generateLoraImage(prompt, loraUrl, triggerWord);
+}
+
 // ── Upload hero photo once ────────────────────────────────────────────────────
 export async function uploadHeroPhoto(cast) {
   const heroChar = cast.find((c) => c.isHero) || cast[0];
@@ -326,6 +332,46 @@ export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, on
   const coverImageUrl = await coverPromise;
 
   // If ALL page images failed, throw
+  if (pageImages.every((url) => url === null)) {
+    throw new Error("All illustrations failed. Please try again.");
+  }
+
+  return { pageImages, coverImageUrl };
+}
+
+// ── Generate ALL Premium page images in batches ─────────────────────────────
+export async function generateAllPremiumImages(pages, cast, styleName, loraUrl, triggerWord, onPageImage, coverScene) {
+  const coverPromise = generateCoverImage(coverScene, styleName);
+
+  const pageImages = new Array(pages.length).fill(null);
+
+  for (let batchStart = 0; batchStart < pages.length; batchStart += BATCH_SIZE) {
+    const batchEnd = Math.min(batchStart + BATCH_SIZE, pages.length);
+    const batchPromises = [];
+
+    for (let i = batchStart; i < batchEnd; i++) {
+      const page = pages[i];
+      const sceneDesc = page.scene_description || page.imagePrompt || page.text;
+      const mood = page.mood || "wonder";
+      batchPromises.push(
+        generatePremiumPageImage(sceneDesc, cast, styleName, loraUrl, triggerWord, mood)
+          .then((url) => {
+            pageImages[i] = url;
+            if (onPageImage) onPageImage(i, url);
+          })
+          .catch((err) => {
+            console.error(`Failed to generate premium image for page ${i + 1}:`, err);
+            pageImages[i] = null;
+            if (onPageImage) onPageImage(i, null);
+          })
+      );
+    }
+
+    await Promise.all(batchPromises);
+  }
+
+  const coverImageUrl = await coverPromise;
+
   if (pageImages.every((url) => url === null)) {
     throw new Error("All illustrations failed. Please try again.");
   }

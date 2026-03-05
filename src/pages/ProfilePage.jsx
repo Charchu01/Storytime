@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAppContext } from "../App";
+import FamilyVault from "../components/FamilyVault";
 
 export default function ProfilePage() {
   useEffect(() => { document.title = "My Profile — StoriKids"; }, []);
@@ -66,6 +67,11 @@ export default function ProfilePage() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* Family Vault */}
+      <section className="prof-section">
+        <FamilyVault />
       </section>
 
       {/* Preferences */}

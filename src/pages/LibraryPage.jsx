@@ -93,6 +93,7 @@ export default function LibraryPage() {
               </div>
               <div className="lib-card-info">
                 {childName && <div className="lib-card-child">For {childName}</div>}
+                {s.tier === "premium" && <div className="lib-tier-badge">✨ Premium</div>}
                 {date && <div className="lib-card-date">{date}</div>}
               </div>
             </div>
