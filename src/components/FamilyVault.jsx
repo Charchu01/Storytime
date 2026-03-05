@@ -61,14 +61,14 @@ export default function FamilyVault({ userId = "anonymous" }) {
     <div className="vault-section">
       <h2 className="vault-h2">✨ Family Vault</h2>
       <p className="vault-desc">
-        Premium characters are saved here. Reuse them instantly in new stories — no re-uploading or re-training needed!
+        Premium characters are saved here. Reuse them instantly in new stories — no re-uploading needed!
       </p>
 
       {characters.length === 0 ? (
         <div className="vault-empty">
           <div className="vault-empty-icon">🏰</div>
           <p>No saved characters yet.</p>
-          <p className="vault-empty-sub">Create a Premium story to train and save a character to your vault!</p>
+          <p className="vault-empty-sub">Create a Premium story to save a character to your vault!</p>
         </div>
       ) : (
         <div className="vault-grid">

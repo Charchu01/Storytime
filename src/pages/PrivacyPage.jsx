@@ -33,8 +33,8 @@ export default function PrivacyPage() {
           When you upload a character photo, here is exactly what happens:
         </p>
         <ul>
-          <li><strong>Standard stories ($9.99):</strong> Photos are sent to Anthropic (Claude) for a text description of your child's appearance, then to Replicate for face-preserving illustration generation. Photos are processed in real-time and are <strong>not stored permanently</strong>. They exist only for the duration of the story creation session.</li>
-          <li><strong>Premium stories ($19.99):</strong> Photos are used to train a custom AI model (LoRA) on your child's face for perfect consistency. The trained model weights are saved to your Family Vault in Vercel KV so future stories can reuse them without re-uploading photos. Original photos are <strong>deleted within 48 hours</strong> of processing.</li>
+          <li><strong>Standard stories ($9.99):</strong> Photos are sent to Anthropic (Claude) for a text description of your child's appearance, then to Replicate for face-preserving illustration generation using FLUX Kontext. Photos are processed in real-time and are <strong>not stored permanently</strong>. They exist only for the duration of the story creation session.</li>
+          <li><strong>Premium stories ($19.99):</strong> Photos are processed the same way as Standard, but using a higher-quality illustration model for best results. Photo URLs may be saved to your Family Vault in Vercel KV so future stories can reuse them without re-uploading. Original photos are <strong>deleted within 48 hours</strong> of processing.</li>
         </ul>
         <p>
           <strong>COPPA Parental Consent:</strong> Before any photos are processed, we require explicit consent via a checkbox confirming you are the parent or legal guardian of the child in the photos and consent to their use for generating personalized storybook illustrations.
@@ -44,9 +44,9 @@ export default function PrivacyPage() {
         <p>Your data is shared only with the services needed to create your storybook:</p>
         <ul>
           <li><strong>Anthropic (Claude):</strong> Receives character names, ages, story preferences, and photo descriptions to generate story text.</li>
-          <li><strong>Replicate:</strong> Receives photos for AI illustration generation and LoRA model training (Premium only).</li>
+          <li><strong>Replicate:</strong> Receives photos for AI illustration generation via FLUX Kontext models.</li>
           <li><strong>Stripe:</strong> Processes payments securely. We never handle or store raw card data.</li>
-          <li><strong>Vercel:</strong> Hosts the application and Vercel KV stores Family Vault data (Premium trained models).</li>
+          <li><strong>Vercel:</strong> Hosts the application and Vercel KV stores Family Vault data (Premium saved characters).</li>
           <li><strong>Clerk:</strong> Authentication (sign-in/sign-up), if you choose to create an account.</li>
         </ul>
 
@@ -61,7 +61,7 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Uploaded photos:</strong> Processed and deleted within 48 hours of story creation.</li>
           <li><strong>Generated story images:</strong> Stored for 48 hours on Replicate's servers, then deleted. Stories saved in your browser's local storage persist until you delete them.</li>
-          <li><strong>Trained LoRA models (Premium):</strong> Stored in your Family Vault until you delete them. You can delete any character from your vault at any time.</li>
+          <li><strong>Family Vault (Premium):</strong> Character photo references are stored in your vault until you delete them. You can remove any character at any time.</li>
           <li><strong>Payment records:</strong> Retained by Stripe per their data retention policy for legal/financial compliance.</li>
           <li><strong>Story data:</strong> Stored locally in your browser. We do not have a copy unless you share it.</li>
         </ul>

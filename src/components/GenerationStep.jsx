@@ -1,20 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   generateStory,
   generateAllImages,
-  generateAllPremiumImages,
   generatePageImage,
-  generatePremiumPageImage,
   analyzeCharacterPhotos,
   uploadHeroPhoto,
   STYLE_GRADIENTS,
   imageGenFlags,
 } from "../api/story";
 import {
-  uploadPhoto,
-  zipPhotos,
-  trainLora,
-  checkTraining,
   saveToVault,
 } from "../api/client";
 import Paywall from "./Paywall";
@@ -27,22 +21,6 @@ const WRITING_PHRASES = [
   "Sprinkling in some wonder...",
   "Building a world worth exploring...",
 ];
-
-function TrainingScreen({ childName, progress }) {
-  return (
-    <div className="gen-screen">
-      <div className="gen-emoji train-sparkle">✨</div>
-      <div className="gen-headline">Teaching the AI {childName}'s face...</div>
-      <div className="train-bar-wrap">
-        <div className="train-bar">
-          <div className="train-bar-fill" style={{ width: `${Math.min(progress, 95)}%` }} />
-        </div>
-      </div>
-      <div className="gen-sub">This creates perfect face consistency across all pages</div>
-      <div className="train-fine">Usually takes 1-3 minutes</div>
-    </div>
-  );
-}
 
 function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, error, onRetry }) {
   const [phraseIdx, setPhraseIdx] = useState(0);
@@ -145,14 +123,6 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
   const [pendingStory, setPendingStory] = useState(null);
   const [pendingEnrichedCast, setPendingEnrichedCast] = useState(null);
   const [pendingHeroPhotoUrl, setPendingHeroPhotoUrl] = useState(null);
-  const [pendingWorldVocab, setPendingWorldVocab] = useState(null);
-  const [pendingToneLighting, setPendingToneLighting] = useState(null);
-
-  // LoRA training state
-  const loraUrlRef = useRef(vaultChar?.loraUrl || null);
-  const triggerWordRef = useRef(vaultChar?.triggerWord || null);
-  const [trainingProgress, setTrainingProgress] = useState(0);
-  const [showTraining, setShowTraining] = useState(false);
 
   // Auto-start generation on mount or after retry
   useEffect(() => {
@@ -161,72 +131,6 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       handleGenerate();
     }
   }, [started]);
-
-  // ── Premium LoRA training ───────────────────────────────────────────────────
-  function startLoraTraining(enrichedCast) {
-    return new Promise(async (resolve) => {
-      const heroChar = enrichedCast.find((c) => c.isHero) || enrichedCast[0];
-      if (!heroChar) { resolve(false); return; }
-
-      if (loraUrlRef.current && triggerWordRef.current) {
-        resolve(true);
-        return;
-      }
-
-      setShowTraining(true);
-      setTrainingProgress(0);
-
-      try {
-        const photos = heroChar.photos?.filter((p) => p.dataUri) || [];
-        const singlePhoto = heroChar.photo && heroChar.photo !== "has_photo" ? [heroChar.photo] : [];
-        const photoDataUris = photos.length > 0 ? photos.map((p) => p.dataUri) : singlePhoto;
-
-        if (photoDataUris.length === 0) {
-          setShowTraining(false);
-          resolve(false);
-          return;
-        }
-
-        const uploadedUrls = await Promise.all(photoDataUris.map((uri) => uploadPhoto(uri)));
-        const zipUrl = await zipPhotos(uploadedUrls);
-
-        const { trainingId, triggerWord: tw } = await trainLora(
-          zipUrl,
-          heroChar.name,
-          storySessionId,
-          style
-        );
-
-        triggerWordRef.current = tw;
-
-        const startTime = Date.now();
-        const pollInterval = setInterval(async () => {
-          const elapsed = (Date.now() - startTime) / 1000;
-          setTrainingProgress(Math.min((elapsed / 120) * 100, 95));
-
-          try {
-            const result = await checkTraining(trainingId);
-            if (result.status === "succeeded") {
-              clearInterval(pollInterval);
-              loraUrlRef.current = result.loraUrl;
-              setTrainingProgress(100);
-              setShowTraining(false);
-              resolve(true);
-            } else if (result.status === "failed") {
-              clearInterval(pollInterval);
-              setShowTraining(false);
-              resolve(false);
-            }
-          } catch {
-            // Poll error — will retry on next interval
-          }
-        }, 5000);
-      } catch {
-        setShowTraining(false);
-        resolve(false);
-      }
-    });
-  }
 
   // ── Main generation flow ────────────────────────────────────────────────────
   async function handleGenerate() {
@@ -243,13 +147,13 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         enrichedCast = await analyzeCharacterPhotos(cast);
       }
 
-      // For Premium: train LoRA
-      let useLoRA = false;
-      if (tier === "premium") {
-        useLoRA = await startLoraTraining(enrichedCast);
+      // Phase 2: Upload hero photo (one upload, used for all pages)
+      let heroPhotoUrl = null;
+      if (hasPhotos) {
+        heroPhotoUrl = await uploadHeroPhoto(enrichedCast);
       }
 
-      // Phase 2: Generate story text
+      // Phase 3: Generate story text
       setLoadPhase("writing");
       const story = await generateStory(enrichedCast, style, {
         heroName: wizardData?.heroName || heroName,
@@ -262,31 +166,19 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         tone: wizardData?.tone || null,
       });
 
-      // Phase 3: Generate page 1 as preview
+      // Phase 4: Generate page 1 as preview
       setLoadPhase("illustrating");
       setPageCount(story.pages.length);
       setPageImages(new Array(story.pages.length).fill(undefined));
-
-      // World/tone are now inferred by Claude from the storyIdea
-      // Scene descriptions in the story JSON contain rich environmental details
-      const worldVocab = null;
-      const toneLighting = null;
-
-      let heroPhotoUrl = null;
-      if (!useLoRA) {
-        heroPhotoUrl = await uploadHeroPhoto(enrichedCast);
-      }
 
       const page1 = story.pages[0];
       const sceneDesc = page1.scene_description || page1.imagePrompt || page1.text;
       const mood = page1.mood || "wonder";
 
-      let page1Url;
-      if (useLoRA && loraUrlRef.current) {
-        page1Url = await generatePremiumPageImage(sceneDesc, enrichedCast, style, loraUrlRef.current, triggerWordRef.current, mood, worldVocab, toneLighting);
-      } else {
-        page1Url = await generatePageImage(sceneDesc, enrichedCast, style, heroPhotoUrl, mood, worldVocab, toneLighting);
-      }
+      const page1Url = await generatePageImage(
+        sceneDesc, enrichedCast, style, heroPhotoUrl,
+        mood, null, null, tier
+      );
 
       setPageImages((prev) => {
         const next = [...prev];
@@ -298,8 +190,6 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       setPendingStory(story);
       setPendingEnrichedCast(enrichedCast);
       setPendingHeroPhotoUrl(heroPhotoUrl);
-      setPendingWorldVocab(worldVocab);
-      setPendingToneLighting(toneLighting);
 
       // Show paywall
       setShowPaywall(true);
@@ -331,18 +221,12 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         });
       };
 
-      let finalResult;
-      if (tier === "premium" && loraUrlRef.current && triggerWordRef.current) {
-        finalResult = await generateAllPremiumImages(
-          remainingPages, enrichedCast, style, loraUrlRef.current, triggerWordRef.current,
-          onPageImage, story.coverScene, pendingWorldVocab, pendingToneLighting
-        );
-      } else {
-        finalResult = await generateAllImages(
-          remainingPages, enrichedCast, style, pendingHeroPhotoUrl,
-          onPageImage, story.coverScene, pendingWorldVocab, pendingToneLighting
-        );
-      }
+      // Same flow for Standard AND Premium — tier controls which
+      // Kontext model is used on the server side
+      const finalResult = await generateAllImages(
+        remainingPages, enrichedCast, style, pendingHeroPhotoUrl,
+        onPageImage, story.coverScene, null, null, tier
+      );
 
       const allPageImages = [previewImageUrl, ...finalResult.pageImages];
 
@@ -354,14 +238,13 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         imageUrl: allPageImages[i] || null,
       }));
 
-      // Save LoRA to vault for premium
-      if (tier === "premium" && loraUrlRef.current && triggerWordRef.current) {
+      // Save photo to vault for premium
+      if (tier === "premium" && pendingHeroPhotoUrl) {
         try {
           const heroChar = enrichedCast.find((c) => c.isHero) || enrichedCast[0];
           await saveToVault({
             name: heroChar.name,
-            loraUrl: loraUrlRef.current,
-            triggerWord: triggerWordRef.current,
+            photoUrl: pendingHeroPhotoUrl,
             thumbnailUrl: previewImageUrl,
           });
         } catch {
@@ -392,15 +275,6 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
-
-  if (showTraining) {
-    return (
-      <TrainingScreen
-        childName={heroName}
-        progress={trainingProgress}
-      />
-    );
-  }
 
   if (showPaywall) {
     return (

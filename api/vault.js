@@ -14,17 +14,16 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { name, loraUrl, triggerWord, thumbnailUrl } = req.body;
-      if (!name || !loraUrl || !triggerWord) {
-        return res.status(400).json({ error: 'name, loraUrl, and triggerWord required' });
+      const { name, photoUrl, thumbnailUrl } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: 'name is required' });
       }
 
       const characters = await kv.get(key) || [];
       const newChar = {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2),
         name,
-        loraUrl,
-        triggerWord,
+        photoUrl: photoUrl || null,
         thumbnailUrl: thumbnailUrl || null,
         createdAt: new Date().toISOString(),
       };

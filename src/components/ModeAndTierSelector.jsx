@@ -57,7 +57,7 @@ export default function ModeAndTierSelector({ onSelect, onBack }) {
             >
               <div className="mts-tier-price">$9.99</div>
               <div className="mts-tier-name">Standard</div>
-              <div className="mts-tier-desc">6 pages · great likeness</div>
+              <div className="mts-tier-desc">6 illustrated pages · face-matching illustrations</div>
             </button>
             <button
               className={`mts-tier${tier === "premium" ? " on" : ""}`}
@@ -66,7 +66,7 @@ export default function ModeAndTierSelector({ onSelect, onBack }) {
               <div className="mts-tier-badge">Most popular</div>
               <div className="mts-tier-price">$19.99</div>
               <div className="mts-tier-name">Premium</div>
-              <div className="mts-tier-desc">10 pages · perfect face match</div>
+              <div className="mts-tier-desc">10 pages · highest quality AI illustrations</div>
             </button>
           </div>
         </div>

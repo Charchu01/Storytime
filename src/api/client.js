@@ -108,23 +108,23 @@ export async function uploadPhoto(photoDataUri) {
   return data.photoUrl;
 }
 
-export async function generateImage(prompt, referencePhotoUrl = null, useFaceRef = false, isMaleCharacter = false) {
+export async function generateImage(prompt, referencePhotoUrl = null, tier = "standard", style = null) {
   let response;
   try {
     response = await fetchWithRetry("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, referencePhotoUrl, useFaceRef, isMaleCharacter }),
+      body: JSON.stringify({ prompt, referencePhotoUrl, tier, style }),
     });
   } catch (err) {
-    throw new Error(`Image generation request failed: ${err.message}`);
+    throw new Error("Image generation request failed. Please try again.");
   }
 
   let data;
   try {
     data = await response.json();
   } catch {
-    throw new Error(`Image API returned non-JSON response (status ${response.status}). Check that API routes are accessible.`);
+    throw new Error("Image server returned an invalid response.");
   }
 
   if (!response.ok) {
@@ -133,7 +133,7 @@ export async function generateImage(prompt, referencePhotoUrl = null, useFaceRef
 
   const { predictionId } = data;
   if (!predictionId) {
-    throw new Error("No prediction ID returned from server");
+    throw new Error("No prediction ID returned");
   }
 
   const POLL_INTERVAL = 2500;
@@ -158,69 +158,8 @@ export async function generateImage(prompt, referencePhotoUrl = null, useFaceRef
 
     if (pollData.status === "succeeded") {
       if (!pollData.imageUrl) {
-        throw new Error("Image generation succeeded but no URL returned");
+        throw new Error("Image succeeded but no URL returned");
       }
-      return pollData.imageUrl;
-    }
-
-    if (pollData.status === "failed" || pollData.status === "canceled") {
-      throw new Error(pollData.error || `Image generation ${pollData.status}`);
-    }
-  }
-
-  throw new Error("Image generation timed out after 2 minutes");
-}
-
-export async function generateLoraImage(prompt, loraUrl, triggerWord) {
-  let response;
-  try {
-    response = await fetchWithRetry("/api/generate-image", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, loraUrl, triggerWord }),
-    });
-  } catch (err) {
-    throw new Error(`LoRA image generation request failed: ${err.message}`);
-  }
-
-  let data;
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error(`Image API returned non-JSON response (status ${response.status}). Check that API routes are accessible.`);
-  }
-
-  if (!response.ok) {
-    throw new Error(data.error || friendlyError(response.status));
-  }
-
-  const { predictionId } = data;
-  if (!predictionId) {
-    throw new Error("No prediction ID returned from server");
-  }
-
-  const POLL_INTERVAL = 2500;
-  const MAX_POLLS = 48;
-
-  for (let i = 0; i < MAX_POLLS; i++) {
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
-
-    let pollRes;
-    try {
-      pollRes = await fetch(`/api/poll-image?id=${predictionId}`);
-    } catch {
-      continue;
-    }
-
-    let pollData;
-    try {
-      pollData = await pollRes.json();
-    } catch {
-      continue;
-    }
-
-    if (pollData.status === "succeeded") {
-      if (!pollData.imageUrl) throw new Error("Image generation succeeded but no URL returned");
       return pollData.imageUrl;
     }
 
@@ -257,49 +196,6 @@ export async function checkPayment(sessionId) {
     return data;
   } catch (err) {
     throw new Error(err.message || "Failed to check payment status.");
-  }
-}
-
-// ── LoRA Training helpers ───────────────────────────────────────────────────
-
-export async function zipPhotos(photoUrls) {
-  try {
-    const response = await fetchWithRetry("/api/zip-photos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ photoUrls }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
-    return data.zipUrl;
-  } catch (err) {
-    throw new Error(err.message || "Failed to prepare photos for training.");
-  }
-}
-
-export async function trainLora(zipUrl, childName, sessionId, artStyle) {
-  try {
-    const response = await fetchWithRetry("/api/train-lora", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ zipUrl, childName, sessionId, artStyle }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
-    return data;
-  } catch (err) {
-    throw new Error(err.message || "Failed to start character training.");
-  }
-}
-
-export async function checkTraining(trainingId) {
-  try {
-    const response = await fetch(`/api/check-training?trainingId=${trainingId}`);
-    const data = await response.json();
-    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
-    return data;
-  } catch (err) {
-    throw new Error(err.message || "Failed to check training status.");
   }
 }
 
