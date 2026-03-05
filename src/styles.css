@@ -2647,12 +2647,21 @@
    ═══════════════════════════════════════════════════════════════════════════════ */
 .st-story-page { background: #FFF9F2; position: relative; }
 
-/* Full page image — text is baked in by Nano Banana Pro */
+/* Full page image — text is baked in by Nano Banana Pro (full-portrait layout) */
 .st-full-page-img {
   width: 100%; height: 100%;
   object-fit: cover; object-position: center center;
   display: block;
 }
+
+/* Spread image split — two-panel / wide-cinematic layouts split across two flipbook pages */
+.st-spread-img {
+  position: absolute; top: 0; left: 0;
+  width: 200%; height: 100%;
+  object-fit: cover;
+}
+.st-spread-left { object-position: left center; }
+.st-spread-right { object-position: right center; margin-left: -100%; }
 
 /* Fallback when no illustration */
 .st-illust-fallback {
