@@ -83,8 +83,10 @@ export async function uploadPhoto(photoDataUri) {
   return data.photoUrl;
 }
 
-// Generate an image using flux-pulid. referencePhotoUrl is an HTTP URL (from uploadPhoto).
+// Generate an image: creates prediction server-side, then polls for completion client-side.
+// This avoids Vercel serverless timeout issues (hobby plan = 10s hard limit).
 export async function generateImage(prompt, referencePhotoUrl = null) {
+  // Step 1: Create prediction (returns instantly)
   let response;
   try {
     response = await fetch("/api/generate-image", {
@@ -108,5 +110,45 @@ export async function generateImage(prompt, referencePhotoUrl = null) {
     throw new Error(data.error || `Image generation failed (${response.status})`);
   }
 
-  return data.imageUrl;
+  const { predictionId } = data;
+  if (!predictionId) {
+    throw new Error("No prediction ID returned from server");
+  }
+
+  // Step 2: Poll for completion
+  const POLL_INTERVAL = 2500; // 2.5s between polls
+  const MAX_POLLS = 48; // ~2 minutes max wait
+
+  for (let i = 0; i < MAX_POLLS; i++) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+
+    let pollRes;
+    try {
+      pollRes = await fetch(`/api/poll-image?id=${predictionId}`);
+    } catch {
+      continue; // Network blip — retry
+    }
+
+    let pollData;
+    try {
+      pollData = await pollRes.json();
+    } catch {
+      continue; // Bad response — retry
+    }
+
+    if (pollData.status === "succeeded") {
+      if (!pollData.imageUrl) {
+        throw new Error("Image generation succeeded but no URL returned");
+      }
+      return pollData.imageUrl;
+    }
+
+    if (pollData.status === "failed" || pollData.status === "canceled") {
+      throw new Error(pollData.error || `Image generation ${pollData.status}`);
+    }
+
+    // "starting" or "processing" — keep polling
+  }
+
+  throw new Error("Image generation timed out after 2 minutes");
 }
