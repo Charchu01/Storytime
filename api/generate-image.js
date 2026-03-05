@@ -51,7 +51,7 @@ export default async function handler(req, res) {
         });
         faceRefUsed = true;
       } catch (err) {
-        console.warn("Kontext Max failed:", err.message);
+        console.error("Kontext Max failed:", err.message, err.response?.status);
         prediction = null;
       }
     }
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
         });
         faceRefUsed = true;
       } catch (err) {
-        console.warn("Kontext Pro failed:", err.message);
+        console.error("Kontext Pro failed:", err.message, err.response?.status);
         prediction = null;
       }
     }
@@ -94,9 +94,9 @@ export default async function handler(req, res) {
           },
         });
       } catch (err) {
-        console.error("All Flux models failed:", err.message);
+        console.error("All Flux models failed:", err.message, err.response?.status);
         return res.status(500).json({
-          error: "Image generation unavailable. Please try again.",
+          error: `Image generation failed: ${err.message}`,
         });
       }
     }
