@@ -25,6 +25,35 @@ export async function claudeCall(system, userMsg, maxTokens = 1400, imageDataUrl
   return data.text;
 }
 
+// Analyze a photo for quality — checks face visibility, lighting, clarity.
+// Returns { quality: "good"|"fair"|"poor", feedback: string }
+export async function analyzePhotoQuality(photoDataUri) {
+  const result = await claudeCall(
+    `You are a photo quality checker for a children's storybook app. The app uses face-preserving AI illustration — so the uploaded photo MUST have a clear, visible face.
+
+Analyze this photo and return a JSON object with exactly these fields:
+- "quality": one of "good", "fair", or "poor"
+- "feedback": a short friendly sentence (max 15 words) explaining the result
+
+Scoring rules:
+- "good": Clear face visible, decent lighting, face is at least 15% of frame, not blurry
+- "fair": Face is visible but has issues (slightly dark, partially turned, a bit blurry, multiple people)
+- "poor": No face visible, extremely blurry, too dark to see features, face is tiny/distant, photo is of an object
+
+Return ONLY valid JSON. No markdown, no explanation.`,
+    "Please analyze this photo for face quality.",
+    150,
+    photoDataUri
+  );
+
+  try {
+    const cleaned = result.replace(/```json\s*|```\s*/g, "").trim();
+    return JSON.parse(cleaned);
+  } catch {
+    return { quality: "fair", feedback: "Couldn't analyze — but we'll try our best!" };
+  }
+}
+
 // Upload a photo data URI to Replicate file hosting and get back an HTTP URL.
 // Call this ONCE before generating images, then reuse the URL for all pages.
 export async function uploadPhoto(photoDataUri) {
