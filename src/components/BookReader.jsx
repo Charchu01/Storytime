@@ -119,6 +119,54 @@ function Sparkles({ count = 16 }) {
   );
 }
 
+// ── Mood-based color palettes for text pages ─────────────────────────────────
+const MOOD_PALETTES = {
+  wonder: {
+    bg: "#FFFBF0", tint: "rgba(255, 215, 120, 0.08)",
+    accent: "#D4A853", textColor: "#2C1810", glow: "rgba(255, 200, 80, 0.06)",
+  },
+  adventure: {
+    bg: "#FFF8F0", tint: "rgba(230, 120, 60, 0.07)",
+    accent: "#C85D2A", textColor: "#2C1810", glow: "rgba(230, 140, 60, 0.05)",
+  },
+  cozy: {
+    bg: "#FFF9F2", tint: "rgba(255, 180, 100, 0.06)",
+    accent: "#B8860B", textColor: "#3D2417", glow: "rgba(255, 190, 90, 0.06)",
+  },
+  tense: {
+    bg: "#F5F3F8", tint: "rgba(100, 80, 160, 0.05)",
+    accent: "#6B5B8A", textColor: "#2A2040", glow: "rgba(120, 100, 180, 0.04)",
+  },
+  triumphant: {
+    bg: "#FFFDF0", tint: "rgba(255, 200, 50, 0.10)",
+    accent: "#D4A020", textColor: "#2C1810", glow: "rgba(255, 220, 80, 0.08)",
+  },
+  tender: {
+    bg: "#FFF5F5", tint: "rgba(220, 140, 160, 0.06)",
+    accent: "#C07080", textColor: "#3D2020", glow: "rgba(220, 160, 180, 0.05)",
+  },
+};
+
+// ── Text page decorative motifs ──────────────────────────────────────────────
+function TextPageDecor({ mood, emoji, pageIndex }) {
+  return (
+    <div className="st-decor-layer">
+      <div className={`st-mood-shape st-mood-${mood}`} />
+      {[0, 1, 2].map(i => (
+        <span key={i} className="st-decor-motif" style={{
+          top: `${20 + i * 25}%`,
+          right: `${10 + (i % 2) * 15}%`,
+          fontSize: `${18 + i * 4}px`,
+          opacity: 0.08 + i * 0.02,
+          transform: `rotate(${-15 + i * 20}deg)`,
+        }}>
+          {emoji}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // ── Page Components (forwardRef required by react-pageflip) ──────────────────
 
 const CoverPage = React.forwardRef(({ title, heroName, authorName, coverGradient, coverImageUrl }, ref) => (
@@ -149,14 +197,12 @@ const DedicationPage = React.forwardRef(({ dedication, gradient }, ref) => (
   </div>
 ));
 
-const StoryPageLeft = React.forwardRef(({ imageUrl, text, pageNum, gradient, emoji, heroPhotoUrl, isRegenerating, onEdit, narrating, narratingSentence }, ref) => {
-  const sentences = (text || "").match(/[^.!?]+[.!?]+/g) || [text || ""];
-  const mid = Math.ceil(sentences.length / 2);
-  const leftText = sentences.slice(0, mid).join(" ");
+// Full illustration page — no text, just the image
+const StoryImagePage = React.forwardRef(({ imageUrl, gradient, emoji, heroPhotoUrl, isRegenerating, onEdit, spineSide }, ref) => {
   const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
 
   return (
-    <div ref={ref} className="st-page st-story-page">
+    <div ref={ref} className="st-page st-story-page st-image-page">
       <div className="st-illust-container">
         {isRegenerating ? (
           <div className="st-illust-fallback" style={{ background: gradient }}>
@@ -164,7 +210,7 @@ const StoryPageLeft = React.forwardRef(({ imageUrl, text, pageNum, gradient, emo
             <span className="st-illustrating-badge">Illustrating...</span>
           </div>
         ) : isSafe ? (
-          <img src={imageUrl} className="st-illust st-illust-left" alt=""
+          <img src={imageUrl} className="st-illust" alt=""
             onError={(e) => { e.target.style.display = "none"; }} />
         ) : (
           <div className="st-illust-fallback" style={{ background: gradient }}>
@@ -172,54 +218,48 @@ const StoryPageLeft = React.forwardRef(({ imageUrl, text, pageNum, gradient, emo
           </div>
         )}
       </div>
-      <div className="st-paper-texture" />
-      <div className="st-spine-shadow st-spine-right" />
-      <div className="st-text-wash st-wash-left">
-        <p className="st-page-text">
-          {narrating && narratingSentence >= 0
-            ? sentences.slice(0, mid).map((s, i) => (
-                <span key={i} className={`st-sentence${i === narratingSentence ? " st-sentence-active" : ""}`}>{s}</span>
-              ))
-            : leftText}
-        </p>
-      </div>
-      <span className="st-pagenum st-pagenum-left">{pageNum}</span>
+      <div className={`st-spine-shadow st-spine-${spineSide}`} />
       {onEdit && (
-        <button className="st-edit-toggle" onClick={(e) => { e.stopPropagation(); onEdit(); }}>&#9999;&#65039;</button>
+        <button className="st-edit-toggle" onClick={(e) => { e.stopPropagation(); onEdit(); }}>✏️</button>
       )}
     </div>
   );
 });
 
-const StoryPageRight = React.forwardRef(({ imageUrl, text, pageNum, gradient, emoji, heroPhotoUrl, isRegenerating }, ref) => {
+// Designed text page — mood colors, decorative motifs, flourishes
+const StoryTextPage = React.forwardRef(({ text, pageNum, mood, emoji, isLastPage, imageOnLeft, narrating, narratingSentence }, ref) => {
+  const palette = MOOD_PALETTES[mood] || MOOD_PALETTES.wonder;
+  const bleedSide = imageOnLeft ? "left" : "right";
   const sentences = (text || "").match(/[^.!?]+[.!?]+/g) || [text || ""];
-  const mid = Math.ceil(sentences.length / 2);
-  const rightText = sentences.slice(mid).join(" ");
-  const isSafe = isGeneratedImage(imageUrl) && !isReferencePhoto(imageUrl, heroPhotoUrl);
 
   return (
-    <div ref={ref} className="st-page st-story-page">
-      <div className="st-illust-container">
-        {isRegenerating ? (
-          <div className="st-illust-fallback" style={{ background: gradient }}>
-            <span className="st-fallback-emoji st-emoji-pulse">{emoji}</span>
-          </div>
-        ) : isSafe ? (
-          <img src={imageUrl} className="st-illust st-illust-right" alt=""
-            onError={(e) => { e.target.style.display = "none"; }} />
-        ) : (
-          <div className="st-illust-fallback" style={{ background: gradient }}>
-            <span className="st-fallback-emoji">{emoji}</span>
-          </div>
-        )}
-      </div>
+    <div ref={ref} className="st-page st-text-page" style={{
+      '--tp-bg': palette.bg, '--tp-tint': palette.tint,
+      '--tp-accent': palette.accent, '--tp-text': palette.textColor,
+      '--tp-glow': palette.glow,
+    }}>
+      <div className="st-text-page-bg" />
       <div className="st-paper-texture" />
-      <div className="st-spine-shadow st-spine-left" />
-      {rightText.trim() && (
-        <div className="st-text-wash st-wash-right">
-          <p className="st-page-text">{rightText}</p>
-        </div>
-      )}
+      <div className={`st-spine-shadow st-spine-${bleedSide}`} />
+      <div className={`st-edge-bleed st-bleed-from-${bleedSide}`} />
+      <div className={`st-ambient-glow st-glow-from-${bleedSide}`} />
+      <TextPageDecor mood={mood} emoji={emoji} pageIndex={pageNum} />
+
+      <div className="st-text-page-content">
+        <div className="st-text-flourish-top">✦ ✦ ✦</div>
+        <p className="st-story-text">
+          {narrating && narratingSentence >= 0
+            ? sentences.map((s, i) => (
+                <span key={i} className={`st-sentence${i === narratingSentence ? " st-sentence-active" : ""}`}>{s}</span>
+              ))
+            : text}
+        </p>
+        {isLastPage && <div className="st-text-flourish-end">— ✦ —</div>}
+      </div>
+
+      <span className={`st-text-pagenum st-pagenum-${imageOnLeft ? 'right' : 'left'}`}>
+        {pageNum}
+      </span>
     </div>
   );
 });
@@ -265,7 +305,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const gradient = STYLE_GRADIENTS[styleName] || STYLE_GRADIENTS.Storybook;
   const coverGradient = STYLE_COVER_GRADIENTS[styleName] || STYLE_COVER_GRADIENTS.Storybook;
 
-  // Build page array for react-pageflip
+  // Build page array for react-pageflip — alternating image/text sides
   const bookPages = useMemo(() => {
     const result = [];
     result.push({ type: "cover" });
@@ -273,8 +313,16 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       result.push({ type: "dedication" });
     }
     localPages.forEach((page, i) => {
-      result.push({ type: "story-left", page, index: i });
-      result.push({ type: "story-right", page, index: i });
+      const imageOnLeft = (i % 2 === 0);
+      if (imageOnLeft) {
+        // Even pages: image left, text right
+        result.push({ type: "story-image", page, index: i, spineSide: "right" });
+        result.push({ type: "story-text", page, index: i, imageOnLeft: true });
+      } else {
+        // Odd pages: text left, image right
+        result.push({ type: "story-text", page, index: i, imageOnLeft: false });
+        result.push({ type: "story-image", page, index: i, spineSide: "left" });
+      }
     });
     result.push({ type: "back-cover" });
     return result;
@@ -283,7 +331,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   // Map flipbook page index to story page index
   function getStoryPageIndex(flipPage) {
     const bp = bookPages[flipPage];
-    if (bp && (bp.type === "story-left" || bp.type === "story-right")) return bp.index;
+    if (bp && (bp.type === "story-image" || bp.type === "story-text")) return bp.index;
     return -1;
   }
 
@@ -576,27 +624,25 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                 return <DedicationPage key={`ded-${i}`}
                   dedication={dedication}
                   gradient={gradient} />;
-              case "story-left":
-                return <StoryPageLeft key={`sl-${bp.index}`}
+              case "story-image":
+                return <StoryImagePage key={`si-${bp.index}`}
                   imageUrl={bp.page.imageUrl}
-                  text={bp.page.text}
-                  pageNum={bp.index + 1}
                   gradient={gradient}
                   emoji={bp.page.scene_emoji || "🌟"}
                   heroPhotoUrl={data.heroPhotoUrl}
                   isRegenerating={regeneratingImage === bp.index}
-                  onEdit={() => setActiveEdit(activeEdit ? null : { index: bp.index, type: "story" })}
-                  narrating={narrating}
-                  narratingSentence={narratingSentence} />;
-              case "story-right":
-                return <StoryPageRight key={`sr-${bp.index}`}
-                  imageUrl={bp.page.imageUrl}
+                  spineSide={bp.spineSide}
+                  onEdit={() => setActiveEdit(activeEdit ? null : { index: bp.index, type: "art" })} />;
+              case "story-text":
+                return <StoryTextPage key={`st-${bp.index}`}
                   text={bp.page.text}
                   pageNum={bp.index + 1}
-                  gradient={gradient}
+                  mood={bp.page.mood || "wonder"}
                   emoji={bp.page.scene_emoji || "🌟"}
-                  heroPhotoUrl={data.heroPhotoUrl}
-                  isRegenerating={regeneratingImage === bp.index} />;
+                  isLastPage={bp.index === localPages.length - 1}
+                  imageOnLeft={bp.imageOnLeft}
+                  narrating={narrating}
+                  narratingSentence={narratingSentence} />;
               case "back-cover":
                 return <BackCover key={`back-${i}`}
                   onReset={onReset} onShare={handleShare} />;

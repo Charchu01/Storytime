@@ -44,7 +44,7 @@ export default async function handler(req, res) {
             // Do NOT wrap it with additional instructions.
             prompt: prompt,
             input_image: referencePhotoUrl,
-            aspect_ratio: "3:2",
+            aspect_ratio: "3:4",
             output_format: "jpg",
             safety_tolerance: 5,
           },
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
           input: {
             prompt: prompt,  // Already optimized — pass through
             input_image: referencePhotoUrl,
-            aspect_ratio: "3:2",
+            aspect_ratio: "3:4",
             output_format: "jpg",
             safety_tolerance: 5,
           },
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
           model: modelUsed,
           input: {
             prompt: `Children's picture book illustration: ${prompt}. Rich detailed environment, warm lighting, magical atmosphere.`,
-            aspect_ratio: "3:2",
+            aspect_ratio: "3:4",
             output_format: "webp",
             output_quality: 90,
             safety_tolerance: 5,
