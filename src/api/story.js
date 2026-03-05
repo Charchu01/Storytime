@@ -361,10 +361,51 @@ For each spread, YOU decide:
 - Which characters are visible and how they're positioned
 - What details in the environment tell the story
 
-Think like a REAL picture book designer. Vary your layouts:
-- Some spreads: one epic scene spanning both pages, text at bottom
-- Some spreads: close-up emotional moment
-- The FINAL spread should be the most emotionally resonant
+Think like a REAL picture book designer. NEVER use the same layout twice in a row.
+
+LAYOUT OPTIONS (use ALL of these across a book):
+
+1. PANORAMIC — One continuous scene spanning both pages.
+   Text boxes at the bottom, one per page. Epic, sweeping.
+   Use for: adventure moments, big reveals, beautiful vistas.
+
+2. SPLIT SCENE — Two distinct but connected scenes, one per page.
+   Each with its own text box at the bottom.
+   Use for: before/after, cause/effect, two perspectives.
+
+3. HERO CLOSE-UP — One page is a close-up of the character's face
+   showing emotion. Other page is the wider scene. Text on the
+   wider-scene page only.
+   Use for: emotional moments, reactions, tender scenes.
+
+4. FULL BLEED — Illustration fills EVERYTHING. Text boxes overlay
+   the art in the lower corners or centre-bottom. Minimal text.
+   Let the art tell the story.
+   Use for: the most dramatic/beautiful moment.
+
+5. VIGNETTE — Character in centre of both pages, surrounded by
+   white/soft space. Small decorative text below.
+   Use for: quiet moments, endings, dedications.
+
+6. ACTION SEQUENCE — Left page shows the start of an action,
+   right page shows the result. Dynamic, energetic.
+   Use for: something happening, movement, surprise.
+
+RULES:
+- NEVER use the same layout on consecutive spreads
+- Use at least 3 different layouts in a 6-page book
+- Use at least 4 different layouts in a 10-page book
+- The FINAL spread should be the most emotionally impactful
+  (usually HERO CLOSE-UP or FULL BLEED)
+- The FIRST spread should be visually striking (PANORAMIC or
+  FULL BLEED) to hook the reader
+- Text boxes can go ANYWHERE — top, bottom, corner, centre,
+  one side only. Vary their position.
+- Some spreads should have text on only ONE page
+
+In your sceneDescription, STATE the layout type:
+"LAYOUT: PANORAMIC — one continuous sunset beach scene..."
+"LAYOUT: HERO CLOSE-UP — left page shows Dom's amazed face..."
 
 ═══ OUTPUT FORMAT ═══
 Return ONLY valid JSON with this structure:
