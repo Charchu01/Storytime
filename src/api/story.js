@@ -368,6 +368,7 @@ function buildKontextPrompt(sceneDescription, styleName, mood) {
 // ── Generate a single page image with fallback chain ────────────────────────
 export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood, worldVocab, toneLighting, tier = "standard") {
   const startTime = Date.now();
+  const errors = [];
 
   // ATTEMPT 1: With face reference → use Kontext prompt (short, instructional)
   if (heroPhotoUrl) {
@@ -378,8 +379,10 @@ export async function generatePageImage(sceneDescription, cast, styleName, heroP
         logCost(tier === "premium" ? "kontext_max" : "kontext", tier, true, Date.now() - startTime, null);
         return url;
       }
+      errors.push("Kontext: image URL invalid");
     } catch (err) {
-      console.warn("Kontext generation failed:", err.message);
+      errors.push(`Kontext: ${err.message}`);
+      console.error("Kontext generation failed:", err.message);
     }
   }
 
@@ -392,11 +395,15 @@ export async function generatePageImage(sceneDescription, cast, styleName, heroP
       if (heroPhotoUrl) imageGenFlags.faceRefLostCount++;
       return url;
     }
+    errors.push("Flux: image URL invalid");
   } catch (err) {
-    console.warn("Scene-only generation failed:", err.message);
+    errors.push(`Flux: ${err.message}`);
+    console.error("Scene-only generation failed:", err.message);
   }
 
-  logCost("all", "failed", false, Date.now() - startTime, "All failed");
+  const errorSummary = errors.join(" | ");
+  console.error("All image attempts failed:", errorSummary);
+  logCost("all", "failed", false, Date.now() - startTime, errorSummary);
   return null;
 }
 
@@ -444,6 +451,7 @@ export async function generateCoverImage(coverScene, styleName, tier = "standard
     const blobUrl = await cacheImageAsBlob(url);
     return blobUrl;
   } catch (err) {
+    console.error("Cover image generation failed:", err.message);
     return null;
   }
 }
@@ -476,6 +484,9 @@ export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, on
     ? generateCoverImage(coverScene, styleName, tier)
     : Promise.resolve(null);
 
+  // Collect errors for diagnostics
+  const pageErrors = [];
+
   // Build task array — each task is a function that returns a promise
   const tasks = pages.map((page, i) => {
     return async () => {
@@ -490,7 +501,8 @@ export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, on
         if (onPageImage) onPageImage(i, url);
         return url;
       } catch (err) {
-        console.warn(`Page ${i + 1} generation failed:`, err.message);
+        console.error(`Page ${i + 1} generation failed:`, err.message);
+        pageErrors.push(`P${i + 1}: ${err.message}`);
 
         // Retry once after a short delay (catches transient 429s)
         try {
@@ -502,7 +514,8 @@ export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, on
           if (onPageImage) onPageImage(i, retryUrl);
           return retryUrl;
         } catch (retryErr) {
-          console.warn(`Page ${i + 1} retry failed:`, retryErr.message);
+          console.error(`Page ${i + 1} retry failed:`, retryErr.message);
+          pageErrors.push(`P${i + 1} retry: ${retryErr.message}`);
           if (onPageImage) onPageImage(i, null);
           return null;
         }
@@ -517,11 +530,12 @@ export async function generateAllImages(pages, cast, styleName, heroPhotoUrl, on
 
   const failCount = pageImages.filter((url) => url === null).length;
   if (failCount > 0) {
-    console.warn(`${failCount} of ${pages.length} illustrations failed`);
+    console.error(`${failCount} of ${pages.length} illustrations failed. Errors:`, pageErrors.join(" | "));
   }
 
   if (pageImages.every((url) => url === null)) {
-    throw new Error("All illustrations failed. Please try again.");
+    const firstError = pageErrors[0] || "Unknown error";
+    throw new Error(`All illustrations failed (${firstError}). Check browser console for details.`);
   }
 
   return { pageImages, coverImageUrl };
