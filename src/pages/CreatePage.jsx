@@ -181,7 +181,7 @@ export default function CreatePage() {
     const lightCast = cast.map(({ photo, photos, ...rest }) => ({
       ...rest,
       photo: null,
-      photos: (photos || []).map(({ dataUri, ...p }) => ({ ...p, dataUri: null })),
+      photos: [],
     }));
     const storyEntry = {
       ...storyResult,
@@ -192,7 +192,9 @@ export default function CreatePage() {
       bookType: bookType?.id,
     };
     const id = addStory(storyEntry);
-    navigate(`/book/${id}`, { replace: true });
+    // Pass story data in navigation state so BookReaderPage can use it
+    // immediately even if React state or localStorage hasn't synced yet
+    navigate(`/book/${id}`, { replace: true, state: { storyData: { ...storyEntry, id } } });
   }
 
   function reset() {

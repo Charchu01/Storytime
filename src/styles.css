@@ -2506,7 +2506,7 @@
 
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   BOOK READER — CSS Book Shell + react-pageflip
+   BOOK READER — Simple Page-by-Page Viewer
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Scene (full viewport) ─────────────────────────────────────────────────── */
@@ -2516,13 +2516,14 @@
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   background: #1C130D;
 }
 
-/* Warm radial glow — desk lamp illumination */
+/* Warm radial glow */
 .br-ambient {
   position: absolute;
   inset: 0;
@@ -2537,266 +2538,153 @@
   z-index: 0;
 }
 
-/* ── The book shell (hardcover wrapper) ────────────────────────────────────── */
-.br-book-shell {
+/* ── Page display (the main content area) ──────────────────────────────────── */
+.br-page-display {
   position: relative;
   z-index: 1;
-  padding: 10px 12px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Hardcover binding visible behind/around the pages */
-.br-hardcover {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(135deg, #1E3050 0%, #263D5C 30%, #1E3050 50%, #19294A 100%);
-  border-radius: 4px 8px 8px 4px;
-  z-index: -1;
+  width: 90%;
+  max-width: 600px;
+  aspect-ratio: 3/4;
+  max-height: 75vh;
+  border-radius: 8px;
+  overflow: hidden;
   box-shadow:
-    inset 1px 1px 2px rgba(255, 255, 255, 0.08),
-    inset -1px -1px 3px rgba(0, 0, 0, 0.3),
-    0 2px 4px rgba(0, 0, 0, 0.3),
-    0 8px 24px rgba(0, 0, 0, 0.25);
+    0 4px 20px rgba(0,0,0,0.4),
+    0 12px 40px rgba(0,0,0,0.2);
+  animation: brPageFade 0.35s ease-out;
 }
-/* Cloth/linen texture overlay */
-.br-hardcover::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  opacity: 0.06;
-  background-image:
-    repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(255,255,255,0.1) 1px, rgba(255,255,255,0.1) 2px),
-    repeating-linear-gradient(90deg, transparent 0px, transparent 1px, rgba(255,255,255,0.1) 1px, rgba(255,255,255,0.1) 2px);
-  pointer-events: none;
+@keyframes brPageFade {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-/* ── Page stack edges (visible book thickness) ─────────────────────────────── */
-.br-page-stack {
-  position: absolute;
-  top: 14px;
-  bottom: 18px;
-  width: 8px;
-  z-index: 0;
-  background:
-    repeating-linear-gradient(to bottom, #F5EDE4 0px, #F5EDE4 1px, #E8DDD0 1px, #E8DDD0 2px);
-}
-.br-stack-left {
-  left: 2px;
-  border-radius: 2px 0 0 2px;
-  box-shadow: -2px 0 4px rgba(0,0,0,0.15), -1px 0 1px rgba(0,0,0,0.1);
-}
-.br-stack-right {
-  right: 2px;
-  border-radius: 0 2px 2px 0;
-  box-shadow: 2px 0 4px rgba(0,0,0,0.15), 1px 0 1px rgba(0,0,0,0.1);
-}
-
-/* ── Flipbook wrapper ──────────────────────────────────────────────────────── */
-.br-flipbook-wrapper {
-  position: relative;
-  z-index: 2;
-}
-
-/* ── Spine (centre binding between pages) ──────────────────────────────────── */
-.br-spine {
-  position: absolute;
-  top: 8px;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 14px;
-  z-index: 10;
-  pointer-events: none;
-  background:
-    linear-gradient(to right,
-      rgba(0,0,0,0) 0%,
-      rgba(0,0,0,0.08) 15%,
-      rgba(0,0,0,0.18) 35%,
-      rgba(0,0,0,0.25) 50%,
-      rgba(0,0,0,0.18) 65%,
-      rgba(0,0,0,0.08) 85%,
-      rgba(0,0,0,0) 100%
-    );
-}
-
-/* ── Book shadow on surface ────────────────────────────────────────────────── */
-.br-shadow {
-  position: absolute;
-  bottom: calc(50% - 360px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 70%;
-  max-width: 900px;
-  height: 40px;
-  z-index: 0;
-  background:
-    radial-gradient(ellipse 100% 100%, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.1) 50%, transparent 80%);
-  filter: blur(12px);
-  pointer-events: none;
-}
-
-/* ── Individual pages ──────────────────────────────────────────────────────── */
-.br-page {
-  position: relative;
-  overflow: hidden;
-  background: #F6F0E8;
-}
-.br-page-hard {
-  background: #263D5C;
-}
-.br-page-cream {
-  background: linear-gradient(170deg, #FAF5ED 0%, #F3ECE0 50%, #EDE5D8 100%);
-}
-.br-page-blank {
-  width: 100%;
-  height: 100%;
-}
-.br-page-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  display: block;
-}
-
-/* Loading state for regenerating images */
-.br-page-loading {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(170deg, #FAF5ED 0%, #F3ECE0 50%, #EDE5D8 100%);
-}
-.br-page-loading-emoji {
-  font-size: 36px;
-  animation: genFloat 2s ease-in-out infinite;
-}
-
-/* Fallback text when no image */
-.br-fallback-text {
-  padding: 15%;
-  font-family: 'Georgia', serif;
-  font-size: clamp(12px, 1.4vw, 16px);
-  color: #5C4A3A;
-  text-align: center;
-  line-height: 1.7;
-  font-style: italic;
-}
-
-/* ── Spread image splitting ────────────────────────────────────────────────── */
-.br-page-art {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-.br-spread-left {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 200%;
-  height: 100%;
-  object-fit: cover;
-  object-position: left center;
-}
-.br-spread-right {
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 200%;
-  height: 100%;
-  object-fit: cover;
-  object-position: right center;
-}
-
-/* ── Gutter shadow (near spine on each page) ───────────────────────────────── */
-.br-gutter-shadow {
-  position: absolute;
-  top: 0;
-  width: 40px;
-  height: 100%;
-  z-index: 5;
-  pointer-events: none;
-}
-.br-gutter-right {
-  right: 0;
-  background: linear-gradient(to left, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.04) 50%, transparent 100%);
-}
-.br-gutter-left {
-  left: 0;
-  background: linear-gradient(to right, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.04) 50%, transparent 100%);
-}
-
-/* ── Page numbers ──────────────────────────────────────────────────────────── */
-.br-pagenum {
-  position: absolute;
-  bottom: 8px;
-  z-index: 6;
-  font-family: 'Georgia', 'Times New Roman', serif;
-  font-size: 10px;
-  color: rgba(61, 43, 31, 0.3);
-  pointer-events: none;
-}
-.br-pagenum-left { left: 12px; }
-.br-pagenum-right { right: 12px; }
-
-/* ── Dedication page ───────────────────────────────────────────────────────── */
-.br-dedication {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  padding: 20%;
-}
-.br-dedication-text {
-  font-family: 'Georgia', serif;
-  font-size: clamp(13px, 1.6vw, 18px);
-  font-style: italic;
-  color: #5C4A3A;
-  text-align: center;
-  line-height: 1.7;
-}
-
-/* ── Edit button on spread pages ───────────────────────────────────────────── */
-.br-edit-btn {
-  position: absolute;
-  bottom: 8px;
-  right: 30px;
-  z-index: 8;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.2);
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.br-page:hover .br-edit-btn { opacity: 1; }
-
-/* ── Back cover ────────────────────────────────────────────────────────────── */
-.br-back-fallback {
+.br-page-content {
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #263D5C;
-  color: rgba(255,255,255,0.8);
+  position: relative;
+}
+
+.br-page-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Cover page */
+.br-page-cover {
+  background: linear-gradient(135deg, #1E3050, #263D5C);
+}
+.br-cover-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 10px;
+  color: white;
+  padding: 24px;
+  text-align: center;
+}
+.br-cover-title {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(20px, 4vw, 28px);
+  font-weight: 700;
+}
+.br-cover-line {
+  width: 40px;
+  height: 2px;
+  background: rgba(255,255,255,0.3);
+}
+.br-cover-for, .br-cover-author {
+  font-size: 14px;
+  color: rgba(255,255,255,0.6);
+}
+
+/* Dedication page */
+.br-dedication-card {
+  background: linear-gradient(170deg, #FAF5ED 0%, #F3ECE0 50%, #EDE5D8 100%);
+  padding: 15%;
+}
+.br-dedication-text {
+  font-family: 'Georgia', serif;
+  font-size: clamp(14px, 2vw, 20px);
+  font-style: italic;
+  color: #5C4A3A;
+  text-align: center;
+  line-height: 1.8;
+}
+
+/* Spread / page content */
+.br-page-spread, .br-page-single {
+  background: #F6F0E8;
+}
+.br-page-text-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px 24px 32px;
+  background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 60%, transparent 100%);
+  color: white;
+  font-family: 'Georgia', serif;
+  font-size: clamp(13px, 1.6vw, 17px);
+  line-height: 1.7;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+.br-page-emoji {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+/* Loading state */
+.br-page-loading {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: linear-gradient(170deg, #FAF5ED 0%, #F3ECE0 50%, #EDE5D8 100%);
+  color: #5C4A3A;
+  font-size: 14px;
+}
+.br-page-loading-emoji {
+  font-size: 36px;
+  animation: genFloat 2s ease-in-out infinite;
+}
+
+/* Page number */
+.br-pagenum {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  z-index: 6;
+  font-family: 'Georgia', serif;
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  pointer-events: none;
+}
+
+/* Back cover */
+.br-page-back {
+  background: #263D5C;
+}
+.br-back-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: rgba(255,255,255,0.8);
 }
 .br-back-title {
   font-family: 'Fraunces', serif;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
 }
 .br-back-line {
@@ -2806,27 +2694,22 @@
   border-radius: 1px;
 }
 .br-back-sub {
-  font-size: 12px;
+  font-size: 13px;
   color: rgba(255,255,255,0.4);
 }
 .br-back-actions {
-  position: absolute;
-  bottom: 16px;
-  left: 0;
-  right: 0;
   display: flex;
-  gap: 8px;
-  justify-content: center;
-  z-index: 5;
+  gap: 10px;
+  margin-top: 24px;
 }
 .br-back-btn {
-  padding: 6px 16px;
+  padding: 8px 20px;
   border: 1px solid rgba(255,255,255,0.2);
   border-radius: 999px;
   background: rgba(255,255,255,0.1);
   color: rgba(255,255,255,0.8);
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
@@ -2843,12 +2726,12 @@
   top: 50%;
   transform: translateY(-50%);
   z-index: 20;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: none;
-  background: rgba(0,0,0,0.25);
-  color: rgba(255,255,255,0.7);
+  background: rgba(0,0,0,0.3);
+  color: rgba(255,255,255,0.8);
   font-size: 24px;
   font-weight: 300;
   cursor: pointer;
@@ -2860,12 +2743,12 @@
   -webkit-backdrop-filter: blur(4px);
 }
 .br-nav:hover {
-  background: rgba(0,0,0,0.45);
+  background: rgba(0,0,0,0.5);
   color: white;
   transform: translateY(-50%) scale(1.08);
 }
-.br-nav-prev { left: max(10px, calc(50% - 540px)); }
-.br-nav-next { right: max(10px, calc(50% - 540px)); }
+.br-nav-prev { left: max(10px, calc(50% - 360px)); }
+.br-nav-next { right: max(10px, calc(50% - 360px)); }
 
 /* ── Page indicator ────────────────────────────────────────────────────────── */
 .br-page-indicator {
@@ -2878,6 +2761,29 @@
   font-size: 12px;
   color: rgba(255,255,255,0.4);
   pointer-events: none;
+}
+
+/* ── Floating edit button ──────────────────────────────────────────────────── */
+.br-edit-floating {
+  position: absolute;
+  bottom: 50px;
+  right: max(20px, calc(50% - 300px));
+  z-index: 25;
+  padding: 8px 16px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 999px;
+  background: rgba(0,0,0,0.4);
+  color: rgba(255,255,255,0.8);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  backdrop-filter: blur(8px);
+}
+.br-edit-floating:hover {
+  background: rgba(0,0,0,0.6);
+  border-color: rgba(255,255,255,0.35);
 }
 
 /* ── Toolbar ───────────────────────────────────────────────────────────────── */
@@ -3078,17 +2984,15 @@
 
 /* ── Mobile responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .br-book-shell {
-    padding: 6px 8px 10px;
-  }
-  .br-page-stack { display: none; }
-  .br-spine { width: 8px; }
-  .br-nav { width: 32px; height: 32px; font-size: 18px; }
+  .br-page-display { width: 95%; max-height: 70vh; }
+  .br-nav { width: 34px; height: 34px; font-size: 18px; }
   .br-nav-prev { left: 6px; }
   .br-nav-next { right: 6px; }
   .br-toolbar { padding: 8px 10px; }
   .br-toolbar-btn { padding: 5px 10px; font-size: 12px; }
   .br-closed-face { width: 220px; height: 290px; }
+  .br-edit-floating { bottom: 44px; right: 12px; }
+  .br-page-text-overlay { padding: 14px 16px 24px; }
 }
 
 
@@ -4575,4 +4479,281 @@
   font-size: 12px;
   color: var(--lt);
   font-weight: 600;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   LIBRARY PAGE
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.lib-page {
+  min-height: 100vh;
+  background: #FEF7ED;
+  padding: 24px 20px 60px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.lib-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.lib-h1 {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(22px, 4vw, 30px);
+  font-weight: 900;
+  color: var(--ink);
+}
+.lib-sub {
+  font-size: 14px;
+  color: var(--mid);
+  font-weight: 600;
+  margin-top: 4px;
+}
+.lib-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 22px;
+  background: linear-gradient(135deg, var(--terra), var(--tlt));
+  color: white;
+  border: none;
+  border-radius: var(--rp);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(200,93,42,0.3);
+  transition: all 0.2s;
+}
+.lib-create-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(200,93,42,0.4);
+}
+
+/* ── Grid ─────────────────────────────────────────────────────────────────── */
+.lib-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+/* ── Card ─────────────────────────────────────────────────────────────────── */
+.lib-card {
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+  box-shadow: var(--sh);
+  transition: all 0.2s ease;
+  animation: libCardIn 0.4s ease-out both;
+  cursor: pointer;
+}
+.lib-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shh);
+}
+@keyframes libCardIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* New story card */
+.lib-card-new {
+  text-decoration: none;
+  border: 2px dashed var(--ghost);
+  background: transparent;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+}
+.lib-card-new:hover {
+  border-color: var(--terra);
+  background: var(--tpal);
+  box-shadow: none;
+}
+.lib-new-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--mid);
+  font-weight: 700;
+  font-size: 14px;
+}
+.lib-new-em { font-size: 32px; }
+.lib-new-txt { color: var(--mid); }
+
+/* Card cover */
+.lib-card-cover {
+  position: relative;
+  height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow: hidden;
+}
+.lib-card-spine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: rgba(0,0,0,0.15);
+}
+.lib-card-title {
+  font-family: 'Fraunces', serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: white;
+  text-align: center;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  line-height: 1.3;
+  z-index: 1;
+}
+.lib-card-badge {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.9);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--rp);
+  backdrop-filter: blur(4px);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Card overlay on hover */
+.lib-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  z-index: 5;
+  animation: libOverlayIn 0.15s ease-out;
+}
+@keyframes libOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.lib-act-btn {
+  padding: 7px 18px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: var(--rp);
+  background: rgba(255,255,255,0.12);
+  color: white;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  width: 120px;
+  text-align: center;
+}
+.lib-act-btn:hover {
+  background: rgba(255,255,255,0.25);
+}
+.lib-act-del:hover {
+  background: rgba(220, 50, 50, 0.5);
+  border-color: rgba(220, 50, 50, 0.6);
+}
+
+/* Card info */
+.lib-card-info {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.lib-card-child {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.lib-tier-badge {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--gold);
+  background: #FFF8E0;
+  padding: 2px 8px;
+  border-radius: var(--rp);
+}
+.lib-card-date {
+  font-size: 11px;
+  color: var(--lt);
+  font-weight: 600;
+  margin-left: auto;
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────────── */
+.lib-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  gap: 12px;
+}
+.lib-empty-book {
+  font-size: 64px;
+  margin-bottom: 8px;
+}
+.lib-empty-h {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(20px, 4vw, 26px);
+  font-weight: 900;
+  color: var(--ink);
+}
+.lib-empty-p {
+  font-size: 15px;
+  color: var(--mid);
+  font-weight: 600;
+  max-width: 340px;
+}
+.lib-empty-cta {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 14px 32px;
+  background: linear-gradient(135deg, var(--terra), var(--tlt));
+  color: white;
+  border: none;
+  border-radius: var(--rp);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 4px 20px rgba(200,93,42,0.3);
+  transition: all 0.2s;
+}
+.lib-empty-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 28px rgba(200,93,42,0.4);
+}
+
+/* ── Library mobile ───────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .lib-page { padding: 16px 12px 48px; }
+  .lib-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .lib-card-cover { height: 160px; }
+  .lib-card-title { font-size: 13px; }
+  .lib-header { flex-direction: column; align-items: flex-start; }
 }

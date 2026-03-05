@@ -5,9 +5,10 @@ export default function InstallPrompt() {
   const deferredPrompt = useRef(null);
 
   useEffect(() => {
-    // Don't show if already dismissed or already installed
+    // Don't show if already dismissed, already installed, or cookie banner still visible
     if (localStorage.getItem("sk_install_dismissed")) return;
     if (window.matchMedia("(display-mode: standalone)").matches) return;
+    if (!localStorage.getItem("sk_cookies_accepted")) return;
 
     function handleBeforeInstall(e) {
       e.preventDefault();
