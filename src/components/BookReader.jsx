@@ -527,40 +527,44 @@ export default function BookReader({ data, cast, styleName, onReset }) {
             );
           })()}
 
-          {/* Story pages */}
+          {/* Story pages — panoramic spread */}
           {current.type === "page" && (() => {
             const imgUrl = current.page.imageUrl;
             // SAFETY: never display the raw reference photo
             const isSafeImage = isGeneratedImage(imgUrl) && !isReferencePhoto(imgUrl, data.heroPhotoUrl);
             const pageEmoji = current.page.scene_emoji || current.page.emoji || "🌟";
             return (
-              <div className="br-spread">
-                <div className="br-page-left" style={!isSafeImage ? { background: gradient } : undefined}>
-                  {regeneratingImage === current.pageIdx ? (
+              <div className="br-spread br-spread-pano">
+                {/* Full-bleed panoramic background spanning both pages */}
+                {regeneratingImage === current.pageIdx ? (
+                  <div className="br-pano-bg" style={{ background: gradient }}>
                     <div className="br-pl-inner">
                       <div className="br-pl-emoji br-emoji-pulse">{pageEmoji}</div>
                       <div className="br-illustrating-badge">Illustrating...</div>
                     </div>
-                  ) : isSafeImage ? (
+                  </div>
+                ) : isSafeImage ? (
+                  <div className="br-pano-bg">
                     <img
-                      className="br-pl-img br-img-fadein"
+                      className="br-pano-img br-img-fadein"
                       src={imgUrl}
                       alt={`Page ${current.pageIdx + 1}`}
                       onError={(e) => {
-                        // Fallback to gradient placeholder if image fails to load
                         e.target.style.display = "none";
                         e.target.parentElement.style.background = gradient;
                       }}
                     />
-                  ) : (
+                  </div>
+                ) : (
+                  <div className="br-pano-bg" style={{ background: gradient }}>
                     <div className="br-pl-inner">
                       <div className="br-pl-emoji br-emoji-pulse">{pageEmoji}</div>
                     </div>
-                  )}
-                  {isSafeImage && <div className="br-pl-fade" />}
-                </div>
-                <div className="br-spine" />
-                <div className="br-page-right">
+                  </div>
+                )}
+
+                {/* Text overlay on right side */}
+                <div className="br-pano-text-panel">
                   <div className="br-pr-inner">
                     <p className="br-pr-text">
                       {renderTextWithDropCap(current.page.text, current.pageIdx, narrating, narratingSentence)}
@@ -571,6 +575,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                     Edit
                   </button>
                 </div>
+
+                {/* Spine divider */}
+                <div className="br-spine br-spine-pano" />
               </div>
             );
           })()}

@@ -63,18 +63,19 @@ function buildDetailedCharacterPrompt(cast) {
     .map((character) => {
       const role = ROLES.find((r) => r.id === character.role)?.label || character.role;
       const parts = [];
+      const ageDesc = character.age ? `${character.age}-year-old` : "";
 
-      if (character.appearanceDescription) {
-        parts.push(character.appearanceDescription);
+      if (character.role === "pet") {
+        parts.push(`a pet named ${character.name}`);
+      } else if (character.role === "baby") {
+        parts.push(`a baby named ${character.name}`);
       } else {
-        const ageDesc = character.age ? `${character.age}-year-old` : "";
-        if (character.role === "pet") {
-          parts.push(`a pet named ${character.name}`);
-        } else if (character.role === "baby") {
-          parts.push(`a baby named ${character.name}`);
-        } else {
-          parts.push(`${ageDesc} ${role.toLowerCase()} named ${character.name}`.trim());
-        }
+        parts.push(`${ageDesc} ${role.toLowerCase()} named ${character.name}`.trim());
+      }
+
+      // Include the rich appearance description from photo analysis
+      if (character.appearanceDescription) {
+        parts.push(`— ${character.appearanceDescription}`);
       }
 
       if (character.isHero) parts.push("(main character)");
@@ -83,20 +84,33 @@ function buildDetailedCharacterPrompt(cast) {
     .join("; ");
 }
 
-// ── Build the 6-part prompt for a scene ───────────────────────────────────────
+// ── Build the panoramic spread prompt for a scene ─────────────────────────────
 function buildScenePrompt(sceneDescription, cast, styleName, mood) {
   const styleAnchor = STYLE_ANCHORS[styleName] || STYLE_ANCHORS["Storybook"];
-  const characterDesc = buildDetailedCharacterPrompt(cast);
   const lighting = MOOD_LIGHTING[mood] || MOOD_LIGHTING["wonder"];
 
-  // STRUCTURE: Style → Composition → Scene → Character (small in frame) → Lighting → Quality
-  // Leading with scene/composition prevents the model from generating close-up portraits
+  // Build detailed character appearance for the image prompt
+  const hero = cast.find((c) => c.isHero) || cast[0];
+  const heroAppearance = hero?.appearanceDescription || "";
+  const heroAge = hero?.age ? `${hero.age}-year-old` : "young";
+  const heroName = hero?.name || "the child";
+
+  // Compact character reference for the image prompt
+  const characterRef = heroAppearance
+    ? `${heroAge} child: ${heroAppearance}`
+    : `a ${heroAge} child named ${heroName}`;
+
+  // Ultra-wide panoramic composition for double-page spread
+  // Scene/environment FIRST, character secondary, explicit anti-portrait
   return [
     styleAnchor,
-    `WIDE SHOT illustration showing a full scene with rich environment:`,
+    `Ultra-wide cinematic panoramic illustration for a double-page picture book spread.`,
+    `Rich detailed environment filling the entire frame:`,
     sceneDescription,
-    `The character (${characterDesc}) is shown at medium distance, occupying roughly 30% of the frame height, fully surrounded by the environment.`,
-    `NOT a close-up, NOT a portrait, NOT a headshot — show the full scene with foreground, middleground, and background.`,
+    `The main character is ${characterRef}.`,
+    `Show the character full-body at medium distance in the left-center of the frame, roughly 25-35% of the frame height, naturally placed within the scene.`,
+    `The right half of the image continues the same rich environment with beautiful atmospheric depth, environmental storytelling, lush detailed scenery.`,
+    `NEVER a close-up, NEVER a portrait, NEVER a headshot. Show expansive landscape with detailed foreground, middleground, and deep background.`,
     lighting,
     QUALITY_TAGS,
   ].join(" ");
@@ -109,9 +123,19 @@ async function analyzeCharacterPhotos_single(character, photoDataUri) {
 
   try {
     const description = await claudeCall(
-      `You are helping create consistent character illustrations for a children's storybook. Analyze this person's photo and write a concise visual description (2-3 sentences) that an illustrator could use to draw them consistently across multiple pages. Focus on: hair color/style, skin tone, eye color, facial features, build/height, and any distinctive features. Do NOT include clothing (they'll wear different outfits in the story). Write in third person. Be specific about colors and features.`,
-      `This is ${character.name}, a ${role}${ageNote}. Please describe their physical appearance for an illustrator.`,
-      300,
+      `You are a professional children's book illustrator creating a character reference sheet. Your description will be fed DIRECTLY into an AI image generator to draw this person as a storybook character across multiple pages.
+
+Write an EXTREMELY specific and vivid visual description (4-6 sentences) that an AI image generator can use. Be precise about:
+- EXACT hair color (e.g. "warm chestnut brown", "jet black", "strawberry blonde"), texture (straight, wavy, curly, coily), and length/style
+- EXACT skin tone (e.g. "warm golden brown", "fair with rosy cheeks", "deep rich brown", "olive-toned")
+- Eye color and shape (e.g. "large round dark brown eyes", "bright blue almond-shaped eyes")
+- Face shape (round, oval, heart-shaped) and key features (chubby cheeks, dimples, freckles, button nose)
+- Body build for their age (chubby toddler, slim, sturdy)
+- Any distinctive features (gap teeth, birthmark, curls that bounce, glasses)
+
+Format as a single flowing paragraph. Do NOT mention clothing. Do NOT use vague terms like "light skin" or "dark hair" — be SPECIFIC with descriptive color words. Write in third person.`,
+      `This is ${character.name}, a ${role}${ageNote}. Please write an extremely detailed physical appearance description for an illustrator.`,
+      400,
       photoDataUri
     );
     return description;
@@ -238,9 +262,13 @@ Art style: ${styleName}`;
 }
 
 // ── Generate a single page image ──────────────────────────────────────────────
+// Uses flux-1.1-pro-ultra with detailed text descriptions (most reliable).
+// The character appearance from photo analysis is baked into the prompt.
 export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood) {
   const prompt = buildScenePrompt(sceneDescription, cast, styleName, mood || "wonder");
-  return generateImage(prompt, heroPhotoUrl || null);
+  // Use text-only generation — character appearance is in the prompt from photo analysis.
+  // This produces better illustration-style results than face-reference models.
+  return generateImage(prompt, null, false);
 }
 
 // ── Generate a Premium page image using LoRA ──────────────────────────────────
