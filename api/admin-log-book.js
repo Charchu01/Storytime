@@ -1,4 +1,5 @@
-import { logBook, logUser } from './lib/admin-logger.js';
+import { logBook, logEvent } from './lib/admin-logger.js';
+import { supabaseAdmin } from './lib/supabase-admin.js';
 
 export const config = { maxDuration: 15 };
 
@@ -14,20 +15,23 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Empty book data' });
     }
 
-    const bookId = await logBook(bookData);
-
-    if (!bookId) {
-      console.error('logBook returned null — KV write likely failed. Check KV_REST_API_URL and KV_REST_API_TOKEN env vars.');
-      return res.status(500).json({ error: 'Failed to log book to KV. Check Vercel KV configuration.' });
+    // Update the existing Supabase book record with health_status
+    if (bookData.supabaseBookId && supabaseAdmin) {
+      await supabaseAdmin.from('books')
+        .update({ health_status: bookData.status || 'healthy' })
+        .eq('id', bookData.supabaseBookId);
     }
 
-    // Log user data — always log even anonymous users so Users tab works
-    await logUser({
-      userId: bookData.userId || `anon_${Date.now().toString(36)}`,
-      email: bookData.userEmail || null,
-      bookCreated: true,
-      amountPaid: bookData.tier === 'premium' ? 19.99 : 9.99,
-    }).catch((err) => console.warn('User log failed:', err.message));
+    const bookId = bookData.supabaseBookId || bookData.bookId || `book_${Date.now()}`;
+
+    // Log event to activity_log
+    await logEvent('book_completed', {
+      bookId,
+      title: bookData.title || 'Untitled',
+      tier: bookData.tier || 'standard',
+      style: bookData.style || 'unknown',
+      status: bookData.status || 'healthy',
+    });
 
     // Trigger post-game analysis asynchronously (fire and forget)
     if (bookId && bookData.images && Object.keys(bookData.images).length > 0) {

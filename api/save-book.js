@@ -39,6 +39,7 @@ export default async function handler(req, res) {
         ...book,
         user_id: dbUserId,
         status: 'completed',
+        health_status: book.health_status || 'healthy',
       })
       .select('id')
       .single();

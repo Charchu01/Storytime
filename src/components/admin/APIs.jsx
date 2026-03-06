@@ -134,29 +134,29 @@ export default function APIs() {
                 <Stat label="Available" value={`$${health.services.stripe.balance.available.toFixed(2)} ${health.services.stripe.balance.currency.toUpperCase()}`} />
                 <Stat label="Pending" value={`$${health.services.stripe.balance.pending.toFixed(2)} ${health.services.stripe.balance.currency.toUpperCase()}`} />
               </div>
-              <div style={{ fontSize: 11, color: "#94a3b8" }}>Webhook logs payments to admin KV.</div>
+              <div style={{ fontSize: 11, color: "#94a3b8" }}>Webhook logs payments to Supabase.</div>
             </div>
           ) : (
             <div style={{ fontSize: 12, color: "#64748b" }}>
-              Payment processing via Stripe. Webhook logs payments to admin KV.
+              Payment processing via Stripe. Webhook logs payments to Supabase.
             </div>
           )}
         </div>
 
-        {/* Vercel KV card */}
-        <div style={{ ...card, borderLeft: `4px solid ${health?.services?.vercel_kv?.status === "ok" ? "#22c55e" : "#ef4444"}` }}>
+        {/* Supabase card */}
+        <div style={{ ...card, borderLeft: `4px solid ${health?.services?.supabase?.status === "ok" ? "#22c55e" : "#ef4444"}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Vercel KV</h3>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Supabase</h3>
             <span style={{
               padding: "2px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700,
-              background: health?.services?.vercel_kv?.status === "ok" ? "#dcfce7" : "#fef2f2",
-              color: health?.services?.vercel_kv?.status === "ok" ? "#16a34a" : "#dc2626",
+              background: health?.services?.supabase?.status === "ok" ? "#dcfce7" : "#fef2f2",
+              color: health?.services?.supabase?.status === "ok" ? "#16a34a" : "#dc2626",
             }}>
-              {health?.services?.vercel_kv?.status === "ok" ? "Operational" : "Error"}
+              {health?.services?.supabase?.status === "ok" ? "Operational" : "Error"}
             </span>
           </div>
           <div style={{ fontSize: 12, color: "#64748b" }}>
-            Ping: {health?.services?.vercel_kv?.pingMs || "?"}ms | Used for payments, vault, admin data
+            Ping: {health?.services?.supabase?.pingMs || "?"}ms | Used for books, users, admin data, image storage
           </div>
         </div>
       </div>

@@ -1,4 +1,3 @@
-import { kv } from '@vercel/kv';
 import { logPostGameAnalysis, logEvent } from './lib/admin-logger.js';
 
 export const config = { maxDuration: 60 };
@@ -197,7 +196,7 @@ Review the following images from this book:`,
       return res.json({ skipped: true, reason: 'Parse error', rawText: text.substring(0, 500) });
     }
 
-    // Save to KV
+    // Save to Supabase
     await logPostGameAnalysis(bookId, analysis);
 
     // Log event

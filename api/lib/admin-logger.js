@@ -1,74 +1,38 @@
 // ── Admin Logger Utility ─────────────────────────────────────────────────────
-// Central logging to Vercel KV for the admin dashboard.
-// All admin data uses structured keys for efficient querying.
+// Central logging to Supabase for the admin dashboard.
+// Replaces the old Vercel KV implementation.
 
-const kvAvailable = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
-let kv = null;
-if (kvAvailable) {
-  kv = (await import('@vercel/kv')).kv;
-}
+import { supabaseAdmin } from './supabase-admin.js';
 
-const SEVEN_DAYS = 7 * 24 * 60 * 60; // TTL for API call logs
-const MAX_EVENTS = 200; // Max events in activity feed
+const sb = supabaseAdmin; // shorthand
 
 // ── Book Logging ─────────────────────────────────────────────────────────────
+// Updates an existing book record with health_status, or logs to activity_log.
+// The book must already exist in Supabase (saved via save-book.js).
 
 export async function logBook(bookData) {
-  if (!kv) {
-    console.warn('admin-logger: Vercel KV not configured, skipping logBook');
+  if (!sb) {
+    console.warn('admin-logger: Supabase not configured, skipping logBook');
     return null;
   }
   try {
-    const bookId = bookData.bookId || `book_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const record = {
-      bookId,
-      createdAt: new Date().toISOString(),
-      userId: bookData.userId || null,
-      userEmail: bookData.userEmail || null,
-      tier: bookData.tier || 'standard',
-      style: bookData.style || 'unknown',
-      bookType: bookData.bookType || 'adventure',
-      tone: bookData.tone || null,
-      pageCount: bookData.pageCount || 6,
-      heroName: bookData.heroName || 'Unknown',
-      heroAge: bookData.heroAge || null,
-      heroType: bookData.heroType || 'child',
-      hasPhoto: bookData.hasPhoto || false,
-      characterCount: bookData.characterCount || 1,
-      totalDurationMs: bookData.totalDurationMs || 0,
-      totalCost: bookData.totalCost || 0,
-      status: bookData.status || 'healthy',
-      phases: bookData.phases || {},
-      costs: bookData.costs || {},
-      validations: bookData.validations || [],
-      modelsUsed: bookData.modelsUsed || {},
-      images: bookData.images || {},
-      title: bookData.title || 'Untitled',
-      dedication: bookData.dedication || null,
-      storyTexts: bookData.storyTexts || [],
-      assembledPrompts: bookData.assembledPrompts || {},
-      claudeResponse: bookData.claudeResponse || null,
-    };
+    const bookId = bookData.supabaseBookId || bookData.bookId;
 
-    await kv.set(`admin:books:${bookId}`, record);
+    // If we have a Supabase UUID, update the book record with health status
+    if (bookData.supabaseBookId) {
+      await sb.from('books')
+        .update({ health_status: bookData.status || 'healthy' })
+        .eq('id', bookData.supabaseBookId);
+    }
 
-    // Add to book index (sorted set by timestamp)
-    await kv.zadd('admin:books_index', {
-      score: Date.now(),
-      member: bookId,
-    });
-
-    // Log event
+    // Log event to activity_log
     await logEvent('book_completed', {
       bookId,
-      title: record.title,
-      tier: record.tier,
-      style: record.style,
-      status: record.status,
+      title: bookData.title || 'Untitled',
+      tier: bookData.tier || 'standard',
+      style: bookData.style || 'unknown',
+      status: bookData.status || 'healthy',
     });
-
-    // Update daily stats
-    await updateDailyStats(record);
 
     return bookId;
   } catch (err) {
@@ -80,34 +44,25 @@ export async function logBook(bookData) {
 // ── API Call Logging ─────────────────────────────────────────────────────────
 
 export async function logApiCall(callData) {
-  if (!kv) return;
+  if (!sb) return;
   try {
-    const ts = Date.now();
     const record = {
-      ts,
-      service: callData.service, // 'anthropic', 'replicate', 'stripe', 'elevenlabs'
-      type: callData.type, // 'story', 'validation', 'cover', 'spread', 'narration', etc.
-      bookId: callData.bookId || null,
+      service: callData.service,
+      call_type: callData.type,
+      book_id: callData.bookId || null,
       status: callData.status || 200,
-      durationMs: callData.durationMs || 0,
+      duration_ms: callData.durationMs || 0,
       model: callData.model || null,
       cost: callData.cost || 0,
       error: callData.error || null,
       details: callData.details || null,
     };
 
-    await kv.set(`admin:api_calls:${ts}`, record, { ex: SEVEN_DAYS });
-
-    // Add to API calls index
-    await kv.zadd('admin:api_calls_index', {
-      score: ts,
-      member: `${ts}`,
-    });
+    await sb.from('admin_api_calls').insert(record);
 
     // Log errors specially
     if (callData.error || (callData.status && callData.status >= 400)) {
       await logError({
-        ts,
         service: callData.service,
         type: callData.type,
         bookId: callData.bookId,
@@ -126,83 +81,61 @@ export async function logApiCall(callData) {
 // ── Error Logging ────────────────────────────────────────────────────────────
 
 export async function logError(errorData) {
-  if (!kv) return;
+  if (!sb) return;
   try {
-    const ts = errorData.ts || Date.now();
-    const record = {
-      ts,
+    await sb.from('admin_errors').insert({
       service: errorData.service || 'unknown',
-      type: errorData.type || 'error',
-      bookId: errorData.bookId || null,
+      error_type: errorData.type || 'error',
+      book_id: errorData.bookId || null,
       error: errorData.error || 'Unknown error',
       details: errorData.details || null,
-    };
-
-    await kv.set(`admin:errors:${ts}`, record, { ex: SEVEN_DAYS });
-    await kv.zadd('admin:errors_index', {
-      score: ts,
-      member: `${ts}`,
     });
-
-    return record;
   } catch (err) {
     console.error('Admin logger - logError error:', err.message);
-    return null;
   }
 }
 
 // ── Event Logging (Activity Feed) ────────────────────────────────────────────
 
 export async function logEvent(type, data) {
-  if (!kv) return;
+  if (!sb) return;
   try {
-    const event = {
-      ts: Date.now(),
-      type,
-      ...data,
-    };
-
-    // Push to a capped list
-    await kv.lpush('admin:events', JSON.stringify(event));
-    await kv.ltrim('admin:events', 0, MAX_EVENTS - 1);
-
-    return event;
+    await sb.from('activity_log').insert({
+      event_type: type,
+      severity: type.includes('failed') || type.includes('error') ? 'error' : 'info',
+      message: formatEventMessage(type, data),
+      book_id: data.bookId || null,
+      user_id: data.userId || null,
+    });
   } catch (err) {
     console.error('Admin logger - logEvent error:', err.message);
-    return null;
+  }
+}
+
+function formatEventMessage(type, data) {
+  switch (type) {
+    case 'book_completed':
+      return `Book completed: "${data.title}" (${data.tier}, ${data.style}) — ${data.status}`;
+    case 'payment_received':
+      return `Payment received: $${data.amount} (${data.tier})`;
+    case 'payment_failed':
+      return `Payment failed: $${data.amount} (${data.tier})`;
+    case 'validation_retry':
+      return `Validation retry: page ${data.page} (text: ${data.textScore}, face: ${data.faceScore})`;
+    case 'user_feedback':
+      return `User feedback: ${data.stars} stars (${data.reaction || 'no reaction'})`;
+    default:
+      return `${type}: ${JSON.stringify(data).slice(0, 200)}`;
   }
 }
 
 // ── Revenue Logging ──────────────────────────────────────────────────────────
+// Revenue is now derived from the books table (tier → price mapping).
+// This function logs payment events for the activity feed.
 
 export async function logRevenue(paymentData) {
-  if (!kv) return;
+  if (!sb) return;
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const key = `admin:revenue:${today}`;
-
-    const existing = await kv.get(key) || {
-      date: today,
-      gross: 0,
-      transactions: 0,
-      failed: 0,
-      byTier: { standard: { count: 0, revenue: 0 }, premium: { count: 0, revenue: 0 } },
-    };
-
-    if (paymentData.status === 'succeeded') {
-      existing.gross += paymentData.amount || 0;
-      existing.transactions += 1;
-      const tier = paymentData.tier || 'standard';
-      if (!existing.byTier[tier]) existing.byTier[tier] = { count: 0, revenue: 0 };
-      existing.byTier[tier].count += 1;
-      existing.byTier[tier].revenue += paymentData.amount || 0;
-    } else {
-      existing.failed += 1;
-    }
-
-    await kv.set(key, existing);
-
-    // Log event
     await logEvent(
       paymentData.status === 'succeeded' ? 'payment_received' : 'payment_failed',
       {
@@ -212,47 +145,37 @@ export async function logRevenue(paymentData) {
         stripeId: paymentData.stripeId,
       }
     );
-
-    return existing;
   } catch (err) {
     console.error('Admin logger - logRevenue error:', err.message);
-    return null;
   }
 }
 
 // ── Validation Logging ───────────────────────────────────────────────────────
 
 export async function logValidation(validationData) {
-  if (!kv) return;
+  if (!sb) return;
   try {
-    const ts = Date.now();
     const record = {
-      ts,
-      bookId: validationData.bookId || null,
+      book_id: validationData.bookId || null,
       page: validationData.page || 'unknown',
       attempt: validationData.attempt || 1,
-      textScore: validationData.textScore || 0,
-      faceScore: validationData.faceScore || 0,
-      sceneAccuracy: validationData.sceneAccuracy || 0,
-      formatOk: validationData.formatOk !== false,
+      text_score: validationData.textScore || 0,
+      face_score: validationData.faceScore || 0,
+      scene_accuracy: validationData.sceneAccuracy || 0,
+      format_ok: validationData.formatOk !== false,
       pass: validationData.pass || false,
       issues: validationData.issues || [],
-      fixNotes: validationData.fixNotes || '',
+      fix_notes: validationData.fixNotes || '',
     };
 
-    await kv.set(`admin:validations:${ts}`, record, { ex: SEVEN_DAYS });
-    await kv.zadd('admin:validations_index', {
-      score: ts,
-      member: `${ts}`,
-    });
+    await sb.from('admin_validations').insert(record);
 
-    // Log event if validation failed
     if (!record.pass) {
       await logEvent('validation_retry', {
-        bookId: record.bookId,
+        bookId: record.book_id,
         page: record.page,
-        textScore: record.textScore,
-        faceScore: record.faceScore,
+        textScore: record.text_score,
+        faceScore: record.face_score,
         issues: record.issues,
       });
     }
@@ -267,18 +190,16 @@ export async function logValidation(validationData) {
 // ── Post-Game Analysis Logging ───────────────────────────────────────────────
 
 export async function logPostGameAnalysis(bookId, analysis) {
-  if (!kv) return;
+  if (!sb) return;
   try {
-    await kv.set(`admin:postgame:${bookId}`, {
-      bookId,
-      analyzedAt: new Date().toISOString(),
-      ...analysis,
-    });
-
-    await kv.zadd('admin:postgame_index', {
-      score: Date.now(),
-      member: bookId,
-    });
+    await sb.from('admin_postgame').upsert({
+      book_id: bookId,
+      overall_score: analysis.overallScore || null,
+      would_recommend: analysis.wouldRecommend || false,
+      scores: analysis.scores || null,
+      top_issue: analysis.topIssue || null,
+      data: analysis,
+    }, { onConflict: 'book_id' });
 
     return true;
   } catch (err) {
@@ -288,155 +209,55 @@ export async function logPostGameAnalysis(bookId, analysis) {
 }
 
 // ── User Logging ─────────────────────────────────────────────────────────────
+// Users are already managed by save-book.js (find/create user by clerk_id).
+// This function is kept for backward compat but is now a no-op for most fields
+// since Supabase users table + increment_user_books RPC handles it.
 
 export async function logUser(userData) {
-  if (!kv) return;
-  try {
-    const userId = userData.userId || 'anonymous';
-    const key = `admin:users:${userId}`;
-
-    const existing = await kv.get(key) || {
-      userId,
-      email: null,
-      firstSeen: new Date().toISOString(),
-      lastActive: null,
-      bookCount: 0,
-      totalSpent: 0,
-      vaultCharacters: 0,
-    };
-
-    existing.lastActive = new Date().toISOString();
-    if (userData.email) existing.email = userData.email;
-    if (userData.bookCreated) existing.bookCount += 1;
-    if (userData.amountPaid) existing.totalSpent += userData.amountPaid;
-    if (userData.vaultCharacters !== undefined) existing.vaultCharacters = userData.vaultCharacters;
-
-    await kv.set(key, existing);
-
-    // Add to user index
-    await kv.zadd('admin:users_index', {
-      score: Date.now(),
-      member: userId,
-    });
-
-    return existing;
-  } catch (err) {
-    console.error('Admin logger - logUser error:', err.message);
-    return null;
-  }
+  // User stats are managed by save-book.js and the increment_user_books RPC.
+  // Nothing extra to do here — the Supabase users table is the source of truth.
+  return null;
 }
 
-// ── Daily Stats Update ───────────────────────────────────────────────────────
-
-async function updateDailyStats(bookRecord) {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    const key = `admin:daily:${today}`;
-
-    const existing = await kv.get(key) || {
-      date: today,
-      books: {
-        total: 0, healthy: 0, warnings: 0, failed: 0,
-        byTier: { standard: 0, premium: 0 },
-        byStyle: {},
-      },
-      revenue: { gross: 0, costs: 0, net: 0, transactions: 0, failed: 0 },
-      api: {
-        anthropic: { calls: 0, errors: 0, totalMs: 0, cost: 0 },
-        replicate: { calls: 0, errors: 0, totalMs: 0, cost: 0 },
-        elevenlabs: { calls: 0, errors: 0, totalMs: 0, cost: 0 },
-      },
-      quality: { totalTextScore: 0, totalFaceScore: 0, scoreCount: 0, firstPassCount: 0, totalValidations: 0, retryCount: 0 },
-      users: { active: 0, new: 0, returning: 0 },
-    };
-
-    // Update book stats
-    existing.books.total += 1;
-    if (bookRecord.status === 'healthy') existing.books.healthy += 1;
-    else if (bookRecord.status === 'warnings') existing.books.warnings += 1;
-    else existing.books.failed += 1;
-
-    const tier = bookRecord.tier || 'standard';
-    existing.books.byTier[tier] = (existing.books.byTier[tier] || 0) + 1;
-
-    const style = bookRecord.style || 'unknown';
-    existing.books.byStyle[style] = (existing.books.byStyle[style] || 0) + 1;
-
-    // Update costs
-    existing.revenue.costs += bookRecord.totalCost || 0;
-    existing.revenue.net = existing.revenue.gross - existing.revenue.costs;
-
-    // Update quality from validations
-    if (bookRecord.validations && bookRecord.validations.length > 0) {
-      for (const v of bookRecord.validations) {
-        if (v.textScore) existing.quality.totalTextScore += v.textScore;
-        if (v.faceScore) existing.quality.totalFaceScore += v.faceScore;
-        existing.quality.scoreCount += 1;
-        existing.quality.totalValidations += 1;
-        if (v.attempt === 1 && v.pass) existing.quality.firstPassCount += 1;
-        if (v.attempt > 1) existing.quality.retryCount += 1;
-      }
-    }
-
-    await kv.set(key, existing);
-    return existing;
-  } catch (err) {
-    console.error('Admin logger - updateDailyStats error:', err.message);
-    return null;
-  }
-}
-
-// ── Update Daily API Stats ───────────────────────────────────────────────────
+// ── Daily Stats ──────────────────────────────────────────────────────────────
+// Daily stats are now computed via SQL aggregation in admin.js queries.
+// No need to maintain a separate stats record.
 
 export async function updateDailyApiStats(service, durationMs, cost, isError) {
-  if (!kv) return;
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    const key = `admin:daily:${today}`;
-
-    const existing = await kv.get(key) || {
-      date: today,
-      books: { total: 0, healthy: 0, warnings: 0, failed: 0, byTier: {}, byStyle: {} },
-      revenue: { gross: 0, costs: 0, net: 0, transactions: 0, failed: 0 },
-      api: {
-        anthropic: { calls: 0, errors: 0, totalMs: 0, cost: 0 },
-        replicate: { calls: 0, errors: 0, totalMs: 0, cost: 0 },
-        elevenlabs: { calls: 0, errors: 0, totalMs: 0, cost: 0 },
-      },
-      quality: { totalTextScore: 0, totalFaceScore: 0, scoreCount: 0, firstPassCount: 0, totalValidations: 0, retryCount: 0 },
-      users: { active: 0, new: 0, returning: 0 },
-    };
-
-    const svc = existing.api[service];
-    if (svc) {
-      svc.calls += 1;
-      if (isError) svc.errors += 1;
-      svc.totalMs += durationMs || 0;
-      svc.cost += cost || 0;
-    }
-
-    await kv.set(key, existing);
-  } catch (err) {
-    console.error('Admin logger - updateDailyApiStats error:', err.message);
-  }
+  // Now handled via admin_api_calls table — just insert the call record.
+  return logApiCall({
+    service,
+    type: 'aggregate',
+    durationMs,
+    cost,
+    status: isError ? 500 : 200,
+    error: isError ? 'error' : null,
+  });
 }
 
 // ── Config Management ────────────────────────────────────────────────────────
 
 export async function getConfig(key, defaultValue) {
-  if (!kv) return defaultValue;
+  if (!sb) return defaultValue;
   try {
-    const val = await kv.get(`admin:config:${key}`);
-    return val !== null && val !== undefined ? val : defaultValue;
+    const { data } = await sb.from('admin_config')
+      .select('value')
+      .eq('key', `config:${key}`)
+      .single();
+    return data?.value !== null && data?.value !== undefined ? data.value : defaultValue;
   } catch {
     return defaultValue;
   }
 }
 
 export async function setConfig(key, value) {
-  if (!kv) return false;
+  if (!sb) return false;
   try {
-    await kv.set(`admin:config:${key}`, value);
+    await sb.from('admin_config').upsert({
+      key: `config:${key}`,
+      value: JSON.stringify(value) === value ? value : value,
+      updated_at: new Date().toISOString(),
+    });
     return true;
   } catch {
     return false;
@@ -446,18 +267,30 @@ export async function setConfig(key, value) {
 // ── Prompt Override Management ───────────────────────────────────────────────
 
 export async function getPromptOverride(section) {
-  if (!kv) return null;
+  if (!sb) return null;
   try {
-    return await kv.get(`admin:prompts:${section}`);
+    const { data } = await sb.from('admin_config')
+      .select('value')
+      .eq('key', `prompt:${section}`)
+      .single();
+    return data?.value || null;
   } catch {
     return null;
   }
 }
 
 export async function setPromptOverride(section, text) {
-  if (!kv) return false;
+  if (!sb) return false;
   try {
-    await kv.set(`admin:prompts:${section}`, text);
+    if (text === null || text === '') {
+      await sb.from('admin_config').delete().eq('key', `prompt:${section}`);
+    } else {
+      await sb.from('admin_config').upsert({
+        key: `prompt:${section}`,
+        value: text,
+        updated_at: new Date().toISOString(),
+      });
+    }
     return true;
   } catch {
     return false;
@@ -467,31 +300,32 @@ export async function setPromptOverride(section, text) {
 // ── Experiment Management ────────────────────────────────────────────────────
 
 export async function getActiveExperiment(target) {
-  if (!kv) return null;
+  if (!sb) return null;
   try {
-    const expIds = await kv.zrange('admin:experiments_index', 0, -1);
-    for (const id of expIds) {
-      const exp = await kv.get(`admin:experiments:${id}`);
-      if (exp && exp.status === 'running' && exp.target === target) {
-        return exp;
-      }
-    }
-    return null;
+    const { data } = await sb.from('admin_experiments')
+      .select('*')
+      .eq('status', 'running')
+      .eq('target', target)
+      .limit(1)
+      .single();
+    return data || null;
   } catch {
     return null;
   }
 }
 
 export async function logExperimentBookResult(experimentId, variant, scores) {
-  if (!kv) return false;
+  if (!sb) return false;
   try {
-    const exp = await kv.get(`admin:experiments:${experimentId}`);
+    const { data: exp } = await sb.from('admin_experiments')
+      .select('*')
+      .eq('id', experimentId)
+      .single();
     if (!exp) return false;
 
-    const v = variant === 'B' ? exp.variantB : exp.variantA;
+    const v = variant === 'B' ? exp.variant_b : exp.variant_a;
     v.bookCount = (v.bookCount || 0) + 1;
 
-    // Running average
     if (scores.textScore !== undefined) {
       v.avgTextScore = ((v.avgTextScore || 0) * (v.bookCount - 1) + scores.textScore) / v.bookCount;
     }
@@ -499,7 +333,13 @@ export async function logExperimentBookResult(experimentId, variant, scores) {
       v.avgOverall = ((v.avgOverall || 0) * (v.bookCount - 1) + scores.overallScore) / v.bookCount;
     }
 
-    await kv.set(`admin:experiments:${experimentId}`, exp);
+    await sb.from('admin_experiments')
+      .update({
+        [variant === 'B' ? 'variant_b' : 'variant_a']: v,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', experimentId);
+
     return true;
   } catch {
     return false;
@@ -509,19 +349,13 @@ export async function logExperimentBookResult(experimentId, variant, scores) {
 // ── User Feedback Logging ────────────────────────────────────────────────────
 
 export async function logUserFeedback(bookId, feedback) {
-  if (!kv) return false;
+  if (!sb) return false;
   try {
-    await kv.set(`admin:feedback:${bookId}`, {
-      bookId,
-      submittedAt: new Date().toISOString(),
+    await sb.from('admin_feedback').insert({
+      book_id: bookId,
       stars: feedback.stars || 0,
       reaction: feedback.reaction || null,
       comment: feedback.comment || null,
-    });
-
-    await kv.zadd('admin:feedback_index', {
-      score: Date.now(),
-      member: bookId,
     });
 
     await logEvent('user_feedback', {

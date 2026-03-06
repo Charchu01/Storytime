@@ -430,32 +430,6 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         imageGenFlags.faceRefLostCount = 0;
       }
 
-      // Admin logging: log book to admin dashboard
-      const genDuration = Date.now() - (window.__genStartTime || Date.now());
-      const clerkUser = window.__clerk_user;
-      logBookToAdmin({
-        bookId: `book_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        userId: clerkUser?.id || storySessionId || `anon_${Date.now().toString(36)}`,
-        userEmail: clerkUser?.primaryEmailAddress?.emailAddress || null,
-        title: storyPlan.title || "Untitled",
-        tier,
-        style,
-        bookType: wizardData?.bookType || "adventure",
-        tone: wizardData?.tone || null,
-        heroName,
-        heroAge: wizardData?.heroAge || null,
-        heroType: wizardData?.heroType || "child",
-        hasPhoto: !!heroPhotoUrl,
-        characterCount: enrichedCast?.length || 1,
-        pageCount: (storyPlan.spreads?.length || 0) + 2,
-        totalDurationMs: genDuration,
-        totalCost: 0.05 + (Object.keys(images).length * 0.045),
-        status: Object.values(images).every(Boolean) ? "healthy" : Object.values(images).some(Boolean) ? "warnings" : "failed",
-        images,
-        storyTexts: (storyPlan.spreads || []).map(s => ({ left: s.leftPageText, right: s.rightPageText })),
-        dedication: wizardData?.dedication || storyPlan.dedication || null,
-      }).catch((err) => console.warn("Admin log failed:", err.message));
-
       // Save to Supabase — blocking, we need the UUID for navigation
       let supabaseBookId = null;
       try {
@@ -478,6 +452,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
           total_duration_ms: genDurationMs,
           total_cost: 0.05 + (Object.keys(images).length * 0.045),
           story_plan: storyPlan,
+          health_status: Object.values(images).every(Boolean) ? "healthy" : Object.values(images).some(Boolean) ? "warnings" : "failed",
         };
         const bookPages = [];
         if (images.cover) {
@@ -501,6 +476,33 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       } catch (e) {
         console.warn("Supabase save failed:", e.message);
       }
+
+      // Admin logging: log book to admin dashboard (after Supabase save so we have the ID)
+      const genDuration = Date.now() - (window.__genStartTime || Date.now());
+      const clerkUser = window.__clerk_user;
+      logBookToAdmin({
+        supabaseBookId,
+        bookId: supabaseBookId || `book_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        userId: clerkUser?.id || storySessionId || `anon_${Date.now().toString(36)}`,
+        userEmail: clerkUser?.primaryEmailAddress?.emailAddress || null,
+        title: storyPlan.title || "Untitled",
+        tier,
+        style,
+        bookType: wizardData?.bookType || "adventure",
+        tone: wizardData?.tone || null,
+        heroName,
+        heroAge: wizardData?.heroAge || null,
+        heroType: wizardData?.heroType || "child",
+        hasPhoto: !!heroPhotoUrl,
+        characterCount: enrichedCast?.length || 1,
+        pageCount: (storyPlan.spreads?.length || 0) + 2,
+        totalDurationMs: genDuration,
+        totalCost: 0.05 + (Object.keys(images).length * 0.045),
+        status: Object.values(images).every(Boolean) ? "healthy" : Object.values(images).some(Boolean) ? "warnings" : "failed",
+        images,
+        storyTexts: (storyPlan.spreads || []).map(s => ({ left: s.leftPageText, right: s.rightPageText })),
+        dedication: wizardData?.dedication || storyPlan.dedication || null,
+      }).catch((err) => console.warn("Admin log failed:", err.message));
 
       onNext({
         supabaseBookId,
