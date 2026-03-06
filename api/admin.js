@@ -1,6 +1,11 @@
-import { kv } from '@vercel/kv';
-
 export const config = { maxDuration: 30 };
+
+// Check if KV is configured before importing
+const kvAvailable = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+let kv = null;
+if (kvAvailable) {
+  kv = (await import('@vercel/kv')).kv;
+}
 
 export default async function handler(req, res) {
   // CORS / method check
@@ -12,6 +17,11 @@ export default async function handler(req, res) {
 
   if (!action) {
     return res.status(400).json({ error: 'action parameter is required' });
+  }
+
+  // If KV is not configured, return empty/default data instead of crashing
+  if (!kvAvailable) {
+    return handleWithoutKV(req, res, action);
   }
 
   try {
@@ -415,7 +425,97 @@ async function checkElevenLabs() {
 }
 
 async function checkKV() {
+  if (!kv) return { configured: false };
   const start = Date.now();
   await kv.ping();
   return { configured: true, pingMs: Date.now() - start };
+}
+
+// Return empty/default data when Vercel KV is not configured
+function handleWithoutKV(req, res, action) {
+  const today = new Date().toISOString().split('T')[0];
+  const emptyDaily = getEmptyDailyStats(today);
+
+  switch (action) {
+    case 'overview':
+      return res.json({
+        daily: emptyDaily,
+        events: [],
+        monthlyRevenue: 0,
+        totalBooks: 0,
+        totalUsers: 0,
+        kvConfigured: false,
+      });
+    case 'books':
+      return res.json({ books: [], total: 0, page: 0, limit: 20, kvConfigured: false });
+    case 'book':
+      return res.json({ book: null, postgame: null, feedback: null, kvConfigured: false });
+    case 'revenue':
+      return res.json({ revenue: [], kvConfigured: false });
+    case 'api_calls':
+      return res.json({ calls: [], kvConfigured: false });
+    case 'errors':
+      return res.json({ errors: [], kvConfigured: false });
+    case 'users':
+      return res.json({ users: [], total: 0, page: 0, limit: 20, kvConfigured: false });
+    case 'quality':
+      return res.json({ validations: [], trends: [], kvConfigured: false });
+    case 'postgame':
+      return res.json({ analyses: [], kvConfigured: false });
+    case 'insights':
+      return res.json({ insights: null, kvConfigured: false });
+    case 'experiments':
+      return res.json({ experiments: [], kvConfigured: false });
+    case 'get_config':
+      return res.json({ config: {}, kvConfigured: false });
+    case 'set_config':
+      return res.status(503).json({ error: 'Vercel KV not configured. Add a KV database in your Vercel project settings.' });
+    case 'get_prompts':
+      return res.json({ prompts: {}, kvConfigured: false });
+    case 'set_prompt':
+      return res.status(503).json({ error: 'Vercel KV not configured. Add a KV database in your Vercel project settings.' });
+    case 'health': {
+      // Health check can still run for non-KV services
+      return handleHealthWithoutKV(req, res);
+    }
+    case 'daily_stats': {
+      const days = parseInt(req.query.days) || 30;
+      const stats = [];
+      for (let i = 0; i < days; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        stats.push(getEmptyDailyStats(d.toISOString().split('T')[0]));
+      }
+      return res.json({ stats: stats.reverse(), kvConfigured: false });
+    }
+    case 'feedback':
+      return res.json({ feedbacks: [], kvConfigured: false });
+    case 'submit_feedback':
+      return res.status(503).json({ error: 'Vercel KV not configured. Add a KV database in your Vercel project settings.' });
+    default:
+      return res.status(400).json({ error: `Unknown action: ${action}` });
+  }
+}
+
+async function handleHealthWithoutKV(req, res) {
+  const services = {};
+  const checks = [
+    { name: 'anthropic', check: checkAnthropic },
+    { name: 'replicate', check: checkReplicate },
+    { name: 'stripe', check: checkStripe },
+    { name: 'elevenlabs', check: checkElevenLabs },
+    { name: 'vercel_kv', check: async () => ({ configured: false }) },
+  ];
+
+  await Promise.all(checks.map(async ({ name, check }) => {
+    const start = Date.now();
+    try {
+      const status = await check();
+      services[name] = { status: status.configured === false ? 'not_configured' : 'ok', responseMs: Date.now() - start, ...status };
+    } catch (err) {
+      services[name] = { status: 'error', responseMs: Date.now() - start, error: err.message };
+    }
+  }));
+
+  return res.json({ services, checkedAt: new Date().toISOString(), kvConfigured: false });
 }

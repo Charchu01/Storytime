@@ -62,9 +62,23 @@ export default function Overview() {
   const books = daily?.books || {};
   const successRate = books.total > 0
     ? Math.round(((books.healthy || 0) / books.total) * 100) : 100;
+  const kvConfigured = data?.kvConfigured !== false;
 
   return (
     <div>
+      {!kvConfigured && (
+        <div style={{ ...card, border: "1px solid #fef08a", background: "#fefce8", marginBottom: 20 }}>
+          <h3 style={{ ...cardTitle, color: "#a16207", margin: "0 0 8px" }}>Vercel KV Not Configured</h3>
+          <p style={{ fontSize: 13, color: "#854d0e", margin: 0 }}>
+            The admin dashboard uses Vercel KV (Redis) to store analytics data. To enable it:
+          </p>
+          <ol style={{ fontSize: 13, color: "#854d0e", margin: "8px 0 0", paddingLeft: 20 }}>
+            <li>Go to your Vercel Dashboard &rarr; this project &rarr; <strong>Storage</strong> tab</li>
+            <li>Click <strong>Create Database</strong> &rarr; select <strong>KV</strong></li>
+            <li>Redeploy the project so the env vars take effect</li>
+          </ol>
+        </div>
+      )}
       {/* Key Metrics */}
       <div style={grid4}>
         <MetricCard
