@@ -27,16 +27,16 @@ const STYLE_EMOJIS = {
 };
 
 const STYLE_DESCRIPTIONS = {
-  storybook: "Think Beatrix Potter meets modern picture books — warm, painterly, timeless charm.",
-  watercolor: "Soft washes of colour that bleed gently together, like a dreamy afternoon.",
-  pixar: "Cinematic 3D characters with expressive faces, like a still from your favourite movie.",
-  bold: "Punchy, modern illustrations with thick outlines and electric colours. Award-winning vibes.",
-  cozy: "Pastel tones, rounded shapes, rosy cheeks. Perfect for bedtime stories.",
-  sketch: "Charming hand-drawn lines with loose watercolour fills. Perfectly imperfect.",
-  anime: "Large expressive eyes, soft cel-shading, and a touch of Studio Ghibli magic.",
-  retro: "Mid-century nostalgia — muted palettes, print textures, and vintage charm.",
-  collage: "Torn paper, fabric textures, and layered cutouts. Crafty and tactile.",
-  minimal: "Clean Scandinavian simplicity — generous white space, geometric elegance.",
+  storybook: "Warm, painterly, timeless picture book charm",
+  watercolor: "Dreamy washes of colour, soft and ethereal",
+  pixar: "Cinematic 3D characters with movie-quality glow",
+  bold: "Thick outlines, electric colours, playful energy",
+  cozy: "Pastel tones, rounded shapes, bedtime warmth",
+  sketch: "Hand-drawn pencil lines with watercolour fills",
+  anime: "Expressive eyes, soft shading, Ghibli-inspired magic",
+  retro: "1960s nostalgia with muted vintage palette",
+  collage: "Torn paper textures, layered and handcrafted",
+  minimal: "Scandinavian simplicity, clean geometric elegance",
 };
 
 export default function StylePicker({ onSelect, onBack }) {
@@ -60,7 +60,7 @@ export default function StylePicker({ onSelect, onBack }) {
       </div>
       <div className="create-step-content">
         <h1 className="create-step-title">Choose the look</h1>
-        <p className="create-step-subtitle">Pick an art style for your illustrations</p>
+        <p className="create-step-subtitle">Each style creates a completely different world</p>
 
         <div className="sp-grid">
           {STYLES.map((s) => {
@@ -79,38 +79,41 @@ export default function StylePicker({ onSelect, onBack }) {
                 </div>
                 <div className="sp-card-info">
                   <span className="sp-card-name">{s.name}</span>
-                  <span className="sp-card-tagline">{STYLE_DESCRIPTIONS[s.id]}</span>
+                  <span className="sp-card-desc">{STYLE_DESCRIPTIONS[s.id]}</span>
                 </div>
               </button>
             );
           })}
         </div>
 
-        {/* Tones */}
-        <div className="sp-tone-section">
-          <h2 className="sp-tone-title">Set the mood <span className="hs-optional">(optional)</span></h2>
-          <div className="sp-tone-row">
-            {TONES.map((t) => (
-              <button key={t.id} className={`sp-tone-chip${selectedTone?.id === t.id ? " sp-tone-chip--active" : ""}`} onClick={() => setSelectedTone(selectedTone?.id === t.id ? null : t)}>
-                <span>{t.emoji}</span>
-                <span>{t.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Selection summary + continue */}
+        {/* Tone section — only visible after selecting a style */}
         {selectedStyle && (
-          <div className="sp-footer">
-            <p className="sp-selection-summary">
-              {selectedStyle.name}{selectedTone ? ` \u00B7 ${selectedTone.label}` : ""}
-            </p>
-            <button className="create-continue-btn" onClick={handleContinue}>
-              Continue &rarr;
-            </button>
+          <div className="sp-tone-section">
+            <h2 className="sp-tone-title">Set the mood <span className="sp-tone-optional">(optional)</span></h2>
+            <p className="sp-tone-subtitle">This adjusts the lighting and atmosphere of every illustration</p>
+            <div className="sp-tone-row">
+              {TONES.map((t) => (
+                <button key={t.id} className={`sp-tone-chip${selectedTone?.id === t.id ? " sp-tone-chip--active" : ""}`} onClick={() => setSelectedTone(selectedTone?.id === t.id ? null : t)}>
+                  <span>{t.emoji}</span>
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
+
+      {/* Sticky footer — only visible after selecting a style */}
+      {selectedStyle && (
+        <div className="sp-footer">
+          <p className="sp-selection-summary">
+            {selectedStyle.name}{selectedTone ? ` \u00B7 ${selectedTone.label}` : ""}
+          </p>
+          <button className="create-continue-btn" onClick={handleContinue}>
+            Continue &rarr;
+          </button>
+        </div>
+      )}
     </div>
   );
 }

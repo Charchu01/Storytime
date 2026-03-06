@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 
 export default function InstallPrompt() {
+  const location = useLocation();
   const [show, setShow] = useState(false);
   const deferredPrompt = useRef(null);
 
@@ -41,6 +43,9 @@ export default function InstallPrompt() {
     localStorage.setItem("sk_install_dismissed", "1");
     setShow(false);
   }
+
+  // Never show during the creation flow
+  if (location.pathname.startsWith("/create")) return null;
 
   if (!show) return null;
 
