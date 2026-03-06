@@ -1,4 +1,5 @@
 import { logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
+import { rateLimit } from './lib/rate-limiter.js';
 
 export const config = { maxDuration: 30 };
 
@@ -19,6 +20,15 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const rl = rateLimit(req, { key: 'narrate', limit: 30, windowMs: 60000 });
+  if (!rl.allowed) {
+    res.setHeader('Retry-After', Math.ceil((rl.resetAt - Date.now()) / 1000));
+    return res.status(429).json({
+      error: 'Too many requests. Please try again in a moment.',
+      retryAfter: Math.ceil((rl.resetAt - Date.now()) / 1000),
+    });
   }
 
   const apiKey = process.env.ELEVENLABS_KEY;

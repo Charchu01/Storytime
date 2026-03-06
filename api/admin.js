@@ -2,6 +2,7 @@ export const config = { maxDuration: 30 };
 
 import { supabaseAdmin } from './lib/supabase-admin.js';
 import { checkAdminAuth } from './lib/admin-auth-check.js';
+import { rateLimit } from './lib/rate-limiter.js';
 
 const sb = supabaseAdmin;
 
@@ -16,6 +17,15 @@ export default async function handler(req, res) {
   const { authorized } = checkAdminAuth(req);
   if (!authorized) {
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const rl = rateLimit(req, { key: 'admin', limit: 30, windowMs: 60000 });
+  if (!rl.allowed) {
+    res.setHeader('Retry-After', Math.ceil((rl.resetAt - Date.now()) / 1000));
+    return res.status(429).json({
+      error: 'Too many requests. Please try again in a moment.',
+      retryAfter: Math.ceil((rl.resetAt - Date.now()) / 1000),
+    });
   }
 
   const action = req.query.action || req.body?.action;

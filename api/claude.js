@@ -1,4 +1,5 @@
 import { logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
+import { rateLimit } from './lib/rate-limiter.js';
 
 export const config = { maxDuration: 60 };
 
@@ -7,6 +8,15 @@ export default async function handler(req, res) {
   try {
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    const rl = rateLimit(req, { key: 'claude', limit: 10, windowMs: 60000 });
+    if (!rl.allowed) {
+      res.setHeader('Retry-After', Math.ceil((rl.resetAt - Date.now()) / 1000));
+      return res.status(429).json({
+        error: 'Too many requests. Please try again in a moment.',
+        retryAfter: Math.ceil((rl.resetAt - Date.now()) / 1000),
+      });
     }
 
     const apiKey = process.env.ANTHROPIC_KEY;
