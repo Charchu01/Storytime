@@ -139,18 +139,56 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
   const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
   const suggestions = lastAssistant?.suggestions || [];
   const visibleMessages = messages.filter((m) => !m.hidden);
+  const hasUserReplied = messages.some(m => m.role === "user" && !m.hidden);
+  const isFirstPromptPhase = !hasUserReplied && !loading;
 
   return (
     <div className="sc-panel">
       <div className="sc-messages">
-        {visibleMessages.map((msg, i) => (
-          <ChatBubble key={i} message={msg} />
-        ))}
+        {/* First prompt phase: spark cards instead of chat bubbles */}
+        {isFirstPromptPhase && visibleMessages.length > 0 && visibleMessages[0].role === "assistant" && suggestions.length > 0 ? (
+          <div className="sc-first-prompt">
+            <p className="sc-first-text">{visibleMessages[0].displayText}</p>
+            <div className="sc-spark-grid">
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  className="sc-spark-card"
+                  onClick={() => handleSuggestionClick(s)}
+                  style={{ animationDelay: `${i * 80}ms` }}
+                >
+                  <span className="sc-spark-text">{s}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {visibleMessages.map((msg, i) => (
+              <ChatBubble key={i} message={msg} />
+            ))}
+
+            {/* Suggestion chips for follow-up questions */}
+            {suggestions.length > 0 && !loading && (
+              <div className="sc-suggestions">
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    className="sc-suggestion-chip"
+                    onClick={() => handleSuggestionClick(s)}
+                    style={{ animationDelay: `${i * 50}ms` }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
         {loading && (
           <div className="cb-wrap cb-assistant">
-            <div className="cb-avatar">{"\uD83D\uDCD6"}</div>
-            <div className="cb-bubble cb-bubble-ai cb-typing">
+            <div className="cb-typing">
               <span className="cb-dot" />
               <span className="cb-dot" />
               <span className="cb-dot" />
@@ -161,22 +199,6 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
         <div ref={chatEndRef} />
       </div>
 
-      {/* Suggestion chips */}
-      {suggestions.length > 0 && !loading && (
-        <div className="sc-suggestions">
-          {suggestions.map((s, i) => (
-            <button
-              key={i}
-              className="sc-suggestion-chip"
-              onClick={() => handleSuggestionClick(s)}
-              style={{ animationDelay: `${i * 50}ms` }}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* Input bar */}
       <div className="sc-input-bar">
         <textarea
@@ -185,7 +207,7 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
           value={input}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder="Type your answer..."
+          placeholder="Tell me about the adventure..."
           disabled={loading}
           rows={1}
         />
