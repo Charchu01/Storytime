@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
-import { kv } from '@vercel/kv';
 import getRawBody from 'raw-body';
 import { logRevenue, logEvent as logAdminEvent } from './lib/admin-logger.js';
+import { supabaseAdmin } from './lib/supabase-admin.js';
 
 export const config = { maxDuration: 30, api: { bodyParser: false } };
 
@@ -27,11 +27,17 @@ export default async function handler(req, res) {
     const pi = event.data.object;
     const { storySessionId, tier } = pi.metadata;
     if (storySessionId) {
-      await kv.set(`paid:${storySessionId}`, {
-        paid: true,
-        tier,
-        paidAt: new Date().toISOString(),
-      }, { ex: 86400 });
+      // Record payment in Supabase (replaces Vercel KV)
+      if (supabaseAdmin) {
+        await supabaseAdmin.from('payment_records').upsert({
+          session_id: storySessionId,
+          paid: true,
+          tier,
+          stripe_payment_intent_id: pi.id,
+          paid_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 86400 * 1000).toISOString(),
+        }, { onConflict: 'session_id' });
+      }
 
       // Admin logging: revenue
       const amount = pi.amount ? pi.amount / 100 : (tier === 'premium' ? 19.99 : 9.99);

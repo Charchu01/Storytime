@@ -1,15 +1,27 @@
-import { kv } from '@vercel/kv';
+import { supabaseAdmin } from './lib/supabase-admin.js';
 
 export const config = { maxDuration: 10 };
 
 export default async function handler(req, res) {
+  if (!supabaseAdmin) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
   // Use a simple device-based key (or Clerk userId if available via header)
   const userId = req.headers['x-user-id'] || req.query.userId || 'anonymous';
-  const key = `vault:${userId}`;
 
   try {
     if (req.method === 'GET') {
-      const characters = await kv.get(key) || [];
+      const { data, error } = await supabaseAdmin
+        .from('vault_characters')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at');
+
+      if (error) throw error;
+
+      // Map DB columns to camelCase for frontend compatibility
+      const characters = (data || []).map(mapCharacter);
       return res.json({ characters });
     }
 
@@ -19,27 +31,33 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'name is required' });
       }
 
-      const characters = await kv.get(key) || [];
-      const newChar = {
-        id: Date.now().toString(36) + Math.random().toString(36).slice(2),
-        name,
-        photoUrl: photoUrl || null,
-        thumbnailUrl: thumbnailUrl || null,
-        createdAt: new Date().toISOString(),
-      };
-      characters.push(newChar);
-      await kv.set(key, characters);
+      const { data, error } = await supabaseAdmin
+        .from('vault_characters')
+        .insert({
+          user_id: userId,
+          name,
+          photo_url: photoUrl || null,
+          thumbnail_url: thumbnailUrl || null,
+        })
+        .select()
+        .single();
 
-      return res.json({ character: newChar });
+      if (error) throw error;
+
+      return res.json({ character: mapCharacter(data) });
     }
 
     if (req.method === 'DELETE') {
       const { characterId } = req.body || req.query;
       if (!characterId) return res.status(400).json({ error: 'characterId required' });
 
-      const characters = await kv.get(key) || [];
-      const filtered = characters.filter((c) => c.id !== characterId);
-      await kv.set(key, filtered);
+      const { error } = await supabaseAdmin
+        .from('vault_characters')
+        .delete()
+        .eq('id', characterId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
 
       return res.json({ deleted: true });
     }
@@ -49,4 +67,14 @@ export default async function handler(req, res) {
     console.error('vault error:', err);
     res.status(500).json({ error: err.message });
   }
+}
+
+function mapCharacter(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    photoUrl: row.photo_url,
+    thumbnailUrl: row.thumbnail_url,
+    createdAt: row.created_at,
+  };
 }
