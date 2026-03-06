@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import adminFetch from "../../lib/adminFetch";
 
 export default function System() {
   const [health, setHealth] = useState(null);
@@ -14,10 +15,10 @@ export default function System() {
   const fetchData = useCallback(async () => {
     try {
       const [healthRes, configRes, promptsRes, expRes] = await Promise.all([
-        fetch("/api/admin?action=health"),
-        fetch("/api/admin?action=get_config"),
-        fetch("/api/admin?action=get_prompts"),
-        fetch("/api/admin?action=experiments"),
+        adminFetch("/api/admin?action=health"),
+        adminFetch("/api/admin?action=get_config"),
+        adminFetch("/api/admin?action=get_prompts"),
+        adminFetch("/api/admin?action=experiments"),
       ]);
       setHealth(await healthRes.json());
       const cfg = await configRes.json();
@@ -36,7 +37,7 @@ export default function System() {
 
   const updateConfig = async (key, value) => {
     try {
-      await fetch("/api/admin?action=set_config", {
+      await adminFetch("/api/admin?action=set_config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key, value }),
@@ -49,7 +50,7 @@ export default function System() {
 
   const savePrompt = async (section, text) => {
     try {
-      await fetch("/api/admin?action=set_prompt", {
+      await adminFetch("/api/admin?action=set_prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ section, text }),

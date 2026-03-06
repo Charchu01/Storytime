@@ -98,6 +98,7 @@ export default function AdminPage() {
       if (data.authorized) {
         setAuthorized(true);
         sessionStorage.setItem("admin_auth", "true");
+        sessionStorage.setItem("admin_password", password);
       } else {
         setLoginError("Invalid password");
       }
