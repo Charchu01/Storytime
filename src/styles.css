@@ -3280,14 +3280,15 @@
   transition: all 0.2s ease;
 }
 .create-progress-circle--active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--text-on-accent);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-white);
+  box-shadow: 0 0 0 4px rgba(200, 93, 42, 0.12);
 }
 .create-progress-circle--done {
-  background: var(--warm-bg);
-  border-color: var(--gold);
-  color: var(--gold);
+  background: var(--color-gold);
+  border-color: var(--color-gold);
+  color: var(--color-white);
 }
 .create-progress-label {
   font-size: 11px;
@@ -3417,36 +3418,74 @@
   gap: 16px;
 }
 .btp-card {
-  background: #fff;
-  border: 1px solid var(--border-light);
+  background: var(--mood-bg, var(--color-white));
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   padding: 24px 20px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.22s ease;
   box-shadow: var(--shadow-sm);
   font-family: var(--font-body);
   display: flex;
   flex-direction: column;
   align-items: center;
+  position: relative;
 }
 .btp-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--border);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(45, 27, 14, 0.12);
+  border-color: var(--color-border);
+  background: var(--mood-bg-hover, var(--color-white));
 }
 .btp-card:active {
   transform: scale(0.97);
 }
+/* Featured first row: more vertical presence */
+.btp-card--featured {
+  padding-top: 32px;
+  padding-bottom: 32px;
+}
+
+/* Selected state */
+.btp-card--selected {
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 0 0 4px rgba(200, 93, 42, 0.12);
+}
+.btp-card-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-white);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: btpCheckPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes btpCheckPop {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
 .btp-card-emoji-circle {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: var(--warm-bg-deep);
+  background: var(--mood-circle, rgba(180, 160, 140, 0.12));
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 12px;
+  transition: transform 0.2s ease;
+}
+.btp-card:hover .btp-card-emoji-circle {
+  transform: scale(1.08);
 }
 .btp-card-emoji {
   font-size: 28px;
@@ -3465,35 +3504,53 @@
   margin: 0;
   line-height: 1.4;
 }
+/* Example as single-line italic hint, no background box */
 .btp-card-example {
-  font-size: 12px;
+  font-size: 13px;
   font-style: italic;
   color: var(--text-muted);
-  margin: 8px 0 0;
-  padding: 6px 10px;
-  background: var(--warm-bg-deep);
-  border-radius: var(--radius-sm);
+  margin: 6px 0 0;
   line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* Something Else custom card */
 .btp-card-custom {
   border-style: dashed;
   border-width: 2px;
+  overflow: hidden;
 }
 .btp-card-custom--active {
-  border-color: var(--accent);
-  background: var(--accent-light);
+  border-color: var(--color-accent);
+  background: var(--color-accent-light);
+}
+/* Pencil background watermark */
+.btp-custom-bg-emoji {
+  position: absolute;
+  font-size: 64px;
+  opacity: 0.06;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-15deg);
+  pointer-events: none;
 }
 
 /* Custom idea form below grid */
 .btp-custom-section {
   max-width: 500px;
   margin: 24px auto 0;
-  background: #fff;
+  background: var(--color-white);
   border-radius: var(--radius-lg);
   padding: 24px;
   box-shadow: var(--shadow-md);
+  animation: btpCustomSlide 0.25s ease;
+}
+@keyframes btpCustomSlide {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .btp-custom-heading {
   font-family: var(--font-body);
@@ -3505,31 +3562,31 @@
 .btp-custom-input {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: 15px;
   color: var(--text-primary);
-  background: #fff;
+  background: var(--color-white);
   transition: all 0.2s ease;
   box-sizing: border-box;
   margin-bottom: 12px;
 }
 .btp-custom-input:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--color-accent);
   box-shadow: var(--shadow-glow);
 }
 .btp-custom-input::placeholder { color: var(--text-muted); }
 .btp-custom-textarea {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: 14px;
   color: var(--text-primary);
-  background: #fff;
+  background: var(--color-white);
   resize: vertical;
   transition: all 0.2s ease;
   box-sizing: border-box;
@@ -3537,7 +3594,7 @@
 }
 .btp-custom-textarea:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--color-accent);
   box-shadow: var(--shadow-glow);
 }
 .btp-custom-textarea::placeholder { color: var(--text-muted); }
@@ -3545,6 +3602,7 @@
 @media (max-width: 768px) {
   .btp-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .btp-card { padding: 20px 16px; }
+  .btp-card--featured { padding-top: 24px; padding-bottom: 24px; }
   .btp-card-emoji-circle { width: 48px; height: 48px; }
   .btp-card-emoji { font-size: 24px; }
 }

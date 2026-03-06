@@ -1,10 +1,37 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { BOOK_TYPES } from "../constants/data";
+
+const MOOD_COLORS = {
+  adventure: "rgba(255, 183, 77, VAR)",
+  nursery_rhyme: "rgba(240, 128, 170, VAR)",
+  bedtime: "rgba(147, 130, 220, VAR)",
+  abc: "rgba(100, 181, 246, VAR)",
+  counting: "rgba(129, 199, 132, VAR)",
+  superhero: "rgba(239, 83, 80, VAR)",
+  love_letter: "rgba(244, 143, 177, VAR)",
+  day_in_life: "rgba(255, 213, 79, VAR)",
+};
+
+function getMoodColor(id, alpha) {
+  const template = MOOD_COLORS[id];
+  return template ? template.replace("VAR", alpha) : "transparent";
+}
 
 export default function BookTypePicker({ onSelect, onBack }) {
   const [showCustom, setShowCustom] = useState(false);
   const [customTitle, setCustomTitle] = useState("");
   const [customDesc, setCustomDesc] = useState("");
+  const [selectedId, setSelectedId] = useState(null);
+  const advanceTimer = useRef(null);
+
+  function handleCardClick(type) {
+    if (advanceTimer.current) return;
+    setSelectedId(type.id);
+    advanceTimer.current = setTimeout(() => {
+      advanceTimer.current = null;
+      onSelect(type);
+    }, 300);
+  }
 
   function handleCustomSubmit() {
     if (!customTitle.trim()) return;
@@ -27,22 +54,34 @@ export default function BookTypePicker({ onSelect, onBack }) {
       </div>
       <div className="create-step-content">
         <h1 className="create-step-title">What kind of book shall we make?</h1>
-        <p className="create-step-subtitle">Choose the perfect format for your story</p>
+        <p className="create-step-subtitle">Every great story starts with a spark</p>
 
         <div className="btp-grid">
-          {BOOK_TYPES.map((type) => (
+          {BOOK_TYPES.map((type, idx) => (
             <button
               key={type.id}
-              className="btp-card"
-              onClick={() => onSelect(type)}
+              className={
+                "btp-card" +
+                (idx < 3 ? " btp-card--featured" : "") +
+                (selectedId === type.id ? " btp-card--selected" : "")
+              }
+              style={{
+                "--mood-bg": getMoodColor(type.id, "0.08"),
+                "--mood-bg-hover": getMoodColor(type.id, "0.15"),
+                "--mood-circle": getMoodColor(type.id, "0.15"),
+              }}
+              onClick={() => handleCardClick(type)}
             >
+              {selectedId === type.id && (
+                <span className="btp-card-check">✓</span>
+              )}
               <div className="btp-card-emoji-circle">
                 <span className="btp-card-emoji">{type.emoji}</span>
               </div>
               <h3 className="btp-card-title">{type.title}</h3>
               <p className="btp-card-subtitle">{type.subtitle}</p>
               {type.example && (
-                <p className="btp-card-example">&ldquo;{type.example}&rdquo;</p>
+                <p className="btp-card-example">{type.example}</p>
               )}
             </button>
           ))}
@@ -52,7 +91,8 @@ export default function BookTypePicker({ onSelect, onBack }) {
             className={`btp-card btp-card-custom${showCustom ? " btp-card-custom--active" : ""}`}
             onClick={() => setShowCustom(!showCustom)}
           >
-            <div className="btp-card-emoji-circle">
+            <span className="btp-custom-bg-emoji">✏️</span>
+            <div className="btp-card-emoji-circle" style={{ "--mood-circle": "rgba(180, 160, 140, 0.12)" }}>
               <span className="btp-card-emoji">{"\u270F\uFE0F"}</span>
             </div>
             <h3 className="btp-card-title">Something Else</h3>
