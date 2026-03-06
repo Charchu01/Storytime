@@ -5,6 +5,7 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingMoreIdeas, setLoadingMoreIdeas] = useState(false);
   const chatEndRef = useRef(null);
   const textareaRef = useRef();
   const initRef = useRef(false);
@@ -123,6 +124,20 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
     handleSend(suggestion);
   }
 
+  async function handleMoreIdeas() {
+    setLoadingMoreIdeas(true);
+    const moreMsg = {
+      role: "user",
+      content: "Those ideas don't quite fit. Give me 4 completely different and creative story suggestions. Be surprising and unique!",
+      timestamp: Date.now(),
+      hidden: true,
+    };
+    const newMessages = [...messages, moreMsg];
+    setMessages(newMessages);
+    await sendToAssistant(newMessages);
+    setLoadingMoreIdeas(false);
+  }
+
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -153,7 +168,7 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
               {suggestions.map((s, i) => (
                 <button
                   key={i}
-                  className="sc-spark-card"
+                  className={`sc-spark-card${s.includes('my own idea') ? ' sc-spark-card--custom' : ''}`}
                   onClick={() => handleSuggestionClick(s)}
                   style={{ animationDelay: `${i * 80}ms` }}
                 >
@@ -161,6 +176,20 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
                 </button>
               ))}
             </div>
+            <button
+              className="sc-more-ideas"
+              onClick={handleMoreIdeas}
+              disabled={loadingMoreIdeas}
+            >
+              {loadingMoreIdeas ? (
+                <>
+                  <span className="sc-more-spinner" />
+                  Thinking...
+                </>
+              ) : (
+                <>Show me different ideas</>
+              )}
+            </button>
           </div>
         ) : (
           <>

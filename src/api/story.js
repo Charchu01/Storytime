@@ -85,15 +85,14 @@ export async function cacheImageAsBlob(url) {
 async function validateImageUrl(url) {
   if (!url) return false;
   if (url.startsWith("blob:") || url.startsWith("data:")) return true;
-  try {
-    const resp = await fetch(url, { method: "HEAD" });
-    if (!resp.ok) return false;
-    const ct = resp.headers.get("content-type");
-    if (ct && !ct.startsWith("image/")) return false;
-    return true;
-  } catch {
-    return false;
-  }
+  // Use Image element instead of fetch HEAD to avoid CORS failures
+  // (Replicate CDN doesn't set CORS headers for programmatic fetch)
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
 }
 
 // ── Image selection & quality tier ────────────────────────────────────────────
