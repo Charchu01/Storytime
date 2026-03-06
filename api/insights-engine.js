@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './lib/supabase-admin.js';
-import { logEvent } from './lib/admin-logger.js';
+import { logEvent, logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
 
 export const config = { maxDuration: 60 };
 
@@ -162,8 +162,30 @@ Return JSON:
 
     const data = await response.json();
     if (!response.ok) {
+      logApiCall({
+        service: 'anthropic',
+        type: 'insights_engine',
+        status: response.status,
+        model: 'claude-sonnet-4-20250514',
+        error: data.error?.message,
+      }).catch(() => {});
+      updateDailyApiStats('anthropic', 0, 0, true).catch(() => {});
       return res.status(response.status).json({ error: data.error?.message });
     }
+
+    // Calculate actual cost from token usage
+    const inputTokens = data.usage?.input_tokens || 0;
+    const outputTokens = data.usage?.output_tokens || 0;
+    const cost = (inputTokens * 3 + outputTokens * 15) / 1_000_000;
+    logApiCall({
+      service: 'anthropic',
+      type: 'insights_engine',
+      status: 200,
+      model: 'claude-sonnet-4-20250514',
+      cost,
+      details: { inputTokens, outputTokens },
+    }).catch(() => {});
+    updateDailyApiStats('anthropic', 0, cost, false).catch(() => {});
 
     const text = data.content.map(b => b.text || '').join('').trim();
     let insights;

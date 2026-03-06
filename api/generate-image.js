@@ -158,6 +158,7 @@ export default async function handler(req, res) {
     }));
 
     // Admin logging
+    // TODO: Fetch actual cost from Replicate prediction.metrics after completion
     logApiCall({
       service: 'replicate',
       type: isCover ? 'cover' : 'spread',

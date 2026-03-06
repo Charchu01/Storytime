@@ -170,8 +170,11 @@ export default async function handler(req, res) {
           issues: normalized.issues,
         }));
 
-        // Admin logging
+        // Admin logging — calculate actual cost from token usage
         const valDuration = Date.now() - (req._adminStartTime || Date.now());
+        const inputTokens = data.usage?.input_tokens || 0;
+        const outputTokens = data.usage?.output_tokens || 0;
+        const cost = (inputTokens * 3 + outputTokens * 15) / 1_000_000;
         logApiCall({
           service: 'anthropic',
           type: 'validation',
@@ -179,10 +182,10 @@ export default async function handler(req, res) {
           status: 200,
           durationMs: valDuration,
           model: 'claude-sonnet-4-20250514',
-          cost: 0.004,
-          details: `${pageType}: text=${normalized.textScore} face=${normalized.faceScore} textBox=${normalized.textBoxScore} scene=${normalized.sceneAccuracy} ${normalized.pass ? 'PASS' : 'FAIL'}`,
+          cost,
+          details: { inputTokens, outputTokens, summary: `${pageType}: text=${normalized.textScore} face=${normalized.faceScore} textBox=${normalized.textBoxScore} scene=${normalized.sceneAccuracy} ${normalized.pass ? 'PASS' : 'FAIL'}` },
         }).catch(() => {});
-        updateDailyApiStats('anthropic', valDuration, 0.004, false).catch(() => {});
+        updateDailyApiStats('anthropic', valDuration, cost, false).catch(() => {});
         logValidation({
           bookId: bookId || null,
           page: pageType,
