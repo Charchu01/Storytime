@@ -18,7 +18,7 @@ async function fetchWithRetry(url, options, maxRetries = 1) {
   }
 }
 
-function friendlyError(status, fallback) {
+export function friendlyError(status, fallback) {
   if (status === 429) return "Our servers are busy. Trying again in a moment...";
   if (status === 500) return "Something went wrong on our end. Please try again.";
   if (status === 403) return "There's a configuration issue. Please contact support.";
