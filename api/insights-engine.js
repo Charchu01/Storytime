@@ -1,7 +1,9 @@
-import { kv } from '@vercel/kv';
+import { supabaseAdmin } from './lib/supabase-admin.js';
 import { logEvent } from './lib/admin-logger.js';
 
 export const config = { maxDuration: 60 };
+
+const sb = supabaseAdmin;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -13,14 +15,27 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'ANTHROPIC_KEY not configured' });
   }
 
+  if (!sb) {
+    return res.status(503).json({ error: 'Supabase not configured' });
+  }
+
   try {
-    // Gather post-game analyses
-    const pgIds = await kv.zrange('admin:postgame_index', 0, 99, { rev: true }) || [];
-    const analyses = [];
-    for (const id of pgIds) {
-      const pg = await kv.get(`admin:postgame:${id}`);
-      if (pg?.scores) analyses.push(pg);
-    }
+    // Gather post-game analyses from Supabase
+    const { data: pgData } = await sb.from('admin_postgame')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    const analyses = (pgData || [])
+      .filter(pg => pg.scores || pg.data?.scores)
+      .map(pg => ({
+        bookId: pg.book_id,
+        overallScore: pg.overall_score || pg.data?.overallScore,
+        scores: pg.scores || pg.data?.scores,
+        topIssue: pg.top_issue || pg.data?.topIssue,
+        promptSuggestions: pg.data?.promptSuggestions,
+        wouldRecommend: pg.would_recommend,
+      }));
 
     if (analyses.length < 3) {
       return res.json({ skipped: true, reason: `Only ${analyses.length} analyses available, need at least 3` });
@@ -40,11 +55,18 @@ export default async function handler(req, res) {
     avgScores.overall = overallScores.length > 0
       ? overallScores.reduce((a, b) => a + b, 0) / overallScores.length : 0;
 
-    // Breakdown by style (from book records)
+    // Breakdown by style (from books table)
+    const bookIds = analyses.map(a => a.bookId).filter(Boolean);
+    const { data: books } = await sb.from('books')
+      .select('id, style')
+      .in('id', bookIds);
+
+    const bookStyleMap = {};
+    (books || []).forEach(b => { bookStyleMap[b.id] = b.style; });
+
     const byStyle = {};
     for (const a of analyses) {
-      const book = await kv.get(`admin:books:${a.bookId}`);
-      const style = book?.style || 'unknown';
+      const style = bookStyleMap[a.bookId] || 'unknown';
       if (!byStyle[style]) byStyle[style] = { scores: [], count: 0 };
       byStyle[style].count += 1;
       byStyle[style].scores.push(a.overallScore || 0);
@@ -152,7 +174,7 @@ Return JSON:
       return res.json({ skipped: true, reason: 'Parse error' });
     }
 
-    // Save insights
+    // Save insights to Supabase config table
     const insightsRecord = {
       date: new Date().toISOString().split('T')[0],
       sampleSize: analyses.length,
@@ -163,8 +185,11 @@ Return JSON:
       aiInsights: insights,
     };
 
-    await kv.set('admin:insights:latest', insightsRecord);
-    await kv.set(`admin:insights:${insightsRecord.date}`, insightsRecord);
+    await sb.from('admin_config').upsert({
+      key: 'insights:latest',
+      value: insightsRecord,
+      updated_at: new Date().toISOString(),
+    });
 
     await logEvent('insights_generated', {
       sampleSize: analyses.length,

@@ -68,7 +68,7 @@ export default function System() {
     { name: "REPLICATE_KEY", status: health?.services?.replicate?.configured !== false },
     { name: "STRIPE_SECRET_KEY", status: health?.services?.stripe?.configured },
     { name: "ELEVENLABS_KEY", status: health?.services?.elevenlabs?.configured !== false },
-    { name: "VERCEL_KV", status: health?.services?.vercel_kv?.status === "ok" },
+    { name: "SUPABASE", status: health?.services?.supabase?.status === "ok" },
   ];
 
   return (
@@ -120,7 +120,7 @@ export default function System() {
       <div style={card}>
         <h3 style={cardTitle}>Prompt Sandbox</h3>
         <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
-          Edit prompt sections. Overrides are stored in KV and take priority over code defaults.
+          Edit prompt sections. Overrides are stored in Supabase and take priority over code defaults.
         </p>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>

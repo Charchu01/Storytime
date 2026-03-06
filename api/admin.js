@@ -1,27 +1,24 @@
 export const config = { maxDuration: 30 };
 
-// Check if KV is configured before importing
-const kvAvailable = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
-let kv = null;
-if (kvAvailable) {
-  kv = (await import('@vercel/kv')).kv;
-}
+import { supabaseAdmin } from './lib/supabase-admin.js';
+
+const sb = supabaseAdmin;
+
+// Tier → price mapping for revenue computation
+const TIER_PRICES = { standard: 9.99, premium: 19.99 };
 
 export default async function handler(req, res) {
-  // CORS / method check
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const action = req.query.action || req.body?.action;
-
   if (!action) {
     return res.status(400).json({ error: 'action parameter is required' });
   }
 
-  // If KV is not configured, return empty/default data instead of crashing
-  if (!kvAvailable) {
-    return handleWithoutKV(req, res, action);
+  if (!sb) {
+    return handleWithoutSupabase(req, res, action);
   }
 
   try {
@@ -29,25 +26,49 @@ export default async function handler(req, res) {
       // ── Overview Data ────────────────────────────────────────
       case 'overview': {
         const today = new Date().toISOString().split('T')[0];
-        const dailyStats = await kv.get(`admin:daily:${today}`) || getEmptyDailyStats(today);
-        const events = await kv.lrange('admin:events', 0, 19) || [];
-        const parsedEvents = events.map(e => typeof e === 'string' ? JSON.parse(e) : e);
 
-        // Get monthly revenue
-        const monthlyRevenue = await getMonthlyRevenue();
+        // Today's books by health_status
+        const { data: todayBooks } = await sb.from('books')
+          .select('health_status')
+          .gte('created_at', today);
 
-        // Get total book count
-        const totalBooks = await kv.zcard('admin:books_index') || 0;
+        const daily = buildDailyBookStats(todayBooks || [], today);
 
-        // Get total user count
-        const totalUsers = await kv.zcard('admin:users_index') || 0;
+        // Recent events from activity_log
+        const { data: events } = await sb.from('activity_log')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        const parsedEvents = (events || []).map(e => ({
+          ts: new Date(e.created_at).getTime(),
+          type: e.event_type,
+          title: e.message,
+          bookId: e.book_id,
+        }));
+
+        // Monthly revenue (count books this month by tier)
+        const monthStart = new Date();
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+        const { data: monthBooks } = await sb.from('books')
+          .select('tier')
+          .gte('created_at', monthStart.toISOString());
+
+        const monthlyRevenue = (monthBooks || []).reduce(
+          (sum, b) => sum + (TIER_PRICES[b.tier] || 0), 0
+        );
+
+        // Totals
+        const { count: totalBooks } = await sb.from('books').select('id', { count: 'exact', head: true });
+        const { count: totalUsers } = await sb.from('users').select('id', { count: 'exact', head: true });
 
         return res.json({
-          daily: dailyStats,
+          daily,
           events: parsedEvents,
           monthlyRevenue,
-          totalBooks,
-          totalUsers,
+          totalBooks: totalBooks || 0,
+          totalUsers: totalUsers || 0,
         });
       }
 
@@ -55,17 +76,15 @@ export default async function handler(req, res) {
       case 'books': {
         const page = parseInt(req.query.page) || 0;
         const limit = parseInt(req.query.limit) || 20;
-        const start = page * limit;
+        const offset = page * limit;
 
-        const bookIds = await kv.zrange('admin:books_index', start, start + limit - 1, { rev: true }) || [];
-        const books = [];
-        for (const id of bookIds) {
-          const book = await kv.get(`admin:books:${id}`);
-          if (book) books.push(book);
-        }
+        const { data: books, count } = await sb.from('books')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
 
-        const total = await kv.zcard('admin:books_index') || 0;
-        return res.json({ books, total, page, limit });
+        const mapped = (books || []).map(mapBookToAdmin);
+        return res.json({ books: mapped, total: count || 0, page, limit });
       }
 
       // ── Single Book Detail ───────────────────────────────────
@@ -73,50 +92,164 @@ export default async function handler(req, res) {
         const bookId = req.query.bookId;
         if (!bookId) return res.status(400).json({ error: 'bookId required' });
 
-        const book = await kv.get(`admin:books:${bookId}`);
-        const postgame = await kv.get(`admin:postgame:${bookId}`);
-        const feedback = await kv.get(`admin:feedback:${bookId}`);
+        const { data: book } = await sb.from('books')
+          .select('*')
+          .eq('id', bookId)
+          .single();
 
-        return res.json({ book, postgame, feedback });
+        if (!book) return res.json({ book: null, postgame: null, feedback: null });
+
+        // Get pages for image URLs and story texts
+        const { data: pages } = await sb.from('book_pages')
+          .select('*')
+          .eq('book_id', bookId)
+          .order('page_index');
+
+        const mapped = mapBookToAdmin(book);
+        mapped.images = {};
+        mapped.storyTexts = [];
+
+        (pages || []).forEach(p => {
+          if (p.page_type === 'cover') mapped.images.cover = p.image_url;
+          else if (p.page_type === 'back_cover') mapped.images.backCover = p.image_url;
+          else if (p.page_type === 'spread') {
+            mapped.images[`spread_${p.page_index - 1}`] = p.image_url;
+            mapped.storyTexts.push({
+              left: p.left_page_text,
+              right: p.right_page_text,
+            });
+          }
+        });
+
+        // Get postgame analysis
+        const { data: postgame } = await sb.from('admin_postgame')
+          .select('*')
+          .eq('book_id', bookId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const mappedPostgame = postgame ? {
+          bookId: postgame.book_id,
+          analyzedAt: postgame.created_at,
+          overallScore: postgame.overall_score,
+          wouldRecommend: postgame.would_recommend,
+          scores: postgame.scores,
+          topIssue: postgame.top_issue,
+        } : null;
+
+        // Get feedback
+        const { data: feedback } = await sb.from('admin_feedback')
+          .select('*')
+          .eq('book_id', bookId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const mappedFeedback = feedback ? {
+          bookId: feedback.book_id,
+          submittedAt: feedback.created_at,
+          stars: feedback.stars,
+          reaction: feedback.reaction,
+          comment: feedback.comment,
+        } : null;
+
+        // Get validations for this book
+        const { data: validations } = await sb.from('admin_validations')
+          .select('*')
+          .eq('book_id', bookId);
+
+        mapped.validations = (validations || []).map(v => ({
+          page: v.page,
+          attempt: v.attempt,
+          textScore: v.text_score,
+          faceScore: v.face_score,
+          pass: v.pass,
+          issues: v.issues,
+        }));
+
+        return res.json({ book: mapped, postgame: mappedPostgame, feedback: mappedFeedback });
       }
 
       // ── Revenue Data ─────────────────────────────────────────
       case 'revenue': {
         const days = parseInt(req.query.days) || 30;
-        const revenueData = [];
+        const since = new Date();
+        since.setDate(since.getDate() - days);
 
-        for (let i = 0; i < days; i++) {
+        const { data: books } = await sb.from('books')
+          .select('created_at, tier')
+          .gte('created_at', since.toISOString())
+          .order('created_at');
+
+        // Group by date
+        const byDate = {};
+        (books || []).forEach(b => {
+          const date = b.created_at.split('T')[0];
+          if (!byDate[date]) {
+            byDate[date] = { date, gross: 0, transactions: 0, failed: 0, byTier: {} };
+          }
+          const price = TIER_PRICES[b.tier] || 0;
+          byDate[date].gross += price;
+          byDate[date].transactions += 1;
+          if (!byDate[date].byTier[b.tier]) byDate[date].byTier[b.tier] = { count: 0, revenue: 0 };
+          byDate[date].byTier[b.tier].count += 1;
+          byDate[date].byTier[b.tier].revenue += price;
+        });
+
+        // Fill empty dates
+        const revenueData = [];
+        for (let i = days - 1; i >= 0; i--) {
           const d = new Date();
           d.setDate(d.getDate() - i);
           const dateStr = d.toISOString().split('T')[0];
-          const data = await kv.get(`admin:revenue:${dateStr}`);
-          revenueData.push(data || { date: dateStr, gross: 0, transactions: 0, failed: 0, byTier: {} });
+          revenueData.push(byDate[dateStr] || { date: dateStr, gross: 0, transactions: 0, failed: 0, byTier: {} });
         }
 
-        return res.json({ revenue: revenueData.reverse() });
+        return res.json({ revenue: revenueData });
       }
 
       // ── API Calls Log ────────────────────────────────────────
       case 'api_calls': {
         const limit = parseInt(req.query.limit) || 50;
-        const callIds = await kv.zrange('admin:api_calls_index', 0, limit - 1, { rev: true }) || [];
-        const calls = [];
-        for (const id of callIds) {
-          const call = await kv.get(`admin:api_calls:${id}`);
-          if (call) calls.push(call);
-        }
+        const { data } = await sb.from('admin_api_calls')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        const calls = (data || []).map(c => ({
+          ts: new Date(c.created_at).getTime(),
+          service: c.service,
+          type: c.call_type,
+          bookId: c.book_id,
+          status: c.status,
+          durationMs: c.duration_ms,
+          model: c.model,
+          cost: c.cost,
+          error: c.error,
+          details: c.details,
+        }));
+
         return res.json({ calls });
       }
 
       // ── Error Log ────────────────────────────────────────────
       case 'errors': {
         const limit = parseInt(req.query.limit) || 50;
-        const errorIds = await kv.zrange('admin:errors_index', 0, limit - 1, { rev: true }) || [];
-        const errors = [];
-        for (const id of errorIds) {
-          const err = await kv.get(`admin:errors:${id}`);
-          if (err) errors.push(err);
-        }
+        const { data } = await sb.from('admin_errors')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        const errors = (data || []).map(e => ({
+          ts: new Date(e.created_at).getTime(),
+          service: e.service,
+          type: e.error_type,
+          bookId: e.book_id,
+          error: e.error,
+          details: e.details,
+        }));
+
         return res.json({ errors });
       }
 
@@ -124,61 +257,98 @@ export default async function handler(req, res) {
       case 'users': {
         const page = parseInt(req.query.page) || 0;
         const limit = parseInt(req.query.limit) || 20;
-        const start = page * limit;
+        const offset = page * limit;
 
-        const userIds = await kv.zrange('admin:users_index', start, start + limit - 1, { rev: true }) || [];
-        const users = [];
-        for (const id of userIds) {
-          const user = await kv.get(`admin:users:${id}`);
-          if (user) users.push(user);
-        }
+        const { data: users, count } = await sb.from('users')
+          .select('*', { count: 'exact' })
+          .order('updated_at', { ascending: false })
+          .range(offset, offset + limit - 1);
 
-        const total = await kv.zcard('admin:users_index') || 0;
-        return res.json({ users, total, page, limit });
+        const mapped = (users || []).map(u => ({
+          userId: u.clerk_id || u.id,
+          email: u.email || null,
+          firstSeen: u.created_at,
+          lastActive: u.updated_at,
+          bookCount: u.book_count || 0,
+          totalSpent: (u.book_count || 0) * 9.99, // approximate — could be mixed tiers
+          vaultCharacters: u.vault_characters || 0,
+        }));
+
+        return res.json({ users: mapped, total: count || 0, page, limit });
       }
 
       // ── Quality / Validation Data ────────────────────────────
       case 'quality': {
         const limit = parseInt(req.query.limit) || 50;
-        const valIds = await kv.zrange('admin:validations_index', 0, limit - 1, { rev: true }) || [];
-        const validations = [];
-        for (const id of valIds) {
-          const v = await kv.get(`admin:validations:${id}`);
-          if (v) validations.push(v);
-        }
+        const { data } = await sb.from('admin_validations')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit);
 
-        // Get quality trends (last 30 days)
+        const validations = (data || []).map(v => ({
+          ts: new Date(v.created_at).getTime(),
+          bookId: v.book_id,
+          page: v.page,
+          attempt: v.attempt,
+          textScore: v.text_score,
+          faceScore: v.face_score,
+          sceneAccuracy: v.scene_accuracy,
+          formatOk: v.format_ok,
+          pass: v.pass,
+          issues: v.issues,
+          fixNotes: v.fix_notes,
+        }));
+
         const trends = await getQualityTrends();
-
         return res.json({ validations, trends });
       }
 
       // ── Post-Game Analyses ───────────────────────────────────
       case 'postgame': {
         const limit = parseInt(req.query.limit) || 20;
-        const pgIds = await kv.zrange('admin:postgame_index', 0, limit - 1, { rev: true }) || [];
-        const analyses = [];
-        for (const id of pgIds) {
-          const pg = await kv.get(`admin:postgame:${id}`);
-          if (pg) analyses.push(pg);
-        }
+        const { data } = await sb.from('admin_postgame')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        const analyses = (data || []).map(pg => ({
+          bookId: pg.book_id,
+          analyzedAt: pg.created_at,
+          overallScore: pg.overall_score,
+          wouldRecommend: pg.would_recommend,
+          scores: pg.scores,
+          topIssue: pg.top_issue,
+          ...pg.data,
+        }));
+
         return res.json({ analyses });
       }
 
       // ── Insights ─────────────────────────────────────────────
       case 'insights': {
-        const latest = await kv.get('admin:insights:latest');
-        return res.json({ insights: latest });
+        const { data } = await sb.from('admin_config')
+          .select('value')
+          .eq('key', 'insights:latest')
+          .maybeSingle();
+        return res.json({ insights: data?.value || null });
       }
 
       // ── Experiments ──────────────────────────────────────────
       case 'experiments': {
-        const expIds = await kv.zrange('admin:experiments_index', 0, -1, { rev: true }) || [];
-        const experiments = [];
-        for (const id of expIds) {
-          const exp = await kv.get(`admin:experiments:${id}`);
-          if (exp) experiments.push(exp);
-        }
+        const { data } = await sb.from('admin_experiments')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        const experiments = (data || []).map(exp => ({
+          id: exp.id,
+          hypothesis: exp.hypothesis,
+          target: exp.target,
+          status: exp.status,
+          variantA: exp.variant_a,
+          variantB: exp.variant_b,
+          result: exp.result,
+        }));
+
         return res.json({ experiments });
       }
 
@@ -188,9 +358,15 @@ export default async function handler(req, res) {
                        'validate_all_pages', 'primary_image_model', 'max_generation_time',
                        'enable_narration'];
         const config = {};
-        for (const k of keys) {
-          config[k] = await kv.get(`admin:config:${k}`);
-        }
+        const { data } = await sb.from('admin_config')
+          .select('key, value')
+          .in('key', keys.map(k => `config:${k}`));
+
+        (data || []).forEach(row => {
+          const k = row.key.replace('config:', '');
+          config[k] = row.value;
+        });
+
         return res.json({ config });
       }
 
@@ -198,7 +374,13 @@ export default async function handler(req, res) {
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
         const { key, value } = req.body;
         if (!key) return res.status(400).json({ error: 'key required' });
-        await kv.set(`admin:config:${key}`, value);
+
+        await sb.from('admin_config').upsert({
+          key: `config:${key}`,
+          value,
+          updated_at: new Date().toISOString(),
+        });
+
         return res.json({ success: true, key, value });
       }
 
@@ -206,9 +388,15 @@ export default async function handler(req, res) {
       case 'get_prompts': {
         const sections = ['cover', 'spread', 'backCover', 'systemPrompt', 'textBoxDesign', 'characterDesc'];
         const prompts = {};
-        for (const s of sections) {
-          prompts[s] = await kv.get(`admin:prompts:${s}`);
-        }
+        const { data } = await sb.from('admin_config')
+          .select('key, value')
+          .in('key', sections.map(s => `prompt:${s}`));
+
+        (data || []).forEach(row => {
+          const s = row.key.replace('prompt:', '');
+          prompts[s] = row.value;
+        });
+
         return res.json({ prompts });
       }
 
@@ -216,25 +404,29 @@ export default async function handler(req, res) {
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
         const { section, text } = req.body;
         if (!section) return res.status(400).json({ error: 'section required' });
+
         if (text === null || text === '') {
-          await kv.del(`admin:prompts:${section}`);
+          await sb.from('admin_config').delete().eq('key', `prompt:${section}`);
         } else {
-          await kv.set(`admin:prompts:${section}`, text);
+          await sb.from('admin_config').upsert({
+            key: `prompt:${section}`,
+            value: text,
+            updated_at: new Date().toISOString(),
+          });
         }
+
         return res.json({ success: true, section });
       }
 
-      // ── System Health (extended) ─────────────────────────────
+      // ── System Health ─────────────────────────────────────────
       case 'health': {
         const services = {};
-
-        // Check each service
         const checks = [
           { name: 'anthropic', check: checkAnthropic },
           { name: 'replicate', check: checkReplicate },
           { name: 'stripe', check: checkStripe },
           { name: 'elevenlabs', check: checkElevenLabs },
-          { name: 'vercel_kv', check: checkKV },
+          { name: 'supabase', check: checkSupabase },
         ];
 
         await Promise.all(checks.map(async ({ name, check }) => {
@@ -253,26 +445,44 @@ export default async function handler(req, res) {
       // ── Daily Stats (for charts) ────────────────────────────
       case 'daily_stats': {
         const days = parseInt(req.query.days) || 30;
-        const stats = [];
-        for (let i = 0; i < days; i++) {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
-          const dateStr = d.toISOString().split('T')[0];
-          const data = await kv.get(`admin:daily:${dateStr}`);
-          stats.push(data || getEmptyDailyStats(dateStr));
-        }
-        return res.json({ stats: stats.reverse() });
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+
+        // Get books in date range
+        const { data: books } = await sb.from('books')
+          .select('created_at, tier, style, health_status, total_cost')
+          .gte('created_at', since.toISOString());
+
+        // Get API calls in date range
+        const { data: apiCalls } = await sb.from('admin_api_calls')
+          .select('created_at, service, duration_ms, cost, error')
+          .gte('created_at', since.toISOString());
+
+        // Get validations in date range
+        const { data: validations } = await sb.from('admin_validations')
+          .select('created_at, text_score, face_score, attempt, pass')
+          .gte('created_at', since.toISOString());
+
+        const stats = buildDailyStatsArray(days, books || [], apiCalls || [], validations || []);
+        return res.json({ stats });
       }
 
       // ── User Feedback ────────────────────────────────────────
       case 'feedback': {
         const limit = parseInt(req.query.limit) || 50;
-        const fbIds = await kv.zrange('admin:feedback_index', 0, limit - 1, { rev: true }) || [];
-        const feedbacks = [];
-        for (const id of fbIds) {
-          const fb = await kv.get(`admin:feedback:${id}`);
-          if (fb) feedbacks.push(fb);
-        }
+        const { data } = await sb.from('admin_feedback')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        const feedbacks = (data || []).map(fb => ({
+          bookId: fb.book_id,
+          submittedAt: fb.created_at,
+          stars: fb.stars,
+          reaction: fb.reaction,
+          comment: fb.comment,
+        }));
+
         return res.json({ feedbacks });
       }
 
@@ -298,6 +508,121 @@ export default async function handler(req, res) {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+function mapBookToAdmin(book) {
+  return {
+    bookId: book.id,
+    createdAt: book.created_at,
+    userId: book.user_id || null,
+    tier: book.tier || 'standard',
+    style: book.style || 'unknown',
+    bookType: book.book_type || 'adventure',
+    tone: book.tone || null,
+    pageCount: book.story_plan?.spreads?.length ? book.story_plan.spreads.length + 2 : 6,
+    heroName: book.hero_name || 'Unknown',
+    heroAge: book.hero_age || null,
+    heroType: book.hero_type || 'child',
+    hasPhoto: book.has_photo || false,
+    characterCount: book.character_count || 1,
+    totalDurationMs: book.total_duration_ms || 0,
+    totalCost: book.total_cost || 0,
+    status: book.health_status || 'healthy',
+    title: book.title || 'Untitled',
+    dedication: book.dedication || null,
+    images: {},
+    storyTexts: [],
+    validations: [],
+    costs: {},
+  };
+}
+
+function buildDailyBookStats(todayBooks, date) {
+  const stats = {
+    date,
+    books: { total: 0, healthy: 0, warnings: 0, failed: 0, byTier: {}, byStyle: {} },
+    revenue: { gross: 0, costs: 0, net: 0, transactions: 0, failed: 0 },
+    api: {
+      anthropic: { calls: 0, errors: 0, totalMs: 0, cost: 0 },
+      replicate: { calls: 0, errors: 0, totalMs: 0, cost: 0 },
+      elevenlabs: { calls: 0, errors: 0, totalMs: 0, cost: 0 },
+    },
+    quality: { totalTextScore: 0, totalFaceScore: 0, scoreCount: 0, firstPassCount: 0, totalValidations: 0, retryCount: 0 },
+    users: { active: 0, new: 0, returning: 0 },
+  };
+
+  todayBooks.forEach(b => {
+    stats.books.total += 1;
+    const hs = b.health_status || 'healthy';
+    if (hs === 'healthy') stats.books.healthy += 1;
+    else if (hs === 'warnings') stats.books.warnings += 1;
+    else stats.books.failed += 1;
+  });
+
+  return stats;
+}
+
+function buildDailyStatsArray(days, books, apiCalls, validations) {
+  // Index by date
+  const byDate = {};
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split('T')[0];
+    byDate[dateStr] = getEmptyDailyStats(dateStr);
+  }
+
+  // Aggregate books
+  books.forEach(b => {
+    const date = b.created_at.split('T')[0];
+    const s = byDate[date];
+    if (!s) return;
+    s.books.total += 1;
+    const hs = b.health_status || 'healthy';
+    if (hs === 'healthy') s.books.healthy += 1;
+    else if (hs === 'warnings') s.books.warnings += 1;
+    else s.books.failed += 1;
+
+    const tier = b.tier || 'standard';
+    s.books.byTier[tier] = (s.books.byTier[tier] || 0) + 1;
+
+    const style = b.style || 'unknown';
+    s.books.byStyle[style] = (s.books.byStyle[style] || 0) + 1;
+
+    s.revenue.costs += b.total_cost || 0;
+    s.revenue.gross += TIER_PRICES[tier] || 0;
+    s.revenue.transactions += 1;
+    s.revenue.net = s.revenue.gross - s.revenue.costs;
+  });
+
+  // Aggregate API calls
+  apiCalls.forEach(c => {
+    const date = c.created_at.split('T')[0];
+    const s = byDate[date];
+    if (!s) return;
+    const svc = s.api[c.service];
+    if (svc) {
+      svc.calls += 1;
+      if (c.error) svc.errors += 1;
+      svc.totalMs += c.duration_ms || 0;
+      svc.cost += parseFloat(c.cost) || 0;
+    }
+  });
+
+  // Aggregate validations
+  validations.forEach(v => {
+    const date = v.created_at.split('T')[0];
+    const s = byDate[date];
+    if (!s) return;
+    s.quality.totalTextScore += parseFloat(v.text_score) || 0;
+    s.quality.totalFaceScore += parseFloat(v.face_score) || 0;
+    s.quality.scoreCount += 1;
+    s.quality.totalValidations += 1;
+    if (v.attempt === 1 && v.pass) s.quality.firstPassCount += 1;
+    if (v.attempt > 1) s.quality.retryCount += 1;
+  });
+
+  return Object.values(byDate);
+}
+
 function getEmptyDailyStats(date) {
   return {
     date,
@@ -313,42 +638,48 @@ function getEmptyDailyStats(date) {
   };
 }
 
-async function getMonthlyRevenue() {
-  const now = new Date();
-  let total = 0;
-  const daysInMonth = now.getDate();
-
-  for (let i = 0; i < daysInMonth; i++) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
-    const data = await kv.get(`admin:revenue:${dateStr}`);
-    if (data) total += data.gross || 0;
-  }
-
-  return total;
-}
-
 async function getQualityTrends() {
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
+
+  const { data } = await sb.from('admin_validations')
+    .select('created_at, text_score, face_score, attempt, pass')
+    .gte('created_at', since.toISOString());
+
+  // Group by date
+  const byDate = {};
+  (data || []).forEach(v => {
+    const date = v.created_at.split('T')[0];
+    if (!byDate[date]) byDate[date] = { totalText: 0, totalFace: 0, count: 0, firstPass: 0, total: 0, retries: 0 };
+    const d = byDate[date];
+    d.totalText += parseFloat(v.text_score) || 0;
+    d.totalFace += parseFloat(v.face_score) || 0;
+    d.count += 1;
+    d.total += 1;
+    if (v.attempt === 1 && v.pass) d.firstPass += 1;
+    if (v.attempt > 1) d.retries += 1;
+  });
+
   const trends = [];
-  for (let i = 0; i < 30; i++) {
+  for (let i = 29; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split('T')[0];
-    const data = await kv.get(`admin:daily:${dateStr}`);
-    if (data?.quality) {
-      const q = data.quality;
+    const q = byDate[dateStr];
+    if (q) {
       trends.push({
         date: dateStr,
-        avgTextScore: q.scoreCount > 0 ? q.totalTextScore / q.scoreCount : 0,
-        avgFaceScore: q.scoreCount > 0 ? q.totalFaceScore / q.scoreCount : 0,
-        firstPassRate: q.totalValidations > 0 ? q.firstPassCount / q.totalValidations : 0,
-        retryRate: q.totalValidations > 0 ? q.retryCount / q.totalValidations : 0,
+        avgTextScore: q.count > 0 ? q.totalText / q.count : 0,
+        avgFaceScore: q.count > 0 ? q.totalFace / q.count : 0,
+        firstPassRate: q.total > 0 ? q.firstPass / q.total : 0,
+        retryRate: q.total > 0 ? q.retries / q.total : 0,
       });
     }
   }
-  return trends.reverse();
+  return trends;
 }
+
+// ── Health Check Helpers ────────────────────────────────────────────────────
 
 async function checkAnthropic() {
   if (!process.env.ANTHROPIC_KEY) return { configured: false };
@@ -424,60 +755,59 @@ async function checkElevenLabs() {
   }
 }
 
-async function checkKV() {
-  if (!kv) return { configured: false };
+async function checkSupabase() {
+  if (!sb) return { configured: false };
   const start = Date.now();
-  await kv.ping();
+  const { error } = await sb.from('books').select('id').limit(1);
+  if (error) throw new Error(error.message);
   return { configured: true, pingMs: Date.now() - start };
 }
 
-// Return empty/default data when Vercel KV is not configured
-function handleWithoutKV(req, res, action) {
+// ── Fallback when Supabase is not configured ────────────────────────────────
+
+function handleWithoutSupabase(req, res, action) {
   const today = new Date().toISOString().split('T')[0];
-  const emptyDaily = getEmptyDailyStats(today);
 
   switch (action) {
     case 'overview':
       return res.json({
-        daily: emptyDaily,
+        daily: getEmptyDailyStats(today),
         events: [],
         monthlyRevenue: 0,
         totalBooks: 0,
         totalUsers: 0,
-        kvConfigured: false,
+        supabaseConfigured: false,
       });
     case 'books':
-      return res.json({ books: [], total: 0, page: 0, limit: 20, kvConfigured: false });
+      return res.json({ books: [], total: 0, page: 0, limit: 20, supabaseConfigured: false });
     case 'book':
-      return res.json({ book: null, postgame: null, feedback: null, kvConfigured: false });
+      return res.json({ book: null, postgame: null, feedback: null, supabaseConfigured: false });
     case 'revenue':
-      return res.json({ revenue: [], kvConfigured: false });
+      return res.json({ revenue: [], supabaseConfigured: false });
     case 'api_calls':
-      return res.json({ calls: [], kvConfigured: false });
+      return res.json({ calls: [], supabaseConfigured: false });
     case 'errors':
-      return res.json({ errors: [], kvConfigured: false });
+      return res.json({ errors: [], supabaseConfigured: false });
     case 'users':
-      return res.json({ users: [], total: 0, page: 0, limit: 20, kvConfigured: false });
+      return res.json({ users: [], total: 0, page: 0, limit: 20, supabaseConfigured: false });
     case 'quality':
-      return res.json({ validations: [], trends: [], kvConfigured: false });
+      return res.json({ validations: [], trends: [], supabaseConfigured: false });
     case 'postgame':
-      return res.json({ analyses: [], kvConfigured: false });
+      return res.json({ analyses: [], supabaseConfigured: false });
     case 'insights':
-      return res.json({ insights: null, kvConfigured: false });
+      return res.json({ insights: null, supabaseConfigured: false });
     case 'experiments':
-      return res.json({ experiments: [], kvConfigured: false });
+      return res.json({ experiments: [], supabaseConfigured: false });
     case 'get_config':
-      return res.json({ config: {}, kvConfigured: false });
+      return res.json({ config: {}, supabaseConfigured: false });
     case 'set_config':
-      return res.status(503).json({ error: 'Vercel KV not configured. Add a KV database in your Vercel project settings.' });
+      return res.status(503).json({ error: 'Supabase not configured.' });
     case 'get_prompts':
-      return res.json({ prompts: {}, kvConfigured: false });
+      return res.json({ prompts: {}, supabaseConfigured: false });
     case 'set_prompt':
-      return res.status(503).json({ error: 'Vercel KV not configured. Add a KV database in your Vercel project settings.' });
-    case 'health': {
-      // Health check can still run for non-KV services
-      return handleHealthWithoutKV(req, res);
-    }
+      return res.status(503).json({ error: 'Supabase not configured.' });
+    case 'health':
+      return handleHealthWithoutSupabase(req, res);
     case 'daily_stats': {
       const days = parseInt(req.query.days) || 30;
       const stats = [];
@@ -486,25 +816,25 @@ function handleWithoutKV(req, res, action) {
         d.setDate(d.getDate() - i);
         stats.push(getEmptyDailyStats(d.toISOString().split('T')[0]));
       }
-      return res.json({ stats: stats.reverse(), kvConfigured: false });
+      return res.json({ stats: stats.reverse(), supabaseConfigured: false });
     }
     case 'feedback':
-      return res.json({ feedbacks: [], kvConfigured: false });
+      return res.json({ feedbacks: [], supabaseConfigured: false });
     case 'submit_feedback':
-      return res.status(503).json({ error: 'Vercel KV not configured. Add a KV database in your Vercel project settings.' });
+      return res.status(503).json({ error: 'Supabase not configured.' });
     default:
       return res.status(400).json({ error: `Unknown action: ${action}` });
   }
 }
 
-async function handleHealthWithoutKV(req, res) {
+async function handleHealthWithoutSupabase(req, res) {
   const services = {};
   const checks = [
     { name: 'anthropic', check: checkAnthropic },
     { name: 'replicate', check: checkReplicate },
     { name: 'stripe', check: checkStripe },
     { name: 'elevenlabs', check: checkElevenLabs },
-    { name: 'vercel_kv', check: async () => ({ configured: false }) },
+    { name: 'supabase', check: async () => ({ configured: false }) },
   ];
 
   await Promise.all(checks.map(async ({ name, check }) => {
@@ -517,5 +847,5 @@ async function handleHealthWithoutKV(req, res) {
     }
   }));
 
-  return res.json({ services, checkedAt: new Date().toISOString(), kvConfigured: false });
+  return res.json({ services, checkedAt: new Date().toISOString(), supabaseConfigured: false });
 }

@@ -1,11 +1,17 @@
-import { kv } from '@vercel/kv';
+import { supabaseAdmin } from './lib/supabase-admin.js';
 import { logEvent } from './lib/admin-logger.js';
 
 export const config = { maxDuration: 30 };
 
+const sb = supabaseAdmin;
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (!sb) {
+    return res.status(503).json({ error: 'Supabase not configured' });
   }
 
   const { action } = req.body || {};
@@ -19,18 +25,17 @@ export default async function handler(req, res) {
         const id = `exp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         const experiment = {
           id,
-          created: new Date().toISOString(),
-          status: 'running',
           hypothesis: hypothesis || '',
           target: target || '',
-          variantA: {
+          status: 'running',
+          variant_a: {
             name: variantAName || 'Control (current)',
             promptFragment: variantAPrompt || '',
             bookCount: 0,
             avgTextScore: 0,
             avgOverall: 0,
           },
-          variantB: {
+          variant_b: {
             name: variantBName || 'Variant B',
             promptFragment: variantBPrompt || '',
             bookCount: 0,
@@ -40,33 +45,41 @@ export default async function handler(req, res) {
           result: null,
         };
 
-        await kv.set(`admin:experiments:${id}`, experiment);
-        await kv.zadd('admin:experiments_index', { score: Date.now(), member: id });
+        await sb.from('admin_experiments').insert(experiment);
         await logEvent('experiment_created', { id, hypothesis });
 
-        return res.json({ success: true, experiment });
+        return res.json({
+          success: true,
+          experiment: {
+            ...experiment,
+            variantA: experiment.variant_a,
+            variantB: experiment.variant_b,
+          },
+        });
       }
 
       // ── Get active variant for a target ─────────────────────
       case 'get_variant': {
         const { target } = req.body;
-        const expIds = await kv.zrange('admin:experiments_index', 0, -1, { rev: true }) || [];
+        const { data: experiments } = await sb.from('admin_experiments')
+          .select('*')
+          .eq('status', 'running')
+          .eq('target', target)
+          .limit(1);
 
-        for (const id of expIds) {
-          const exp = await kv.get(`admin:experiments:${id}`);
-          if (exp && exp.status === 'running' && exp.target === target) {
-            // Random assignment: 50/50
-            const variant = Math.random() < 0.5 ? 'A' : 'B';
-            const promptFragment = variant === 'B' ? exp.variantB.promptFragment : exp.variantA.promptFragment;
-            return res.json({
-              experimentId: exp.id,
-              variant,
-              promptFragment,
-            });
-          }
+        const exp = experiments?.[0];
+        if (!exp) {
+          return res.json({ experimentId: null, variant: null, promptFragment: null });
         }
 
-        return res.json({ experimentId: null, variant: null, promptFragment: null });
+        // Random assignment: 50/50
+        const variant = Math.random() < 0.5 ? 'A' : 'B';
+        const promptFragment = variant === 'B' ? exp.variant_b.promptFragment : exp.variant_a.promptFragment;
+        return res.json({
+          experimentId: exp.id,
+          variant,
+          promptFragment,
+        });
       }
 
       // ── Record book result for experiment ───────────────────
@@ -74,10 +87,14 @@ export default async function handler(req, res) {
         const { experimentId, variant, scores } = req.body;
         if (!experimentId) return res.status(400).json({ error: 'experimentId required' });
 
-        const exp = await kv.get(`admin:experiments:${experimentId}`);
+        const { data: exp } = await sb.from('admin_experiments')
+          .select('*')
+          .eq('id', experimentId)
+          .single();
+
         if (!exp) return res.status(404).json({ error: 'Experiment not found' });
 
-        const v = variant === 'B' ? exp.variantB : exp.variantA;
+        const v = variant === 'B' ? exp.variant_b : exp.variant_a;
         v.bookCount = (v.bookCount || 0) + 1;
 
         if (scores?.textScore !== undefined) {
@@ -92,12 +109,11 @@ export default async function handler(req, res) {
         const minConfidence = 0.90;
         const minImprovement = 0.3;
 
-        if (exp.variantA.bookCount >= minBooks && exp.variantB.bookCount >= minBooks) {
-          const diff = exp.variantB.avgOverall - exp.variantA.avgOverall;
+        if (exp.variant_a.bookCount >= minBooks && exp.variant_b.bookCount >= minBooks) {
+          const diff = exp.variant_b.avgOverall - exp.variant_a.avgOverall;
           const absDiff = Math.abs(diff);
 
-          // Simple confidence estimate (not real p-value but practical)
-          const totalBooks = exp.variantA.bookCount + exp.variantB.bookCount;
+          const totalBooks = exp.variant_a.bookCount + exp.variant_b.bookCount;
           const confidence = Math.min(0.99, 0.5 + (absDiff * Math.sqrt(totalBooks)) / 10);
 
           if (confidence >= minConfidence && absDiff >= minImprovement) {
@@ -119,8 +135,20 @@ export default async function handler(req, res) {
           }
         }
 
-        await kv.set(`admin:experiments:${experimentId}`, exp);
-        return res.json({ success: true, experiment: exp });
+        await sb.from('admin_experiments')
+          .update({
+            variant_a: exp.variant_a,
+            variant_b: exp.variant_b,
+            status: exp.status,
+            result: exp.result,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', experimentId);
+
+        return res.json({
+          success: true,
+          experiment: { ...exp, variantA: exp.variant_a, variantB: exp.variant_b },
+        });
       }
 
       // ── Promote winner ──────────────────────────────────────
@@ -128,22 +156,36 @@ export default async function handler(req, res) {
         const { experimentId } = req.body;
         if (!experimentId) return res.status(400).json({ error: 'experimentId required' });
 
-        const exp = await kv.get(`admin:experiments:${experimentId}`);
+        const { data: exp } = await sb.from('admin_experiments')
+          .select('*')
+          .eq('id', experimentId)
+          .single();
+
         if (!exp) return res.status(404).json({ error: 'Experiment not found' });
         if (!exp.result) return res.status(400).json({ error: 'Experiment not concluded' });
 
-        const winnerVariant = exp.result.winner === 'B' ? exp.variantB : exp.variantA;
+        const winnerVariant = exp.result.winner === 'B' ? exp.variant_b : exp.variant_a;
 
         // Save winning prompt as override
         if (exp.target && winnerVariant.promptFragment) {
-          await kv.set(`admin:prompts:${exp.target}`, winnerVariant.promptFragment);
+          await sb.from('admin_config').upsert({
+            key: `prompt:${exp.target}`,
+            value: winnerVariant.promptFragment,
+            updated_at: new Date().toISOString(),
+          });
         }
 
         exp.status = 'promoted';
         exp.result.promoted = true;
         exp.result.promotedAt = new Date().toISOString();
 
-        await kv.set(`admin:experiments:${experimentId}`, exp);
+        await sb.from('admin_experiments')
+          .update({
+            status: exp.status,
+            result: exp.result,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', experimentId);
 
         await logEvent('experiment_promoted', {
           id: exp.id,
@@ -151,7 +193,10 @@ export default async function handler(req, res) {
           winner: exp.result.winner,
         });
 
-        return res.json({ success: true, experiment: exp });
+        return res.json({
+          success: true,
+          experiment: { ...exp, variantA: exp.variant_a, variantB: exp.variant_b },
+        });
       }
 
       // ── Auto-generate variant from insights ─────────────────
