@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const rl = rateLimit(req, { key: 'validate-image', limit: 20, windowMs: 60000 });
+  const rl = rateLimit(req, { key: 'validate-image', limit: 60, windowMs: 60000 });
   if (!rl.allowed) {
     res.setHeader('Retry-After', Math.ceil((rl.resetAt - Date.now()) / 1000));
     return res.status(429).json({
