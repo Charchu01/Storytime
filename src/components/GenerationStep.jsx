@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   generateStoryAndVisualPlan,
   generateAllImages,
@@ -61,6 +61,20 @@ const HEADLINE = {
   finishing: (name) => `Almost there!`,
 };
 
+// Fun facts to show while waiting
+const FUN_FACTS = [
+  "The first children's picture book was published in 1658!",
+  "Dr. Seuss wrote 'Green Eggs and Ham' using only 50 words.",
+  "The most translated children's book is 'The Little Prince'.",
+  "Beatrix Potter self-published 'Peter Rabbit' in 1901.",
+  "The average children's book takes 2 years to illustrate by hand.",
+  "Maurice Sendak drew 'Where the Wild Things Are' in just 2 months.",
+  "Eric Carle painted tissue paper to create his illustrations.",
+  "Children who are read to daily hear 1.4 million more words by age 5.",
+  "The first pop-up book was created in the 13th century!",
+  "Your book is being made with the same care as a real picture book.",
+];
+
 function ProgressRing({ progress, size = 120, stroke = 5 }) {
   const radius = (size - stroke) / 2;
   const circ = 2 * Math.PI * radius;
@@ -70,7 +84,7 @@ function ProgressRing({ progress, size = 120, stroke = 5 }) {
     <svg className="gen-ring" width={size} height={size}>
       <circle
         cx={size / 2} cy={size / 2} r={radius}
-        fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={stroke}
+        fill="none" stroke="rgba(200,93,42,0.1)" strokeWidth={stroke}
       />
       <circle
         cx={size / 2} cy={size / 2} r={radius}
@@ -89,10 +103,102 @@ function ProgressRing({ progress, size = 120, stroke = 5 }) {
   );
 }
 
+// Simple mini-game: Tic-tac-toe
+function TicTacToe() {
+  const [board, setBoard] = useState(Array(9).fill(null));
+  const [xIsNext, setXIsNext] = useState(true);
+  const [status, setStatus] = useState("Your turn! (You're X)");
+
+  const checkWinner = useCallback((squares) => {
+    const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    for (const [a,b,c] of lines) {
+      if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) return squares[a];
+    }
+    return null;
+  }, []);
+
+  // AI move
+  const makeAiMove = useCallback((squares) => {
+    const empty = squares.map((v, i) => v === null ? i : -1).filter(i => i >= 0);
+    if (empty.length === 0) return;
+    // Simple AI: try to win, then block, then random
+    const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    for (const piece of ["O", "X"]) {
+      for (const [a,b,c] of lines) {
+        const vals = [squares[a], squares[b], squares[c]];
+        if (vals.filter(v => v === piece).length === 2 && vals.includes(null)) {
+          const idx = [a,b,c][vals.indexOf(null)];
+          return idx;
+        }
+      }
+    }
+    if (squares[4] === null) return 4;
+    return empty[Math.floor(Math.random() * empty.length)];
+  }, []);
+
+  function handleClick(i) {
+    if (board[i] || checkWinner(board) || !xIsNext) return;
+    const next = [...board];
+    next[i] = "X";
+    setBoard(next);
+
+    const winner = checkWinner(next);
+    if (winner) { setStatus("You win! 🎉"); return; }
+    if (next.every(Boolean)) { setStatus("It's a draw!"); return; }
+
+    setXIsNext(false);
+    setStatus("Thinking...");
+
+    setTimeout(() => {
+      const aiIdx = makeAiMove(next);
+      if (aiIdx !== undefined) {
+        const aiNext = [...next];
+        aiNext[aiIdx] = "O";
+        setBoard(aiNext);
+        const aiWinner = checkWinner(aiNext);
+        if (aiWinner) { setStatus("I win! 😄"); }
+        else if (aiNext.every(Boolean)) { setStatus("It's a draw!"); }
+        else { setStatus("Your turn!"); }
+      }
+      setXIsNext(true);
+    }, 400);
+  }
+
+  function resetGame() {
+    setBoard(Array(9).fill(null));
+    setXIsNext(true);
+    setStatus("Your turn! (You're X)");
+  }
+
+  const winner = checkWinner(board);
+  const isDraw = !winner && board.every(Boolean);
+
+  return (
+    <div className="gen-game">
+      <div className="gen-game-title">While you wait... play a game!</div>
+      <div className="gen-game-board">
+        {board.map((cell, i) => (
+          <button
+            key={i}
+            className={`gen-game-cell${cell ? ` gen-game-${cell.toLowerCase()}` : ""}`}
+            onClick={() => handleClick(i)}
+          >
+            {cell}
+          </button>
+        ))}
+      </div>
+      <div className="gen-game-status">{status}</div>
+      {(winner || isDraw) && (
+        <button className="gen-game-reset" onClick={resetGame}>Play Again</button>
+      )}
+    </div>
+  );
+}
+
 function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, error, onRetry }) {
   const [phraseIdx, setPhraseIdx] = useState(0);
   const [elapsed, setElapsed] = useState(0);
-  const gradient = STYLE_GRADIENTS[style] || STYLE_GRADIENTS["Storybook"];
+  const [factIdx, setFactIdx] = useState(0);
   const completedCount = pageImages.filter((url) => url !== undefined).length;
   const config = PHASE_CONFIG[loadPhase] || PHASE_CONFIG.writing;
 
@@ -110,7 +216,14 @@ function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, erro
     return () => clearInterval(interval);
   }, []);
 
-  // Progress percentage
+  // Rotate fun facts
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFactIdx((prev) => (prev + 1) % FUN_FACTS.length);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
   const progress =
     loadPhase === "photos" ? 5 :
     loadPhase === "writing" ? 20 :
@@ -170,23 +283,16 @@ function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, erro
           })}
         </div>
 
-        {/* Illustration thumbnails */}
+        {/* Book pages progress (visual, no actual images shown) */}
         {loadPhase === "illustrating" && pageCount > 0 && (
-          <div className="gen-thumbs">
+          <div className="gen-pages-progress">
             {Array.from({ length: pageCount }).map((_, i) => {
-              const imageUrl = pageImages[i];
-              const hasImage = imageUrl && imageUrl !== "pending";
-              const labels = ["Cover", ...Array.from({ length: pageCount - 2 }, (_, j) => `Pg ${(j + 1) * 2}-${(j + 1) * 2 + 1}`), "Back"];
+              const hasImage = pageImages[i] && pageImages[i] !== "pending";
+              const labels = ["Cover", ...Array.from({ length: pageCount - 2 }, (_, j) => `Pg ${j + 1}`), "Back"];
               return (
-                <div key={i} className="gen-thumb-slot">
-                  {hasImage ? (
-                    <img className="gen-thumb-img gen-thumb-pop" src={imageUrl} alt={labels[i] || `Image ${i + 1}`} />
-                  ) : (
-                    <div className="gen-thumb-placeholder" style={{ background: gradient }}>
-                      <div className="gen-thumb-shimmer" />
-                      <span className="gen-thumb-num">{labels[i]}</span>
-                    </div>
-                  )}
+                <div key={i} className={`gen-page-dot${hasImage ? " gen-page-done" : ""}`}>
+                  <span className="gen-page-dot-inner">{hasImage ? "✓" : ""}</span>
+                  <span className="gen-page-dot-label">{labels[i]}</span>
                 </div>
               );
             })}
@@ -202,6 +308,17 @@ function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, erro
             <span className="gen-bar-pct">{progress}%</span>
             <span className="gen-bar-time">{timeStr}</span>
           </div>
+        </div>
+
+        {/* Fun content while waiting */}
+        {(loadPhase === "illustrating" || loadPhase === "writing") && elapsed > 15 && (
+          <TicTacToe />
+        )}
+
+        {/* Fun fact */}
+        <div className="gen-fun-fact gen-phrase-fade" key={`fact-${factIdx}`}>
+          <span className="gen-fun-fact-icon">💡</span>
+          <span>{FUN_FACTS[factIdx]}</span>
         </div>
       </div>
     </div>
@@ -219,7 +336,6 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
   const [error, setError] = useState(null);
   const [started, setStarted] = useState(false);
 
-  // Auto-start generation on mount or after retry
   useEffect(() => {
     if (!started) {
       setStarted(true);
@@ -227,14 +343,12 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
     }
   }, [started]);
 
-  // ── Main generation flow ───────────────────────────────────────────────────
   async function handleGenerate() {
     setLoading(true);
     setError(null);
     setPageImages([]);
 
     try {
-      // Phase 1: Analyze character photos
       setLoadPhase("photos");
       const hasPhotos = cast.some((c) => c.photos?.length > 0 || c.photo);
       let enrichedCast = cast;
@@ -242,7 +356,6 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         enrichedCast = await analyzeCharacterPhotos(cast);
       }
 
-      // Phase 2: Upload hero photo + companion photos
       let heroPhotoUrl = null;
       let companionPhotoUrls = {};
       if (hasPhotos) {
@@ -253,12 +366,9 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
           );
         }
         console.log("Hero photo uploaded:", heroPhotoUrl.substring(0, 60));
-
-        // Upload companion photos
         companionPhotoUrls = await uploadCompanionPhotos(enrichedCast);
       }
 
-      // Phase 3: Claude writes story + designs all visual spreads
       setLoadPhase("writing");
       const storyPlan = await generateStoryAndVisualPlan(
         enrichedCast, style, {
@@ -273,9 +383,8 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         }
       );
 
-      // Phase 4: Generate all images (cover + spreads + back cover)
       setLoadPhase("illustrating");
-      const totalImages = 1 + storyPlan.spreads.length + 1; // cover + spreads + back
+      const totalImages = 1 + storyPlan.spreads.length + 1;
       setPageCount(totalImages);
       setPageImages(new Array(totalImages).fill(undefined));
 
@@ -296,11 +405,9 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         storyPlan, heroPhotoUrl, onImageReady, tier, companionPhotoUrls
       );
 
-      // Phase 5: Assemble final result
       setLoadPhase("finishing");
       await new Promise((r) => setTimeout(r, 500));
 
-      // Save photo to vault for premium
       if (tier === "premium" && heroPhotoUrl) {
         try {
           const heroChar = enrichedCast.find((c) => c.isHero) || enrichedCast[0];
@@ -309,12 +416,9 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
             photoUrl: heroPhotoUrl,
             thumbnailUrl: images.cover || images[`spread_0`],
           });
-        } catch {
-          // Vault save is non-critical
-        }
+        } catch {}
       }
 
-      // Notify if face reference was lost on some pages
       if (imageGenFlags.faceRefLostCount > 0) {
         console.warn(`Face reference lost on ${imageGenFlags.faceRefLostCount} page(s)`);
         imageGenFlags.faceRefLostCount = 0;
@@ -336,8 +440,6 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       setLoading(false);
     }
   }
-
-  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <LoadingScreen
