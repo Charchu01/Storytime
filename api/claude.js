@@ -90,9 +90,11 @@ export default async function handler(req, res) {
       });
     }
 
-    // Admin logging: success
+    // Admin logging: success — calculate actual cost from token usage
     const callType = imageDataUrl ? 'photo_analysis' : 'story';
-    const cost = imageDataUrl ? 0.02 : (maxTokens > 2000 ? 0.05 : 0.02);
+    const inputTokens = data.usage?.input_tokens || 0;
+    const outputTokens = data.usage?.output_tokens || 0;
+    const cost = (inputTokens * 3 + outputTokens * 15) / 1_000_000;
     logApiCall({
       service: 'anthropic',
       type: callType,
@@ -100,6 +102,7 @@ export default async function handler(req, res) {
       durationMs,
       model: 'claude-sonnet-4-20250514',
       cost,
+      details: { inputTokens, outputTokens },
     }).catch(() => {});
     updateDailyApiStats('anthropic', durationMs, cost, false).catch(() => {});
 

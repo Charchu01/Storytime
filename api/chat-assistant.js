@@ -1,3 +1,4 @@
+import { logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
 import { rateLimit } from './lib/rate-limiter.js';
 
 export const config = { maxDuration: 30 };
@@ -163,6 +164,7 @@ function extractJSON(text) {
 }
 
 export default async function handler(req, res) {
+  const startTime = Date.now();
   try {
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
@@ -239,12 +241,37 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
+    const durationMs = Date.now() - startTime;
 
     if (!response.ok) {
+      logApiCall({
+        service: 'anthropic',
+        type: 'chat_assistant',
+        status: response.status,
+        durationMs,
+        model: 'claude-sonnet-4-20250514',
+        error: data.error?.message,
+      }).catch(() => {});
+      updateDailyApiStats('anthropic', durationMs, 0, true).catch(() => {});
       return res.status(response.status).json({
         error: data.error?.message || "Anthropic API error",
       });
     }
+
+    // Calculate actual cost from token usage
+    const inputTokens = data.usage?.input_tokens || 0;
+    const outputTokens = data.usage?.output_tokens || 0;
+    const cost = (inputTokens * 3 + outputTokens * 15) / 1_000_000;
+    logApiCall({
+      service: 'anthropic',
+      type: 'chat_assistant',
+      status: 200,
+      durationMs,
+      model: 'claude-sonnet-4-20250514',
+      cost,
+      details: { inputTokens, outputTokens },
+    }).catch(() => {});
+    updateDailyApiStats('anthropic', durationMs, cost, false).catch(() => {});
 
     const text = data.content.map((block) => block.text || "").join("").trim();
 
