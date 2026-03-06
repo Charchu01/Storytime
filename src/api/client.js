@@ -293,12 +293,12 @@ export async function submitBookFeedback(bookId, feedback) {
 
 // ── Supabase Book Save ──────────────────────────────────────────────────────
 
-export async function saveBookToSupabase(bookData, pages, clerkId) {
+export async function saveBookToSupabase(bookData, pages, clerkId, bookId = null) {
   try {
     const response = await fetch('/api/save-book', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ book: bookData, pages, clerkId }),
+      body: JSON.stringify({ book: bookData, pages, clerkId, bookId }),
     });
     const data = await response.json();
     return data.bookId || null;

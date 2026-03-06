@@ -474,6 +474,32 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
           bookPages.push({ page_type: "back_cover", page_index: bookPages.length, image_url: permanentImages.backCover || images.backCover });
         }
         supabaseBookId = await saveBookToSupabase(bookMeta, bookPages, clerkId);
+
+        // Background: if any images were saved with temporary Replicate URLs,
+        // wait for permanent saves to finish and update the DB pages
+        if (supabaseBookId) {
+          const savedWithTempUrls = bookPages.some(p =>
+            p.image_url && !p.image_url.includes('supabase')
+          );
+          if (savedWithTempUrls) {
+            // Fire-and-forget: update pages with permanent URLs once saves complete
+            Promise.allSettled(genResult.savePromises || []).then(async () => {
+              const latestPermanent = genResult.permanentImages || {};
+              const updatedPages = bookPages.map(p => {
+                let permUrl = null;
+                if (p.page_type === 'cover') permUrl = latestPermanent.cover;
+                else if (p.page_type === 'back_cover') permUrl = latestPermanent.backCover;
+                else if (p.page_type === 'spread') permUrl = latestPermanent[`spread_${p.page_index - 1}`];
+                return permUrl ? { ...p, image_url: permUrl } : p;
+              });
+              // Only re-save if we actually got new permanent URLs
+              if (updatedPages.some((p, i) => p.image_url !== bookPages[i].image_url)) {
+                saveBookToSupabase({ ...bookMeta }, updatedPages, clerkId, supabaseBookId).catch(() => {});
+                console.log('PERMANENT_URL_UPDATE: Updated book pages with permanent Supabase URLs');
+              }
+            }).catch(() => {});
+          }
+        }
       } catch (e) {
         console.warn("Supabase save failed:", e.message);
       }

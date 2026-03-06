@@ -1135,13 +1135,15 @@ export async function generateAllImages(
     throw new Error("All illustrations failed. Please try again.");
   }
 
-  // Wait briefly for any in-flight permanent saves (don't block for long)
+  // Wait for permanent saves to complete — these store images in Supabase storage
+  // so they don't expire when Replicate CDN URLs rotate (~1 hour).
+  // Give generous timeout since image download + sharp processing + upload can take time.
   await Promise.race([
     Promise.allSettled(savePromises),
-    new Promise(r => setTimeout(r, 5000)),
+    new Promise(r => setTimeout(r, 30000)),
   ]);
 
-  return { images, tempBookId, permanentImages, totalImageGenerations };
+  return { images, tempBookId, permanentImages, totalImageGenerations, savePromises };
 }
 
 // ── Upload hero photo once ────────────────────────────────────────────────────

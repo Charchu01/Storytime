@@ -219,7 +219,9 @@ export default function CreatePage() {
     // storyResult.supabaseBookId is the UUID from Supabase
     const bookId = storyResult.supabaseBookId;
     if (bookId) {
-      navigate(`/book/${bookId}`, { replace: true });
+      // Pass storyData in state so BookReader uses in-memory images immediately
+      // (Supabase permanent URLs may still be saving in background)
+      navigate(`/book/${bookId}`, { replace: true, state: { storyData: { ...storyResult, id: bookId } } });
     } else {
       // Fallback: use a local ID if Supabase save failed
       const fallbackId = Date.now().toString(36) + Math.random().toString(36).slice(2);
