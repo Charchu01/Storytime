@@ -1,5 +1,32 @@
 import { describe, it, expect } from 'vitest';
-import { buildValidationPrompt } from './validate-image.js';
+import { buildValidationPrompt, detectMediaType } from './validate-image.js';
+
+describe('detectMediaType', () => {
+  it('detects PNG from magic bytes', () => {
+    const buf = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0]).buffer;
+    expect(detectMediaType(buf)).toBe('image/png');
+  });
+
+  it('detects JPEG from magic bytes', () => {
+    const buf = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0, 0, 0, 0, 0, 0, 0, 0]).buffer;
+    expect(detectMediaType(buf)).toBe('image/jpeg');
+  });
+
+  it('detects GIF from magic bytes', () => {
+    const buf = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0, 0, 0, 0, 0, 0]).buffer;
+    expect(detectMediaType(buf)).toBe('image/gif');
+  });
+
+  it('detects WebP from RIFF magic bytes', () => {
+    const buf = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]).buffer;
+    expect(detectMediaType(buf)).toBe('image/webp');
+  });
+
+  it('falls back to image/jpeg for unknown formats', () => {
+    const buf = new Uint8Array([0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0]).buffer;
+    expect(detectMediaType(buf)).toBe('image/jpeg');
+  });
+});
 
 describe('buildValidationPrompt', () => {
   it('generates a prompt with all 5 standard checks for a spread page', () => {

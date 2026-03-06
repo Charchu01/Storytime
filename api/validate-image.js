@@ -3,18 +3,31 @@ import { rateLimit } from './lib/rate-limiter.js';
 
 export const config = { maxDuration: 60 };
 
-// Download image URL and convert to base64 for Claude API (URL sources are unreliable)
+// Magic-byte signatures for image formats (Claude validates media_type matches actual bytes)
+const IMAGE_SIGNATURES = [
+  { bytes: [0x89, 0x50, 0x4E, 0x47], type: 'image/png' },
+  { bytes: [0xFF, 0xD8, 0xFF],       type: 'image/jpeg' },
+  { bytes: [0x47, 0x49, 0x46],       type: 'image/gif' },
+  { bytes: [0x52, 0x49, 0x46, 0x46], type: 'image/webp' }, // RIFF....WEBP
+];
+
+export function detectMediaType(buffer) {
+  const header = new Uint8Array(buffer.slice(0, 12));
+  for (const sig of IMAGE_SIGNATURES) {
+    if (sig.bytes.every((b, i) => header[i] === b)) return sig.type;
+  }
+  return 'image/jpeg'; // safe fallback — Claude will reject if truly wrong
+}
+
+// Download image URL and convert to base64 for Claude API
+// We detect format from actual bytes, not content-type header,
+// because CDNs often return application/octet-stream or wrong types
 async function fetchImageAsBase64(url) {
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`Image fetch failed: ${resp.status} for ${url.substring(0, 80)}`);
-  const contentType = resp.headers.get('content-type') || 'image/webp';
   const buffer = await resp.arrayBuffer();
+  const mediaType = detectMediaType(buffer);
   const base64 = Buffer.from(buffer).toString('base64');
-  // Map content type — Claude supports jpeg, png, gif, webp
-  const mediaType = contentType.includes('png') ? 'image/png'
-    : contentType.includes('gif') ? 'image/gif'
-    : contentType.includes('webp') ? 'image/webp'
-    : 'image/jpeg';
   return { type: "base64", media_type: mediaType, data: base64 };
 }
 
