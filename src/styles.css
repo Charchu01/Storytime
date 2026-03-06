@@ -3001,29 +3001,41 @@
   border-color: rgba(255,255,255,0.25);
 }
 
-/* Voice picker */
-.br-voice-picker {
-  display: flex;
-  gap: 2px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 8px;
-  padding: 2px;
-}
-.br-voice-btn {
-  width: 30px;
-  height: 30px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  font-size: 16px;
-  cursor: pointer;
-  transition: background 0.15s;
+/* Narration toggle */
+.br-narrate-toggle {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.7);
+  border-radius: 20px;
+  padding: 5px 14px 5px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
 }
-.br-voice-btn:hover { background: rgba(255,255,255,0.1); }
-.br-voice-btn.active { background: rgba(255,255,255,0.2); }
+.br-narrate-toggle:hover {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.25);
+}
+.br-narrate-on {
+  background: rgba(200,93,42,0.7);
+  border-color: rgba(200,93,42,0.9);
+  color: white;
+}
+.br-narrate-on:hover {
+  background: rgba(200,93,42,0.85);
+}
+.br-narrate-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+.br-narrate-label {
+  white-space: nowrap;
+}
 
 /* Edit area */
 .br-edit-area {
