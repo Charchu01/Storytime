@@ -24,6 +24,7 @@ import CookieBanner from "./components/CookieBanner";
 import ToastContainer from "./components/ToastContainer";
 import OfflineBanner from "./components/OfflineBanner";
 import InstallPrompt from "./components/InstallPrompt";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { supabase } from "./lib/supabase";
 import "./styles.css";
 import "./styles/homepage.css";
@@ -99,6 +100,7 @@ export default function App() {
   const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
   const inner = (
+    <ErrorBoundary>
     <AppContext.Provider value={appValue}>
       <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
         <Routes>
@@ -128,6 +130,7 @@ export default function App() {
         <InstallPrompt />
       </ToastContext.Provider>
     </AppContext.Provider>
+    </ErrorBoundary>
   );
 
   // Wrap with ClerkProvider if key is available, otherwise render without auth

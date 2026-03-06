@@ -216,7 +216,7 @@ export default async function handler(req, res) {
   }
 }
 
-function buildValidationPrompt({
+export function buildValidationPrompt({
   expectedTexts,
   heroName,
   artStyle,

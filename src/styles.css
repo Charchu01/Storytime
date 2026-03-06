@@ -4028,6 +4028,82 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
+   Error Boundary
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.eb-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--warm-bg, #FEF7ED);
+  padding: 24px;
+}
+.eb-card {
+  background: #fff;
+  border: 1px solid var(--border, #E8D5C4);
+  border-radius: 16px;
+  padding: 48px 36px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(45, 27, 14, 0.08);
+}
+.eb-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+.eb-title {
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary, #2D1B0E);
+  margin: 0 0 10px;
+}
+.eb-message {
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: 15px;
+  color: var(--text-muted, #9C8578);
+  line-height: 1.5;
+  margin: 0 0 28px;
+}
+.eb-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.eb-reload {
+  padding: 12px 28px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--accent, #C85D2A);
+  color: #fff;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.eb-reload:hover {
+  background: var(--accent-hover, #B5491E);
+}
+.eb-back {
+  padding: 12px 28px;
+  border: 1px solid var(--border, #E8D5C4);
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--text-body, #5C4033);
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.eb-back:hover {
+  border-color: var(--text-muted, #9C8578);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
    STEP 3: Style Picker
    ══════════════════════════════════════════════════════════════════════════════ */
 

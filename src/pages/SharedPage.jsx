@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import BookReader from "../components/BookReader";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 export default function SharedPage() {
   const [searchParams] = useSearchParams();
@@ -55,12 +56,14 @@ export default function SharedPage() {
           <button className="shared-banner-x" onClick={() => setDismissed(true)}>✕</button>
         </div>
       )}
-      <BookReader
-        data={sharedData}
-        cast={[]}
-        styleName={sharedData.styleName || "Watercolor"}
-        onReset={() => window.location.href = "/create"}
-      />
+      <ErrorBoundary message="Something went wrong displaying this story. Try reloading the page.">
+        <BookReader
+          data={sharedData}
+          cast={[]}
+          styleName={sharedData.styleName || "Watercolor"}
+          onReset={() => window.location.href = "/create"}
+        />
+      </ErrorBoundary>
     </div>
   );
 }
