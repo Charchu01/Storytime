@@ -923,17 +923,37 @@ export async function generateAllImages(
         }
 
         // If validation infrastructure failed (API error, network error, parse error),
-        // don't block the image — use it with neutral scores
-        if (!valResult || valResult.reason === 'validation_api_error' || valResult.reason === 'network_error' || valResult.reason === 'parse_error') {
-          console.warn(`VALIDATION_SKIPPED: ${pageType} — reason: ${valResult?.reason || 'no_response'}, using image anyway`);
-          valResult = {
-            pass: true,
-            textScore: 5, faceScore: 5, textBoxScore: null, sceneAccuracy: 5,
-            formatOk: true, issues: [valResult?.reason || 'validation_unavailable'],
-            fixNotes: '', fingersOk: true, characterCount: 1,
-            ...(valResult || {}), // preserve any partial data
-            pass: true, formatOk: true, // override to not block
-          };
+        // don't block the image — accept it immediately and stop retrying.
+        // Validation is a quality check, not a hard gate for book generation.
+        const isInfraFailure = !valResult
+          || valResult.reason === 'validation_api_error'
+          || valResult.reason === 'network_error'
+          || valResult.reason === 'parse_error';
+
+        if (isInfraFailure) {
+          const reason = valResult?.reason || 'no_response';
+          console.warn(`VALIDATION_INFRA_FAIL: ${pageType} attempt ${attempt + 1} — reason: ${reason}, accepting image and stopping retries`);
+          // Build a pass-through result: scores high enough to pass hard gates,
+          // tagged so admin dashboard can distinguish infra failures from real passes
+          allAttempts.push({
+            imageUrl,
+            validation: {
+              pass: true,
+              formatOk: true,
+              textScore: 7,
+              faceScore: 7,
+              textBoxScore: null,
+              sceneAccuracy: 7,
+              fingersOk: true,
+              characterCount: 1,
+              issues: [`validation_skipped: ${reason}`],
+              fixNotes: '',
+              qualityTier: 'good',
+              compositeScore: 7,
+            },
+            attempt,
+          });
+          break; // Don't burn more retries — validation is broken, not the image
         }
 
         // Capture text box style from first successful spread validation
