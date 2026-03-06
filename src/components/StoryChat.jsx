@@ -112,7 +112,6 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput("");
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -133,7 +132,6 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
 
   function handleInputChange(e) {
     setInput(e.target.value);
-    // Auto-resize
     e.target.style.height = "auto";
     e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
   }
@@ -151,7 +149,7 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
 
         {loading && (
           <div className="cb-wrap cb-assistant">
-            <div className="cb-avatar">📖</div>
+            <div className="cb-avatar">{"\uD83D\uDCD6"}</div>
             <div className="cb-bubble cb-bubble-ai cb-typing">
               <span className="cb-dot" />
               <span className="cb-dot" />
@@ -171,6 +169,7 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
               key={i}
               className="sc-suggestion-chip"
               onClick={() => handleSuggestionClick(s)}
+              style={{ animationDelay: `${i * 50}ms` }}
             >
               {s}
             </button>
@@ -178,7 +177,7 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
         </div>
       )}
 
-      {/* Input bar — using textarea for multi-line */}
+      {/* Input bar */}
       <div className="sc-input-bar">
         <textarea
           ref={textareaRef}

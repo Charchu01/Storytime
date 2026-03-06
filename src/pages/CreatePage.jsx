@@ -24,6 +24,60 @@ function clearDraft() { localStorage.removeItem(DRAFT_KEY); }
 const CreateWizardContext = createContext();
 export function useCreateWizard() { return useContext(CreateWizardContext); }
 
+// ── Progress bar steps ──────────────────────────────────────────────────────
+const STEPS = [
+  { path: "/create", label: "Book Type" },
+  { path: "/create/hero", label: "Hero" },
+  { path: "/create/style", label: "Style" },
+  { path: "/create/studio", label: "Story" },
+  { path: "/create/checkout", label: "Checkout" },
+];
+
+const STEP_SUBTITLES = [
+  "What shall we make?",
+  "Who's the star?",
+  "Choose the look",
+  "Build your story",
+  "Almost there!",
+];
+
+function ProgressBar({ currentPath }) {
+  const currentIdx = STEPS.findIndex(s =>
+    currentPath === s.path || currentPath === s.path + "/"
+  );
+  const activeStep = currentIdx >= 0 ? currentIdx : 0;
+
+  return (
+    <div className="create-progress">
+      <div className="create-progress-bar">
+        {STEPS.map((step, i) => (
+          <div key={i} className="create-progress-step">
+            {i > 0 && (
+              <div className={`create-progress-line${i <= activeStep ? " create-progress-line--done" : ""}`} />
+            )}
+            <div className={`create-progress-circle${
+              i < activeStep ? " create-progress-circle--done" :
+              i === activeStep ? " create-progress-circle--active" : ""
+            }`}>
+              {i < activeStep ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+              ) : (
+                <span>{i + 1}</span>
+              )}
+            </div>
+            <span className={`create-progress-label${i === activeStep ? " create-progress-label--active" : ""}`}>
+              {step.label}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="create-progress-mobile-label">
+        Step {activeStep + 1} of {STEPS.length} — {STEP_SUBTITLES[activeStep]}
+      </div>
+    </div>
+  );
+}
+
 export default function CreatePage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -203,9 +257,13 @@ export default function CreatePage() {
     handleStudioComplete, handlePaid, handleStoryComplete, reset,
   };
 
+  // Don't show progress bar on generating step
+  const showProgress = !location.pathname.includes("/generating");
+
   return (
     <CreateWizardContext.Provider value={ctx}>
       <div className="create-page">
+        {showProgress && <ProgressBar currentPath={location.pathname} />}
         <Outlet />
       </div>
     </CreateWizardContext.Provider>
