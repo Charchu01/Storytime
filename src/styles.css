@@ -4723,6 +4723,19 @@
   transition: transform 0.3s ease;
 }
 .sp-style-card:hover .sp-style-example-img { transform: scale(1.05); }
+.style-card-preview {
+  width: 100%;
+  aspect-ratio: 4/3;
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
+}
+.style-card-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+.sp-style-card:hover .style-card-preview img { transform: scale(1.05); }
 .sp-style-emoji-icon {
   font-size: 40px;
   filter: drop-shadow(0 3px 8px rgba(0,0,0,0.15));
