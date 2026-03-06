@@ -4792,154 +4792,332 @@
    STEP 5: Paywall / Checkout
    ══════════════════════════════════════════════════════════════════════════════ */
 
-.pw-summary {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-  background: var(--gold-light);
-  border-left: 3px solid var(--gold);
-  border-radius: var(--radius-md);
-  margin-bottom: 32px;
+/* ── Paywall Page Container ─────────────────────────────────────── */
+.pw-page {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
 }
-.pw-summary-icon { font-size: 32px; }
-.pw-summary-hero {
-  font-family: var(--font-body);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.pw-summary-details {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-.pw-summary-companions {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-/* Tier cards */
-.pw-tiers {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-.pw-tier {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 28px 24px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: left;
-  font-family: var(--font-body);
-  position: relative;
-}
-.pw-tier:hover {
-  box-shadow: var(--shadow-md);
-}
-.pw-tier--selected {
-  border: 2px solid var(--accent);
-}
-.pw-tier--premium {
-  background: linear-gradient(170deg, var(--gold-light) 0%, #fff 100%);
-  border-color: var(--gold);
-}
-.pw-tier--premium.pw-tier--selected {
-  border-color: var(--gold);
-  box-shadow: 0 0 20px rgba(212, 168, 83, 0.2);
-}
-.pw-tier-badge {
-  position: absolute;
-  top: -10px;
-  right: 16px;
-  padding: 4px 12px;
-  border-radius: var(--radius-full);
-  background: var(--gold);
-  color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.pw-tier-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
-}
-.pw-tier-price {
+.pw-heading {
   font-family: var(--font-display);
   font-size: 32px;
   font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-.pw-tier-pages {
-  font-size: 14px;
-  color: var(--text-body);
-  margin-bottom: 12px;
-}
-.pw-tier-features {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.pw-tier-features li {
-  font-size: 13px;
-  color: var(--text-body);
-  padding: 3px 0;
-}
-.pw-tier-features li::before {
-  content: "\2713 ";
-  color: var(--accent);
-  font-weight: 700;
-  margin-right: 6px;
+  color: var(--color-text);
+  text-align: center;
+  margin: 0 0 28px;
 }
 
-/* Payment form */
-.pw-payment-section {
-  margin-top: 24px;
+/* ── Hero Summary Card ─────────────────────────────────────────── */
+.pw-hero-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px 28px;
+  background: var(--color-white);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  margin-bottom: 28px;
 }
-.pw-form {
-  background: #fff;
+.pw-hero-photo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid var(--color-gold);
+  box-shadow: 0 0 0 4px rgba(212, 168, 83, 0.15);
+  flex-shrink: 0;
+}
+.pw-hero-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pw-hero-emoji {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--color-accent-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  flex-shrink: 0;
+}
+.pw-hero-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 4px;
+}
+.pw-hero-details {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+.pw-hero-companions {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-accent);
+  font-weight: 500;
+  margin: 4px 0 0;
+}
+
+/* ── What You Get ──────────────────────────────────────────────── */
+.pw-includes {
+  margin-bottom: 28px;
+}
+.pw-includes-title {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-text-muted);
+  margin: 0 0 16px;
+  text-align: center;
+}
+.pw-includes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--color-white);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.pw-include-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+.pw-include-item:last-child {
+  border-bottom: none;
+}
+.pw-include-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  width: 36px;
+  text-align: center;
+}
+.pw-include-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.pw-include-text strong {
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.pw-include-text span {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* ── Physical Book Teaser ──────────────────────────────────────── */
+.pw-physical {
+  position: relative;
+  background: linear-gradient(135deg, var(--color-gold-light), #FFF8EE);
+  border: 1.5px solid var(--color-gold);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  margin-bottom: 28px;
+}
+.pw-physical-badge {
+  position: absolute;
+  top: -10px;
+  right: 20px;
+  background: var(--color-gold);
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  padding: 3px 12px;
+  border-radius: var(--radius-full);
+}
+.pw-physical-content {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.pw-physical-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.pw-physical-title {
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 4px;
+}
+.pw-physical-desc {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-text-body);
+  margin: 0 0 6px;
+}
+.pw-physical-price {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-accent);
+  font-weight: 500;
+  margin: 0;
+}
+.pw-physical-price strong {
+  font-weight: 700;
+}
+
+/* ── Price + CTA ───────────────────────────────────────────────── */
+.pw-price-section {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.pw-price-display {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.pw-price-amount {
+  font-family: var(--font-display);
+  font-size: 42px;
+  font-weight: 800;
+  color: var(--color-text);
+}
+.pw-price-label {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+.pw-cta-btn {
+  display: block;
+  width: 100%;
+  padding: 18px 32px;
+  background: var(--color-accent);
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(200, 93, 42, 0.3);
+  transition: all 0.2s ease;
+}
+.pw-cta-btn:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(200, 93, 42, 0.4);
+}
+
+/* ── Payment Form ──────────────────────────────────────────────── */
+.pw-payment-section {
+  background: var(--color-white);
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   padding: 24px;
-  box-shadow: var(--shadow-md);
+  margin-top: 20px;
+  box-shadow: var(--shadow-sm);
+  animation: pwSlideDown 0.3s ease;
+}
+@keyframes pwSlideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.pw-form {
+  display: flex;
+  flex-direction: column;
 }
 .pw-pay-btn {
-  margin-top: 20px;
+  width: 100%;
+  padding: 16px;
+  background: var(--color-accent);
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  margin-top: 16px;
+  transition: all 0.2s;
+}
+.pw-pay-btn:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+.pw-pay-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 .pw-error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
-  padding: 12px 16px;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
   border-radius: var(--radius-md);
-  font-size: 13px;
-  margin-top: 12px;
+  padding: 12px 16px;
+  color: #DC2626;
+  font-family: var(--font-body);
+  font-size: 14px;
+  margin-bottom: 12px;
 }
 .pw-loading {
   text-align: center;
-  padding: 32px;
+  padding: 24px;
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
   font-size: 14px;
-  color: var(--text-muted);
-}
-.pw-trust {
-  text-align: center;
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 20px;
 }
 
+/* ── Trust Signals ─────────────────────────────────────────────── */
+.pw-trust {
+  text-align: center;
+  padding: 16px 0 32px;
+}
+.pw-trust-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+.pw-trust-guarantee {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-accent);
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ── Paywall Mobile ────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  .pw-tiers {
-    grid-template-columns: 1fr;
+  .pw-heading {
+    font-size: 26px;
+  }
+  .pw-include-item {
+    padding: 14px 16px;
+  }
+  .pw-price-amount {
+    font-size: 36px;
+  }
+  .pw-physical-content {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
 }
 
