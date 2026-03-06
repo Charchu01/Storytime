@@ -114,7 +114,7 @@ export async function generateImage(
   tier = "standard",
   style = null,
   referenceImageUrls = [],
-  aspectRatio = "3:4",
+  aspectRatio = "2:3",
   isCover = false
 ) {
   let response;
