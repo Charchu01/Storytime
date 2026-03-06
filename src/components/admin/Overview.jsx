@@ -15,7 +15,7 @@ export default function Overview() {
 
       if (!overviewRes.ok) {
         const errData = await overviewRes.json().catch(() => ({}));
-        setError(`Overview API error (${overviewRes.status}): ${errData.error || 'Unknown error'}. Check that Vercel KV is configured.`);
+        setError(`Overview API error (${overviewRes.status}): ${errData.error || 'Unknown error'}. Check that Supabase is configured.`);
         setLoading(false);
         return;
       }
