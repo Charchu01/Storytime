@@ -1,8 +1,12 @@
-import { kv } from '@vercel/kv';
-
 // ── Admin Logger Utility ─────────────────────────────────────────────────────
 // Central logging to Vercel KV for the admin dashboard.
 // All admin data uses structured keys for efficient querying.
+
+const kvAvailable = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+let kv = null;
+if (kvAvailable) {
+  kv = (await import('@vercel/kv')).kv;
+}
 
 const SEVEN_DAYS = 7 * 24 * 60 * 60; // TTL for API call logs
 const MAX_EVENTS = 200; // Max events in activity feed
@@ -10,6 +14,10 @@ const MAX_EVENTS = 200; // Max events in activity feed
 // ── Book Logging ─────────────────────────────────────────────────────────────
 
 export async function logBook(bookData) {
+  if (!kv) {
+    console.warn('admin-logger: Vercel KV not configured, skipping logBook');
+    return null;
+  }
   try {
     const bookId = bookData.bookId || `book_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const record = {
@@ -72,6 +80,7 @@ export async function logBook(bookData) {
 // ── API Call Logging ─────────────────────────────────────────────────────────
 
 export async function logApiCall(callData) {
+  if (!kv) return;
   try {
     const ts = Date.now();
     const record = {
@@ -117,6 +126,7 @@ export async function logApiCall(callData) {
 // ── Error Logging ────────────────────────────────────────────────────────────
 
 export async function logError(errorData) {
+  if (!kv) return;
   try {
     const ts = errorData.ts || Date.now();
     const record = {
@@ -144,6 +154,7 @@ export async function logError(errorData) {
 // ── Event Logging (Activity Feed) ────────────────────────────────────────────
 
 export async function logEvent(type, data) {
+  if (!kv) return;
   try {
     const event = {
       ts: Date.now(),
@@ -165,6 +176,7 @@ export async function logEvent(type, data) {
 // ── Revenue Logging ──────────────────────────────────────────────────────────
 
 export async function logRevenue(paymentData) {
+  if (!kv) return;
   try {
     const today = new Date().toISOString().split('T')[0];
     const key = `admin:revenue:${today}`;
@@ -211,6 +223,7 @@ export async function logRevenue(paymentData) {
 // ── Validation Logging ───────────────────────────────────────────────────────
 
 export async function logValidation(validationData) {
+  if (!kv) return;
   try {
     const ts = Date.now();
     const record = {
@@ -254,6 +267,7 @@ export async function logValidation(validationData) {
 // ── Post-Game Analysis Logging ───────────────────────────────────────────────
 
 export async function logPostGameAnalysis(bookId, analysis) {
+  if (!kv) return;
   try {
     await kv.set(`admin:postgame:${bookId}`, {
       bookId,
@@ -276,6 +290,7 @@ export async function logPostGameAnalysis(bookId, analysis) {
 // ── User Logging ─────────────────────────────────────────────────────────────
 
 export async function logUser(userData) {
+  if (!kv) return;
   try {
     const userId = userData.userId || 'anonymous';
     const key = `admin:users:${userId}`;
@@ -374,6 +389,7 @@ async function updateDailyStats(bookRecord) {
 // ── Update Daily API Stats ───────────────────────────────────────────────────
 
 export async function updateDailyApiStats(service, durationMs, cost, isError) {
+  if (!kv) return;
   try {
     const today = new Date().toISOString().split('T')[0];
     const key = `admin:daily:${today}`;
@@ -408,6 +424,7 @@ export async function updateDailyApiStats(service, durationMs, cost, isError) {
 // ── Config Management ────────────────────────────────────────────────────────
 
 export async function getConfig(key, defaultValue) {
+  if (!kv) return defaultValue;
   try {
     const val = await kv.get(`admin:config:${key}`);
     return val !== null && val !== undefined ? val : defaultValue;
@@ -417,6 +434,7 @@ export async function getConfig(key, defaultValue) {
 }
 
 export async function setConfig(key, value) {
+  if (!kv) return false;
   try {
     await kv.set(`admin:config:${key}`, value);
     return true;
@@ -428,6 +446,7 @@ export async function setConfig(key, value) {
 // ── Prompt Override Management ───────────────────────────────────────────────
 
 export async function getPromptOverride(section) {
+  if (!kv) return null;
   try {
     return await kv.get(`admin:prompts:${section}`);
   } catch {
@@ -436,6 +455,7 @@ export async function getPromptOverride(section) {
 }
 
 export async function setPromptOverride(section, text) {
+  if (!kv) return false;
   try {
     await kv.set(`admin:prompts:${section}`, text);
     return true;
@@ -447,6 +467,7 @@ export async function setPromptOverride(section, text) {
 // ── Experiment Management ────────────────────────────────────────────────────
 
 export async function getActiveExperiment(target) {
+  if (!kv) return null;
   try {
     const expIds = await kv.zrange('admin:experiments_index', 0, -1);
     for (const id of expIds) {
@@ -462,6 +483,7 @@ export async function getActiveExperiment(target) {
 }
 
 export async function logExperimentBookResult(experimentId, variant, scores) {
+  if (!kv) return false;
   try {
     const exp = await kv.get(`admin:experiments:${experimentId}`);
     if (!exp) return false;
@@ -487,6 +509,7 @@ export async function logExperimentBookResult(experimentId, variant, scores) {
 // ── User Feedback Logging ────────────────────────────────────────────────────
 
 export async function logUserFeedback(bookId, feedback) {
+  if (!kv) return false;
   try {
     await kv.set(`admin:feedback:${bookId}`, {
       bookId,
