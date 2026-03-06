@@ -92,14 +92,13 @@ async function validateImageUrl(url) {
     if (ct && !ct.startsWith("image/")) return false;
     return true;
   } catch {
-    return true;
+    return false;
   }
 }
 
 // ── Image selection & quality tier ────────────────────────────────────────────
 function selectBestImage(attempts, hasReferencePhoto = false) {
   if (attempts.length === 0) return null;
-  if (attempts.length === 1) return attempts[0];
 
   // Step 1: Filter out hard gate failures
   const viable = attempts.filter(a =>
@@ -108,33 +107,35 @@ function selectBestImage(attempts, hasReferencePhoto = false) {
     a.validation.formatOk === true
   );
 
-  // Step 2: If nothing passed hard gates, pick least-bad by text then face
-  const pool = viable.length > 0 ? viable : attempts;
+  // Step 2: If nothing passed hard gates, reject — don't use a bad image
+  if (viable.length === 0) return null;
+
+  if (viable.length === 1) return viable[0];
 
   // Step 3: Calculate weighted composite score
-  pool.forEach(a => {
+  viable.forEach(a => {
     const v = a.validation;
     if (hasReferencePhoto && v.likenessScore != null) {
       a.composite = (v.textScore * 0.35) + (v.faceScore * 0.25) +
-                     ((v.textBoxScore || 7) * 0.15) + (v.sceneAccuracy * 0.15) +
+                     (v.textBoxScore * 0.15) + (v.sceneAccuracy * 0.15) +
                      (v.likenessScore * 0.10);
     } else {
       a.composite = (v.textScore * 0.40) + (v.faceScore * 0.30) +
-                     ((v.textBoxScore || 7) * 0.15) + (v.sceneAccuracy * 0.15);
+                     (v.textBoxScore * 0.15) + (v.sceneAccuracy * 0.15);
     }
   });
 
   // Step 4: Return highest composite
-  pool.sort((a, b) => b.composite - a.composite);
-  return pool[0];
+  viable.sort((a, b) => b.composite - a.composite);
+  return viable[0];
 }
 
 function getQualityTier(validation) {
   const v = validation;
-  if (v.textScore >= 9 && v.faceScore >= 8 && (v.textBoxScore || 7) >= 7 && v.sceneAccuracy >= 7) {
+  if (v.textScore >= 9 && v.faceScore >= 8 && (v.textBoxScore ?? 0) >= 7 && v.sceneAccuracy >= 7) {
     return 'excellent';
   }
-  if (v.textScore >= 7 && v.faceScore >= 7 && (v.textBoxScore || 6) >= 6 && v.sceneAccuracy >= 6) {
+  if (v.textScore >= 7 && v.faceScore >= 7 && (v.textBoxScore ?? 0) >= 6 && v.sceneAccuracy >= 6) {
     return 'good';
   }
   if (v.textScore >= 5 && v.faceScore >= 5) {

@@ -355,7 +355,7 @@ export async function validateImage(
         await new Promise(r => setTimeout(r, 2000));
         continue;
       }
-      return { pass: true, reason: "network_error", issues: ["Validation network error"] };
+      return { pass: false, reason: "network_error", textScore: 0, faceScore: 0, textBoxScore: 0, sceneAccuracy: 0, formatOk: false, issues: ["Validation network error"] };
     }
   }
 }
