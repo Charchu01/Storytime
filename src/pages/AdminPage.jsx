@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Overview from "../components/admin/Overview";
 import Books from "../components/admin/Books";
 import Revenue from "../components/admin/Revenue";
@@ -17,8 +18,16 @@ const TABS = [
   { id: "system", label: "System", icon: "\u{2699}\uFE0F" },
 ];
 
+function getTabFromPath(pathname) {
+  const segment = pathname.replace(/^\/admin\/?/, "").split("/")[0];
+  if (segment && TABS.some((t) => t.id === segment)) return segment;
+  return "overview";
+}
+
 export default function AdminPage() {
-  const [tab, setTab] = useState("overview");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const tab = getTabFromPath(location.pathname);
   const [authorized, setAuthorized] = useState(null);
   const [loginMode, setLoginMode] = useState(null);
   const [password, setPassword] = useState("");
@@ -172,7 +181,7 @@ export default function AdminPage() {
           {TABS.map((t) => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => navigate(t.id === "overview" ? "/admin" : `/admin/${t.id}`)}
               style={{
                 ...styles.navButton,
                 ...(tab === t.id ? styles.navButtonActive : {}),

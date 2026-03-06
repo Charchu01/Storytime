@@ -366,16 +366,48 @@ async function checkReplicate() {
 
 async function checkStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return { configured: false };
-  return { configured: true };
+  try {
+    const resp = await fetch('https://api.stripe.com/v1/balance', {
+      headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      const available = data.available?.reduce((sum, b) => sum + b.amount, 0) || 0;
+      const pending = data.pending?.reduce((sum, b) => sum + b.amount, 0) || 0;
+      const currency = data.available?.[0]?.currency || 'usd';
+      return { configured: true, httpStatus: resp.status, balance: { available: available / 100, pending: pending / 100, currency } };
+    }
+    return { configured: true, httpStatus: resp.status };
+  } catch {
+    return { configured: true };
+  }
 }
 
 async function checkElevenLabs() {
   if (!process.env.ELEVENLABS_KEY) return { configured: false };
-  const resp = await fetch('https://api.elevenlabs.io/v1/user', {
-    headers: { 'xi-api-key': process.env.ELEVENLABS_KEY },
-    signal: AbortSignal.timeout(5000),
-  });
-  return { configured: true, httpStatus: resp.status };
+  try {
+    const resp = await fetch('https://api.elevenlabs.io/v1/user/subscription', {
+      headers: { 'xi-api-key': process.env.ELEVENLABS_KEY },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      return {
+        configured: true, httpStatus: resp.status,
+        usage: {
+          characterCount: data.character_count,
+          characterLimit: data.character_limit,
+          remainingCharacters: data.character_limit - data.character_count,
+          tier: data.tier,
+          nextReset: data.next_character_count_reset_unix ? new Date(data.next_character_count_reset_unix * 1000).toISOString() : null,
+        },
+      };
+    }
+    return { configured: true, httpStatus: resp.status };
+  } catch {
+    return { configured: true };
+  }
 }
 
 async function checkKV() {

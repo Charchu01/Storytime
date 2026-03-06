@@ -1,11 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import BookTypePicker from "../components/BookTypePicker";
-import HeroSetup from "../components/HeroSetup";
-import StylePicker from "../components/StylePicker";
-import StoryStudio from "../components/StoryStudio";
-import Paywall from "../components/Paywall";
-import GenerationStep from "../components/GenerationStep";
+import { useState, useEffect, createContext, useContext, useCallback } from "react";
+import { useNavigate, useSearchParams, useLocation, Outlet } from "react-router-dom";
 import { useAppContext } from "../App";
 import { STYLES, BOOK_TYPES } from "../constants/data";
 
@@ -27,13 +21,16 @@ function loadDraft() {
 
 function clearDraft() { localStorage.removeItem(DRAFT_KEY); }
 
+// ── Wizard context shared across all /create/* routes ──────────────────────
+const CreateWizardContext = createContext();
+export function useCreateWizard() { return useContext(CreateWizardContext); }
+
 export default function CreatePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { addStory } = useAppContext();
 
-  // Flow: bookType → hero → style → studio → payment → generate
-  const [step, setStep] = useState("bookType");
   const [bookType, setBookType] = useState(null);
   const [heroData, setHeroData] = useState(null);
   const [artStyle, setArtStyle] = useState(null);
@@ -43,9 +40,9 @@ export default function CreatePage() {
   const [style, setStyle] = useState(null);
   const [length, setLength] = useState(6);
   const [storySessionId] = useState(() => Date.now().toString(36) + Math.random().toString(36).slice(2));
+  const [vaultChar, setVaultChar] = useState(null);
 
   // Check for vault character from Family Vault
-  const [vaultChar, setVaultChar] = useState(null);
   useEffect(() => {
     if (searchParams.get("vaultChar")) {
       try {
@@ -53,8 +50,7 @@ export default function CreatePage() {
         if (stored) {
           setVaultChar(stored);
           sessionStorage.removeItem("sk_vault_char");
-          // Pre-fill hero data and jump to style selection
-          setBookType(BOOK_TYPES[0]); // default to adventure
+          setBookType(BOOK_TYPES[0]);
           setHeroData({
             heroName: stored.name,
             heroType: "child",
@@ -62,7 +58,7 @@ export default function CreatePage() {
             heroPhoto: stored.photoUrl || null,
             companions: [],
           });
-          setStep("style");
+          navigate("/create/style", { replace: true });
         }
       } catch {}
     }
@@ -70,26 +66,24 @@ export default function CreatePage() {
 
   useEffect(() => { document.title = "Create Your Story — Storytime"; }, []);
 
-  // Screen 1: Book type selected
-  function handleBookTypeSelect(type) {
+  // ── Step handlers (navigate instead of setStep) ──────────────────────────
+
+  const handleBookTypeSelect = useCallback((type) => {
     setBookType(type);
-    setStep("hero");
-  }
+    navigate("/create/hero");
+  }, [navigate]);
 
-  // Screen 2: Hero setup complete
-  function handleHeroComplete(data) {
+  const handleHeroComplete = useCallback((data) => {
     setHeroData(data);
-    setStep("style");
-  }
+    navigate("/create/style");
+  }, [navigate]);
 
-  // Screen 3: Style + tone selected
-  function handleStyleSelect(styleData) {
+  const handleStyleSelect = useCallback((styleData) => {
     setArtStyle(styleData);
-    setStep("studio");
-  }
+    navigate("/create/studio");
+  }, [navigate]);
 
-  // Screen 4: Studio (chat) complete — has story details
-  function handleStudioComplete(studioData) {
+  const handleStudioComplete = useCallback((studioData) => {
     // Build cast from heroData
     const heroPhotos = heroData.heroPhoto
       ? [{ dataUri: heroData.heroPhoto, quality: "fair", feedback: "" }]
@@ -110,7 +104,6 @@ export default function CreatePage() {
       });
     }
 
-    // Add companions (with photos if uploaded)
     if (heroData.companions?.length > 0) {
       heroCast.push(...heroData.companions.map((c) => ({
         id: Date.now() + Math.random(),
@@ -125,16 +118,13 @@ export default function CreatePage() {
 
     setCast(heroCast);
 
-    // Resolve art style name
     const selectedStyle = artStyle?.style;
     const styleName = selectedStyle?.name || "Classic Storybook";
     setStyle(styleName);
 
-    // Determine page count from book type
     const pageCount = bookType?.pageCount?.standard || 6;
     setLength(pageCount);
 
-    // Build enriched wizard data for generation
     const enrichedData = {
       heroName: heroData.heroName,
       heroAge: heroData.heroAge,
@@ -158,28 +148,23 @@ export default function CreatePage() {
     };
 
     setWizardData(enrichedData);
-    setStep("payment");
-  }
+    navigate("/create/checkout");
+  }, [heroData, artStyle, bookType, navigate]);
 
-  // Screen 5: Payment complete
-  function handlePaid(selectedTier) {
+  const handlePaid = useCallback((selectedTier) => {
     setTier(selectedTier);
 
-    // Update length based on tier
     const newLength = selectedTier === "premium"
       ? (bookType?.pageCount?.premium || 10)
       : (bookType?.pageCount?.standard || 6);
     setLength(newLength);
 
-    // Update wizardData with correct page count
     setWizardData((prev) => prev ? { ...prev, pageCount: newLength } : prev);
+    navigate("/create/generating");
+  }, [bookType, navigate]);
 
-    setStep("generate");
-  }
-
-  function handleStoryComplete(storyResult) {
+  const handleStoryComplete = useCallback((storyResult) => {
     clearDraft();
-    // Strip base64 photo data from cast before saving
     const lightCast = cast.map(({ photo, photos, ...rest }) => ({
       ...rest,
       photo: null,
@@ -194,12 +179,10 @@ export default function CreatePage() {
       bookType: bookType?.id,
     };
     const id = addStory(storyEntry);
-    // Pass story data in navigation state so BookReaderPage can use it
-    // immediately even if React state or localStorage hasn't synced yet
     navigate(`/book/${id}`, { replace: true, state: { storyData: { ...storyEntry, id } } });
-  }
+  }, [cast, style, tier, heroData, bookType, addStory, navigate]);
 
-  function reset() {
+  const reset = useCallback(() => {
     clearDraft();
     setBookType(null);
     setHeroData(null);
@@ -208,62 +191,32 @@ export default function CreatePage() {
     setTier(null);
     setCast([]);
     setStyle(null);
-    setStep("bookType");
-  }
+    navigate("/create");
+  }, [navigate]);
+
+  // ── Route guard: redirect to earliest incomplete step ────────────────────
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === "/create" || path === "/create/") return;
+    if (path === "/create/hero" && !bookType) { navigate("/create", { replace: true }); return; }
+    if (path === "/create/style" && !heroData) { navigate("/create", { replace: true }); return; }
+    if (path === "/create/studio" && !artStyle) { navigate("/create", { replace: true }); return; }
+    if (path === "/create/checkout" && !wizardData) { navigate("/create", { replace: true }); return; }
+    if (path === "/create/generating" && !tier) { navigate("/create/checkout", { replace: true }); return; }
+  }, [location.pathname, bookType, heroData, artStyle, wizardData, tier, navigate]);
+
+  const ctx = {
+    bookType, heroData, artStyle, wizardData, tier, cast, style, length,
+    storySessionId, vaultChar,
+    handleBookTypeSelect, handleHeroComplete, handleStyleSelect,
+    handleStudioComplete, handlePaid, handleStoryComplete, reset,
+  };
 
   return (
-    <div className="create-page">
-      {step === "bookType" && (
-        <BookTypePicker
-          onSelect={handleBookTypeSelect}
-          onBack={() => navigate("/")}
-        />
-      )}
-      {step === "hero" && (
-        <HeroSetup
-          bookType={bookType}
-          onComplete={handleHeroComplete}
-          onBack={() => setStep("bookType")}
-        />
-      )}
-      {step === "style" && (
-        <StylePicker
-          onSelect={handleStyleSelect}
-          onBack={() => setStep("hero")}
-        />
-      )}
-      {step === "studio" && (
-        <StoryStudio
-          bookType={bookType}
-          heroData={heroData}
-          artStyle={artStyle}
-          onComplete={handleStudioComplete}
-          onBack={() => setStep("style")}
-        />
-      )}
-      {step === "payment" && (
-        <Paywall
-          bookType={bookType}
-          artStyle={artStyle}
-          heroData={heroData}
-          wizardData={wizardData}
-          onPaid={handlePaid}
-          storySessionId={storySessionId}
-        />
-      )}
-      {step === "generate" && (
-        <GenerationStep
-          cast={cast}
-          style={style}
-          length={length}
-          tier={tier}
-          storySessionId={storySessionId}
-          vaultChar={vaultChar}
-          wizardData={wizardData}
-          onNext={handleStoryComplete}
-          onBack={() => setStep("studio")}
-        />
-      )}
-    </div>
+    <CreateWizardContext.Provider value={ctx}>
+      <div className="create-page">
+        <Outlet />
+      </div>
+    </CreateWizardContext.Provider>
   );
 }
