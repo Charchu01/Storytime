@@ -1,7 +1,7 @@
 import { logApiCall, logValidation, updateDailyApiStats } from './lib/admin-logger.js';
 import { rateLimit } from './lib/rate-limiter.js';
 
-export const config = { maxDuration: 25 };
+export const config = { maxDuration: 60 };
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -109,17 +109,28 @@ export default async function handler(req, res) {
           continue;
         }
         // Other API errors — fail closed so bad images don't sneak through
-        return res.json({
+        const apiErrorResult = {
           pass: false,
           reason: "validation_api_error",
           apiStatus: response.status,
           textScore: 0,
           faceScore: 0,
-          textBoxScore: 0,
+          textBoxScore: null,
           sceneAccuracy: 0,
           formatOk: false,
           issues: [`Validation unavailable (HTTP ${response.status})`],
-        });
+          qualityTier: 'poor',
+          compositeScore: 0,
+        };
+        console.error("VALIDATION_API_ERROR:", JSON.stringify({ pageType, status: response.status, error: data.error?.message }));
+        logValidation({
+          bookId: bookId || null, page: pageType, attempt: attempt + 1,
+          textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
+          formatOk: false, pass: false, issues: apiErrorResult.issues,
+          fixNotes: `API error HTTP ${response.status}`,
+          qualityTier: 'poor', compositeScore: 0,
+        }).catch(() => {});
+        return res.json(apiErrorResult);
       }
 
       const text = data.content
@@ -237,7 +248,7 @@ export default async function handler(req, res) {
       } catch (parseErr) {
         console.warn(`Validation parse error (attempt ${attempt + 1}):`, text.substring(0, 200));
         if (attempt === 0) continue; // Retry on parse failure
-        return res.json({
+        const parseErrorResult = {
           pass: false,
           reason: "parse_error",
           issues: ["Validation response could not be parsed"],
@@ -247,7 +258,16 @@ export default async function handler(req, res) {
           textBoxScore: null,
           sceneAccuracy: 0,
           formatOk: false,
-        });
+          qualityTier: 'poor',
+          compositeScore: 0,
+        };
+        logValidation({
+          bookId: bookId || null, page: pageType, attempt: attempt + 1,
+          textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
+          formatOk: false, pass: false, issues: parseErrorResult.issues,
+          fixNotes: 'Parse error', qualityTier: 'poor', compositeScore: 0,
+        }).catch(() => {});
+        return res.json(parseErrorResult);
       }
     } catch (err) {
       console.error(`Validation network error (attempt ${attempt + 1}):`, err.message);
@@ -256,16 +276,26 @@ export default async function handler(req, res) {
         continue;
       }
       // Final attempt failed — fail closed so bad images don't sneak through
-      return res.json({
+      const networkErrorResult = {
         pass: false,
         reason: "network_error",
         textScore: 0,
         faceScore: 0,
-        textBoxScore: 0,
+        textBoxScore: null,
         sceneAccuracy: 0,
         formatOk: false,
         issues: ["Validation could not reach API"],
-      });
+        qualityTier: 'poor',
+        compositeScore: 0,
+      };
+      console.error("VALIDATION_NETWORK_ERROR:", JSON.stringify({ pageType, error: err.message }));
+      logValidation({
+        bookId: bookId || null, page: pageType, attempt: attempt + 1,
+        textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
+        formatOk: false, pass: false, issues: networkErrorResult.issues,
+        fixNotes: `Network error: ${err.message}`, qualityTier: 'poor', compositeScore: 0,
+      }).catch(() => {});
+      return res.json(networkErrorResult);
     }
   }
 }
