@@ -163,7 +163,7 @@ export default async function handler(req, res) {
       model: modelUsed,
       cost: 0.045,
       details: `${modelUsed} | ${imageInputs.length} refs`,
-    }).catch(() => {});
+    }).catch(e => console.warn('logApiCall failed:', e.message));
     updateDailyApiStats('replicate', durationMs, 0.045, false).catch(() => {});
 
     res.json({
@@ -179,7 +179,7 @@ export default async function handler(req, res) {
       status: 500,
       durationMs: Date.now() - startTime,
       error: err.message,
-    }).catch(() => {});
+    }).catch(e => console.warn('logApiCall failed:', e.message));
     updateDailyApiStats('replicate', Date.now() - startTime, 0, true).catch(() => {});
     res.status(500).json({ error: `Image generation failed: ${err.message}` });
   }

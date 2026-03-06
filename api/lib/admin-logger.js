@@ -4,13 +4,18 @@
 
 import { supabaseAdmin } from './supabase-admin.js';
 
-const sb = supabaseAdmin; // shorthand
+// Lazy getter — if supabaseAdmin was null at first import (e.g. cold start
+// before env vars were available), re-check on each call.
+function getSb() {
+  return supabaseAdmin;
+}
 
 // ── Book Logging ─────────────────────────────────────────────────────────────
 // Updates an existing book record with health_status, or logs to activity_log.
 // The book must already exist in Supabase (saved via save-book.js).
 
 export async function logBook(bookData) {
+  const sb = getSb();
   if (!sb) {
     console.warn('admin-logger: Supabase not configured, skipping logBook');
     return null;
@@ -44,6 +49,7 @@ export async function logBook(bookData) {
 // ── API Call Logging ─────────────────────────────────────────────────────────
 
 export async function logApiCall(callData) {
+  const sb = getSb();
   if (!sb) return;
   try {
     const record = {
@@ -58,7 +64,11 @@ export async function logApiCall(callData) {
       details: callData.details || null,
     };
 
-    await sb.from('admin_api_calls').insert(record);
+    const { error: insertError } = await sb.from('admin_api_calls').insert(record);
+    if (insertError) {
+      console.error('ADMIN_LOG_API_CALL_ERROR:', insertError.message, insertError.details);
+      return null;
+    }
 
     // Log errors specially
     if (callData.error || (callData.status && callData.status >= 400)) {
@@ -81,15 +91,17 @@ export async function logApiCall(callData) {
 // ── Error Logging ────────────────────────────────────────────────────────────
 
 export async function logError(errorData) {
+  const sb = getSb();
   if (!sb) return;
   try {
-    await sb.from('admin_errors').insert({
+    const { error } = await sb.from('admin_errors').insert({
       service: errorData.service || 'unknown',
       error_type: errorData.type || 'error',
       book_id: errorData.bookId || null,
       error: errorData.error || 'Unknown error',
       details: errorData.details || null,
     });
+    if (error) console.error('ADMIN_LOG_ERROR_INSERT_FAIL:', error.message);
   } catch (err) {
     console.error('Admin logger - logError error:', err.message);
   }
@@ -98,15 +110,17 @@ export async function logError(errorData) {
 // ── Event Logging (Activity Feed) ────────────────────────────────────────────
 
 export async function logEvent(type, data) {
+  const sb = getSb();
   if (!sb) return;
   try {
-    await sb.from('activity_log').insert({
+    const { error } = await sb.from('activity_log').insert({
       event_type: type,
       severity: type.includes('failed') || type.includes('error') ? 'error' : 'info',
       message: formatEventMessage(type, data),
       book_id: data.bookId || null,
       user_id: data.userId || null,
     });
+    if (error) console.error('ADMIN_LOG_EVENT_INSERT_FAIL:', error.message);
   } catch (err) {
     console.error('Admin logger - logEvent error:', err.message);
   }
@@ -134,6 +148,7 @@ function formatEventMessage(type, data) {
 // This function logs payment events for the activity feed.
 
 export async function logRevenue(paymentData) {
+  const sb = getSb();
   if (!sb) return;
   try {
     await logEvent(
@@ -153,28 +168,33 @@ export async function logRevenue(paymentData) {
 // ── Validation Logging ───────────────────────────────────────────────────────
 
 export async function logValidation(validationData) {
+  const sb = getSb();
   if (!sb) return;
   try {
     const record = {
       book_id: validationData.bookId || null,
       page: validationData.page || 'unknown',
       attempt: validationData.attempt || 1,
-      text_score: validationData.textScore || 0,
-      face_score: validationData.faceScore || 0,
-      scene_accuracy: validationData.sceneAccuracy || 0,
-      text_box_score: validationData.textBoxScore || null,
+      text_score: validationData.textScore ?? 0,
+      face_score: validationData.faceScore ?? 0,
+      scene_accuracy: validationData.sceneAccuracy ?? 0,
+      text_box_score: validationData.textBoxScore ?? null,
       format_ok: validationData.formatOk !== false,
-      pass: validationData.pass || false,
+      pass: validationData.pass === true,
       issues: validationData.issues || [],
       fix_notes: validationData.fixNotes || '',
-      likeness_score: validationData.likenessScore || null,
+      likeness_score: validationData.likenessScore ?? null,
       fingers_ok: validationData.fingersOk !== false,
       character_count: validationData.characterCount || null,
       quality_tier: validationData.qualityTier || null,
-      composite_score: validationData.compositeScore || null,
+      composite_score: validationData.compositeScore ?? null,
     };
 
-    await sb.from('admin_validations').insert(record);
+    const { error } = await sb.from('admin_validations').insert(record);
+    if (error) {
+      console.error('ADMIN_LOG_VALIDATION_ERROR:', error.message, error.details, error.hint);
+      return null;
+    }
 
     if (!record.pass) {
       await logEvent('validation_retry', {
@@ -196,6 +216,7 @@ export async function logValidation(validationData) {
 // ── Post-Game Analysis Logging ───────────────────────────────────────────────
 
 export async function logPostGameAnalysis(bookId, analysis) {
+  const sb = getSb();
   if (!sb) return;
   try {
     await sb.from('admin_postgame').upsert({
@@ -237,6 +258,7 @@ export async function updateDailyApiStats(/* service, durationMs, cost, isError 
 // ── Config Management ────────────────────────────────────────────────────────
 
 export async function getConfig(key, defaultValue) {
+  const sb = getSb();
   if (!sb) return defaultValue;
   try {
     const { data } = await sb.from('admin_config')
@@ -250,6 +272,7 @@ export async function getConfig(key, defaultValue) {
 }
 
 export async function setConfig(key, value) {
+  const sb = getSb();
   if (!sb) return false;
   try {
     await sb.from('admin_config').upsert({
@@ -266,6 +289,7 @@ export async function setConfig(key, value) {
 // ── Prompt Override Management ───────────────────────────────────────────────
 
 export async function getPromptOverride(section) {
+  const sb = getSb();
   if (!sb) return null;
   try {
     const { data } = await sb.from('admin_config')
@@ -279,6 +303,7 @@ export async function getPromptOverride(section) {
 }
 
 export async function setPromptOverride(section, text) {
+  const sb = getSb();
   if (!sb) return false;
   try {
     if (text === null || text === '') {
@@ -299,6 +324,7 @@ export async function setPromptOverride(section, text) {
 // ── Experiment Management ────────────────────────────────────────────────────
 
 export async function getActiveExperiment(target) {
+  const sb = getSb();
   if (!sb) return null;
   try {
     const { data } = await sb.from('admin_experiments')
@@ -314,6 +340,7 @@ export async function getActiveExperiment(target) {
 }
 
 export async function logExperimentBookResult(experimentId, variant, scores) {
+  const sb = getSb();
   if (!sb) return false;
   try {
     const { data: exp } = await sb.from('admin_experiments')
@@ -348,6 +375,7 @@ export async function logExperimentBookResult(experimentId, variant, scores) {
 // ── User Feedback Logging ────────────────────────────────────────────────────
 
 export async function logUserFeedback(bookId, feedback) {
+  const sb = getSb();
   if (!sb) return false;
   try {
     await sb.from('admin_feedback').insert({
