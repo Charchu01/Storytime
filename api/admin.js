@@ -1,6 +1,7 @@
 export const config = { maxDuration: 30 };
 
 import { supabaseAdmin } from './lib/supabase-admin.js';
+import { checkAdminAuth } from './lib/admin-auth-check.js';
 
 const sb = supabaseAdmin;
 
@@ -10,6 +11,11 @@ const TIER_PRICES = { standard: 9.99, premium: 19.99 };
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { authorized } = checkAdminAuth(req);
+  if (!authorized) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const action = req.query.action || req.body?.action;
