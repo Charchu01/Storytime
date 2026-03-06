@@ -162,10 +162,16 @@ export async function logValidation(validationData) {
       text_score: validationData.textScore || 0,
       face_score: validationData.faceScore || 0,
       scene_accuracy: validationData.sceneAccuracy || 0,
+      text_box_score: validationData.textBoxScore || null,
       format_ok: validationData.formatOk !== false,
       pass: validationData.pass || false,
       issues: validationData.issues || [],
       fix_notes: validationData.fixNotes || '',
+      likeness_score: validationData.likenessScore || null,
+      fingers_ok: validationData.fingersOk !== false,
+      character_count: validationData.characterCount || null,
+      quality_tier: validationData.qualityTier || null,
+      composite_score: validationData.compositeScore || null,
     };
 
     await sb.from('admin_validations').insert(record);

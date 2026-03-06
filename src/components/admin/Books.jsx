@@ -266,8 +266,27 @@ function BookDetailModal({ detail, onClose }) {
                       </span>
                       <span style={scoreChip}>Text: {v.textScore}/10</span>
                       <span style={scoreChip}>Face: {v.faceScore}/10</span>
+                      {v.textBoxScore != null && <span style={scoreChip}>TextBox: {v.textBoxScore}/10</span>}
                       {v.sceneAccuracy != null && <span style={scoreChip}>Scene: {v.sceneAccuracy}/10</span>}
+                      {v.likenessScore != null && <span style={{ ...scoreChip, background: "#ede9fe" }}>Likeness: {v.likenessScore}/10</span>}
+                      {v.compositeScore != null && (
+                        <span style={{ ...scoreChip, background: v.compositeScore >= 7 ? "#dcfce7" : v.compositeScore >= 5 ? "#fef3c7" : "#fecaca", fontWeight: 700 }}>
+                          Composite: {v.compositeScore.toFixed(1)}
+                        </span>
+                      )}
+                      {v.qualityTier && (
+                        <span style={{
+                          ...badge,
+                          fontSize: 10,
+                          background: v.qualityTier === "excellent" ? "#dcfce7" : v.qualityTier === "good" ? "#dbeafe" : v.qualityTier === "acceptable" ? "#fef3c7" : "#fecaca",
+                          color: v.qualityTier === "excellent" ? "#16a34a" : v.qualityTier === "good" ? "#1d4ed8" : v.qualityTier === "acceptable" ? "#92400e" : "#dc2626",
+                        }}>
+                          {v.qualityTier}
+                        </span>
+                      )}
                       {v.formatOk === false && <span style={{ ...scoreChip, background: "#fecaca" }}>Format: Bad</span>}
+                      {v.fingersOk === false && <span style={{ ...scoreChip, background: "#fecaca" }}>Fingers: Bad</span>}
+                      {v.characterCount != null && v.characterCount > 1 && <span style={scoreChip}>{v.characterCount} chars</span>}
                       {(v.issues || []).length > 0 && (
                         <div style={{ width: "100%", marginTop: 4, fontSize: 11, color: "#dc2626" }}>
                           Issues: {v.issues.join("; ")}
