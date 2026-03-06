@@ -14,16 +14,16 @@ const STYLE_EXAMPLES = {
 };
 
 const STYLE_EMOJIS = {
-  storybook: "📚",
-  watercolor: "🎨",
-  pixar: "🎬",
-  bold: "🌈",
-  cozy: "🧸",
-  sketch: "✏️",
-  anime: "🌸",
-  retro: "📻",
-  collage: "✂️",
-  minimal: "🔲",
+  storybook: "\uD83D\uDCDA",
+  watercolor: "\uD83C\uDFA8",
+  pixar: "\uD83C\uDFAC",
+  bold: "\uD83C\uDF08",
+  cozy: "\uD83E\uDDF8",
+  sketch: "\u270F\uFE0F",
+  anime: "\uD83C\uDF38",
+  retro: "\uD83D\uDCFB",
+  collage: "\u2702\uFE0F",
+  minimal: "\uD83D\uDD32",
 };
 
 const STYLE_DESCRIPTIONS = {
@@ -46,10 +46,7 @@ export default function StylePicker({ onSelect, onBack }) {
 
   function handleContinue() {
     if (!selectedStyle) return;
-    onSelect({
-      style: selectedStyle,
-      tone: selectedTone,
-    });
+    onSelect({ style: selectedStyle, tone: selectedTone });
   }
 
   function handleImgError(styleId) {
@@ -57,84 +54,63 @@ export default function StylePicker({ onSelect, onBack }) {
   }
 
   return (
-    <div className="sp-container">
-      <div className="sp-header">
-        <button className="back-btn" onClick={onBack}>← Back</button>
-        <div className="sp-header-text">
-          <h1 className="sp-title">Choose the look</h1>
-          <p className="sp-subtitle">Pick an art style and mood for your book</p>
-        </div>
+    <div className="create-step">
+      <div className="create-step-header">
+        <button className="create-back" onClick={onBack}>&larr; Back</button>
       </div>
+      <div className="create-step-content">
+        <h1 className="create-step-title">Choose the look</h1>
+        <p className="create-step-subtitle">Pick an art style for your illustrations</p>
 
-      {/* Art Styles */}
-      <div className="sp-section">
-        <h2 className="sp-section-title">Art Style</h2>
-        <div className="sp-style-grid">
+        <div className="sp-grid">
           {STYLES.map((s) => {
             const isSelected = selectedStyle?.id === s.id;
             const exampleUrl = STYLE_EXAMPLES[s.id];
             const hasImage = exampleUrl && !imgErrors[s.id];
             return (
-              <button
-                key={s.id}
-                className={`sp-style-card${isSelected ? " sp-style-selected" : ""}`}
-                onClick={() => setSelectedStyle(s)}
-              >
-                {isSelected && <span className="sp-style-check">✓</span>}
-                {hasImage ? (
-                  <div className="style-card-preview">
-                    <img
-                      src={exampleUrl}
-                      alt={`${s.name} example`}
-                      loading="lazy"
-                      onError={() => handleImgError(s.id)}
-                    />
-                  </div>
-                ) : (
-                  <div className="sp-style-preview" data-style={s.id}>
-                    <span className="sp-style-emoji-icon">{STYLE_EMOJIS[s.id] || "🎨"}</span>
-                  </div>
-                )}
-                <div className="sp-style-info">
-                  <span className="sp-style-name">{s.name}</span>
-                  <span className="sp-style-tagline">{s.tagline}</span>
+              <button key={s.id} className={`sp-card${isSelected ? " sp-card--selected" : ""}`} onClick={() => setSelectedStyle(s)}>
+                {isSelected && <span className="sp-card-check">{"\u2713"}</span>}
+                <div className="sp-card-preview">
+                  {hasImage ? (
+                    <img src={exampleUrl} alt={`${s.name} example`} loading="lazy" onError={() => handleImgError(s.id)} />
+                  ) : (
+                    <span className="sp-card-emoji-icon">{STYLE_EMOJIS[s.id] || "\uD83C\uDFA8"}</span>
+                  )}
                 </div>
-                <p className="sp-style-desc">{STYLE_DESCRIPTIONS[s.id]}</p>
+                <div className="sp-card-info">
+                  <span className="sp-card-name">{s.name}</span>
+                  <span className="sp-card-tagline">{STYLE_DESCRIPTIONS[s.id]}</span>
+                </div>
               </button>
             );
           })}
         </div>
-      </div>
 
-      {/* Tones */}
-      <div className="sp-section">
-        <h2 className="sp-section-title">Mood & Tone <span className="hs-optional">(optional)</span></h2>
-        <div className="sp-tone-grid">
-          {TONES.map((t) => (
-            <button
-              key={t.id}
-              className={`sp-tone-chip${selectedTone?.id === t.id ? " sp-tone-selected" : ""}`}
-              onClick={() => setSelectedTone(selectedTone?.id === t.id ? null : t)}
-            >
-              <span className="sp-tone-emoji">{t.emoji}</span>
-              <span className="sp-tone-label">{t.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Selected summary + continue */}
-      {selectedStyle && (
-        <div className="sp-footer">
-          <div className="sp-selection-summary">
-            <span className="sp-sel-style">{selectedStyle.name}</span>
-            {selectedTone && <span className="sp-sel-tone"> · {selectedTone.label}</span>}
+        {/* Tones */}
+        <div className="sp-tone-section">
+          <h2 className="sp-tone-title">Set the mood <span className="hs-optional">(optional)</span></h2>
+          <div className="sp-tone-row">
+            {TONES.map((t) => (
+              <button key={t.id} className={`sp-tone-chip${selectedTone?.id === t.id ? " sp-tone-chip--active" : ""}`} onClick={() => setSelectedTone(selectedTone?.id === t.id ? null : t)}>
+                <span>{t.emoji}</span>
+                <span>{t.label}</span>
+              </button>
+            ))}
           </div>
-          <button className="big-btn sp-continue" onClick={handleContinue}>
-            Continue →
-          </button>
         </div>
-      )}
+
+        {/* Selection summary + continue */}
+        {selectedStyle && (
+          <div className="sp-footer">
+            <p className="sp-selection-summary">
+              {selectedStyle.name}{selectedTone ? ` \u00B7 ${selectedTone.label}` : ""}
+            </p>
+            <button className="create-continue-btn" onClick={handleContinue}>
+              Continue &rarr;
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

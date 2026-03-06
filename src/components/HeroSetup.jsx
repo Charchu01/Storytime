@@ -5,9 +5,9 @@ const PHOTO_MAX_DIM = 1024;
 const PHOTO_QUALITY = 0.85;
 
 const HERO_TYPES = [
-  { id: "child", emoji: "👶", label: "Child" },
-  { id: "adult", emoji: "👨", label: "Adult" },
-  { id: "pet", emoji: "🐾", label: "Pet" },
+  { id: "child", emoji: "\uD83D\uDC76", label: "Child" },
+  { id: "adult", emoji: "\uD83E\uDDD1", label: "Adult" },
+  { id: "pet", emoji: "\uD83D\uDC3E", label: "Pet" },
 ];
 
 const RELATIONSHIP_OPTIONS = [
@@ -112,67 +112,46 @@ export default function HeroSetup({ bookType, onComplete, onBack }) {
   }
 
   return (
-    <div className="hs-container">
-      <div className="hs-header">
-        <button className="back-btn" onClick={onBack}>← Back</button>
-        <div className="hs-header-text">
-          <h1 className="hs-title">Who's the star?</h1>
-          <p className="hs-subtitle">Tell us about the hero of this {bookType?.title?.toLowerCase() || "story"}</p>
-        </div>
+    <div className="create-step">
+      <div className="create-step-header">
+        <button className="create-back" onClick={onBack}>&larr; Back</button>
       </div>
+      <div className="create-step-content create-step-content--narrow">
+        <h1 className="create-step-title">Who's the star of this story?</h1>
+        <p className="create-step-subtitle">Tell us about the hero</p>
 
-      <div className="hs-form">
-        {/* Photo upload — hero element */}
+        {/* Photo upload */}
         <div className="hs-photo-section">
-          <button className="hs-photo-circle" onClick={() => fileRef.current?.click()}>
+          <button className={`hs-photo-circle${photo ? " hs-photo-circle--filled" : ""}`} onClick={() => fileRef.current?.click()}>
             {photo ? (
               <img src={photo} alt="Hero" className="hs-photo-img" />
             ) : (
               <div className="hs-photo-placeholder">
-                <span className="hs-photo-icon">📷</span>
-                <span className="hs-photo-label">Upload a photo</span>
+                <span className="hs-photo-icon">{"\uD83D\uDCF7"}</span>
+                <span className="hs-photo-label">Add a photo</span>
               </div>
             )}
           </button>
-          {photoError && <p style={{ color: "#ef4444", fontSize: 12, margin: "6px 0 0", textAlign: "center" }}>{photoError}</p>}
-          {!photo && <p className="hs-photo-skip">or skip for now</p>}
+          {photoError && <p className="hs-photo-error">{photoError}</p>}
+          {!photo && <p className="hs-photo-hint">Photo helps us match their face in illustrations</p>}
           {photo && (
-            <button className="hs-photo-change" onClick={() => fileRef.current?.click()}>
-              Change photo
-            </button>
+            <button className="hs-photo-change" onClick={() => fileRef.current?.click()}>Change photo</button>
           )}
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            capture="user"
-            style={{ display: "none" }}
-            onChange={handlePhotoUpload}
-          />
+          <input ref={fileRef} type="file" accept="image/*" capture="user" style={{ display: "none" }} onChange={handlePhotoUpload} />
         </div>
 
         {/* Name */}
         <div className="hs-field">
-          <label className="hs-label">Name</label>
-          <input
-            className="hs-input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Enter their name..."
-            autoFocus
-          />
+          <label className="hs-label">Their name</label>
+          <input className="hs-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="What's their name?" autoFocus />
         </div>
 
         {/* Hero type */}
         <div className="hs-field">
-          <label className="hs-label">They are a:</label>
+          <label className="hs-label">They are a...</label>
           <div className="hs-type-row">
             {HERO_TYPES.map((t) => (
-              <button
-                key={t.id}
-                className={`hs-type-btn${heroType === t.id ? " hs-type-active" : ""}`}
-                onClick={() => setHeroType(t.id)}
-              >
+              <button key={t.id} className={`hs-type-btn${heroType === t.id ? " hs-type-btn--active" : ""}`} onClick={() => setHeroType(t.id)}>
                 {t.emoji} {t.label}
               </button>
             ))}
@@ -182,95 +161,55 @@ export default function HeroSetup({ bookType, onComplete, onBack }) {
         {/* Age */}
         <div className="hs-field">
           <label className="hs-label">Age <span className="hs-optional">(optional)</span></label>
-          <input
-            className="hs-input hs-input-small"
-            type="number"
-            min="0"
-            max="120"
-            value={age}
-            onChange={(e) => setAge(e.target.value)}
-            placeholder="e.g. 5"
-          />
+          <input className="hs-input hs-input--small" type="number" min="0" max="120" value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 5" />
         </div>
 
         {/* Supporting characters */}
         <div className="hs-field">
-          <label className="hs-label">Anyone else in the story?</label>
-
+          <label className="hs-label">Anyone else in the story? <span className="hs-optional">(optional)</span></label>
           {companions.length > 0 && (
             <div className="hs-companions">
               {companions.map((c, i) => (
                 <div key={i} className="hs-companion-chip">
-                  {c.photo && <img src={c.photo} alt={c.name} className="hs-companion-photo" />}
+                  {c.photo && <img src={c.photo} alt={c.name} className="hs-companion-thumb" />}
                   <span>{c.name} ({c.relationship})</span>
-                  <button className="hs-companion-remove" onClick={() => removeCompanion(i)}>×</button>
+                  <button className="hs-companion-remove" onClick={() => removeCompanion(i)}>&times;</button>
                 </div>
               ))}
             </div>
           )}
-
           {showAddChar ? (
-            <div className="hs-add-char-form">
-              {/* Companion photo upload */}
-              <div className="hs-companion-photo-upload">
-                <button
-                  className="hs-companion-photo-btn"
-                  type="button"
-                  onClick={() => companionFileRef.current?.click()}
-                >
+            <div className="hs-add-form">
+              <div className="hs-add-photo-row">
+                <button className="hs-add-photo-btn" type="button" onClick={() => companionFileRef.current?.click()}>
                   {newCharPhoto ? (
-                    <img src={newCharPhoto} alt="Character" className="hs-companion-photo-preview" />
+                    <img src={newCharPhoto} alt="" className="hs-add-photo-preview" />
                   ) : (
-                    <span className="hs-companion-photo-placeholder">📷</span>
+                    <span className="hs-add-photo-icon">{"\uD83D\uDCF7"}</span>
                   )}
                 </button>
-                <span className="hs-companion-photo-label">
-                  {newCharPhoto ? "Change photo" : "Add photo (optional)"}
-                </span>
-                <input
-                  ref={companionFileRef}
-                  type="file"
-                  accept="image/*"
-                  capture="user"
-                  style={{ display: "none" }}
-                  onChange={handleCompanionPhotoUpload}
-                />
+                <span className="hs-add-photo-label">{newCharPhoto ? "Change photo" : "Photo (optional)"}</span>
+                <input ref={companionFileRef} type="file" accept="image/*" capture="user" style={{ display: "none" }} onChange={handleCompanionPhotoUpload} />
               </div>
-              <input
-                className="hs-input"
-                value={newCharName}
-                onChange={(e) => setNewCharName(e.target.value)}
-                placeholder="Character name..."
-                autoFocus
-              />
-              <select
-                className="hs-select"
-                value={newCharRelation}
-                onChange={(e) => setNewCharRelation(e.target.value)}
-              >
+              <input className="hs-input" value={newCharName} onChange={(e) => setNewCharName(e.target.value)} placeholder="Character name..." autoFocus />
+              <select className="hs-select" value={newCharRelation} onChange={(e) => setNewCharRelation(e.target.value)}>
                 {RELATIONSHIP_OPTIONS.map((r) => (
                   <option key={r.id} value={r.id}>{r.label}</option>
                 ))}
               </select>
-              <div className="hs-add-char-actions">
-                <button className="hs-add-confirm" onClick={addCompanion}>Add</button>
+              <div className="hs-add-actions">
+                <button className="hs-add-confirm" onClick={addCompanion} disabled={!newCharName.trim()}>Add</button>
                 <button className="hs-add-cancel" onClick={() => { setShowAddChar(false); setNewCharPhoto(null); }}>Cancel</button>
               </div>
             </div>
           ) : (
-            <button className="hs-add-char-btn" onClick={() => setShowAddChar(true)}>
-              + Add character
-            </button>
+            <button className="hs-add-char-btn" onClick={() => setShowAddChar(true)}>+ Add a character</button>
           )}
         </div>
 
         {/* Continue */}
-        <button
-          className="big-btn hs-continue"
-          disabled={!name.trim()}
-          onClick={handleContinue}
-        >
-          Continue →
+        <button className="create-continue-btn" disabled={!name.trim()} onClick={handleContinue}>
+          Continue &rarr;
         </button>
       </div>
     </div>
