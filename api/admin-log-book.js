@@ -1,17 +1,11 @@
 import { logBook, logEvent } from './lib/admin-logger.js';
 import { supabaseAdmin } from './lib/supabase-admin.js';
-import { checkAdminAuth } from './lib/admin-auth-check.js';
 
 export const config = { maxDuration: 15 };
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { authorized } = checkAdminAuth(req);
-  if (!authorized) {
-    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {

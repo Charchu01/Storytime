@@ -876,7 +876,7 @@ export async function generateAllImages(
   // ── Helper: run multi-attempt generation + validation loop ──
   async function generateWithRetries({
     pageType, originalPrompt, expectedTexts, sceneDescription,
-    maxAttempts, stopAtTier, generateArgs,
+    maxAttempts, stopAtTier, generateArgs, onProgress,
   }) {
     const allAttempts = [];
 
@@ -903,6 +903,9 @@ export async function generateAllImages(
           });
           continue;
         }
+
+        // Show progress: update bubble with current best image during retries
+        if (onProgress) onProgress(imageUrl);
 
         // Validate
         const valResult = await validateImage(
@@ -965,6 +968,7 @@ export async function generateAllImages(
     maxAttempts: 4,
     stopAtTier: 'excellent',
     generateArgs: [heroPhotoUrl, tier, null, [...companionUrls], storyPlan.cover.aspectRatio || "2:3", true],
+    onProgress: (url) => { if (onImageReady) onImageReady("cover", url); },
   });
 
   if (coverResult) {
@@ -1006,6 +1010,7 @@ export async function generateAllImages(
     refImages.push(...companionUrls);
 
     const maxAttempts = isFirst ? 3 : 2;
+    const spreadIdx = i;
     const spreadResult = await generateWithRetries({
       pageType: 'spread',
       originalPrompt: spreadPrompt,
@@ -1014,6 +1019,7 @@ export async function generateAllImages(
       maxAttempts,
       stopAtTier: 'good',
       generateArgs: [heroPhotoUrl, tier, null, refImages, spread.aspectRatio || "4:3", false],
+      onProgress: (url) => { if (onImageReady) onImageReady(`spread_${spreadIdx}`, url); },
     });
 
     if (spreadResult) {
@@ -1059,6 +1065,7 @@ export async function generateAllImages(
     maxAttempts: 2,
     stopAtTier: 'good',
     generateArgs: [heroPhotoUrl, tier, null, backRefs, storyPlan.backCover?.aspectRatio || "2:3", false],
+    onProgress: (url) => { if (onImageReady) onImageReady("backCover", url); },
   });
 
   if (backResult) {
