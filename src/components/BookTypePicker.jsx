@@ -80,9 +80,6 @@ export default function BookTypePicker({ onSelect, onBack }) {
               </div>
               <h3 className="btp-card-title">{type.title}</h3>
               <p className="btp-card-subtitle">{type.subtitle}</p>
-              {type.example && (
-                <p className="btp-card-example">{type.example}</p>
-              )}
             </button>
           ))}
 

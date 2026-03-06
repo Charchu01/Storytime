@@ -3504,19 +3504,6 @@
   margin: 0;
   line-height: 1.4;
 }
-/* Example as single-line italic hint, no background box */
-.btp-card-example {
-  font-size: 13px;
-  font-style: italic;
-  color: var(--text-muted);
-  margin: 6px 0 0;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
 /* Something Else custom card */
 .btp-card-custom {
   border-style: dashed;
@@ -3605,6 +3592,9 @@
   .btp-card--featured { padding-top: 24px; padding-bottom: 24px; }
   .btp-card-emoji-circle { width: 48px; height: 48px; }
   .btp-card-emoji { font-size: 24px; }
+}
+@media (max-width: 480px) {
+  .btp-grid { grid-template-columns: 1fr; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
