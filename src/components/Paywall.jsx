@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { stripePromise } from "../stripe";
 import { createPaymentIntent } from "../api/client";
 
-function PaymentForm({ onSuccess, price, tier }) {
+function PaymentForm({ onSuccess, heroName }) {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -46,31 +46,27 @@ function PaymentForm({ onSuccess, price, tier }) {
     <form onSubmit={handleSubmit} className="pw-form">
       <PaymentElement options={{ layout: "tabs" }} />
       {error && <div className="pw-error">{error}</div>}
-      <button type="submit" className="create-continue-btn pw-pay-btn" disabled={!stripe || processing}>
-        {processing ? "Processing..." : `Create My Book \u2014 ${price}`}
+      <button type="submit" className="pw-pay-btn" disabled={!stripe || processing}>
+        {processing ? "Processing..." : `Create ${heroName}'s Book \u2014 $19.99`}
       </button>
     </form>
   );
 }
 
 export default function Paywall({ bookType, artStyle, heroData, wizardData, onPaid, storySessionId }) {
-  const [selectedTier, setSelectedTier] = useState("standard");
   const [clientSecret, setClientSecret] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
 
-  const price = selectedTier === "premium" ? "$19.99" : "$9.99";
-  const pageCount = selectedTier === "premium"
-    ? (bookType?.pageCount?.premium || 10)
-    : (bookType?.pageCount?.standard || 6);
+  const heroName = heroData?.heroName || wizardData?.heroName || "Your hero";
 
   function handleProceedToPayment() {
     setShowPayment(true);
     setLoading(true);
     setError(null);
 
-    createPaymentIntent(selectedTier, storySessionId)
+    createPaymentIntent("premium", storySessionId)
       .then((secret) => {
         setClientSecret(secret);
         setLoading(false);
@@ -81,66 +77,105 @@ export default function Paywall({ bookType, artStyle, heroData, wizardData, onPa
       });
   }
 
-  const heroName = heroData?.heroName || wizardData?.heroName || "Your hero";
-  const styleName = artStyle?.style?.name || "Classic Storybook";
-  const bookTitle = bookType?.title || "Adventure Story";
-  const toneName = artStyle?.tone?.label || null;
-
   return (
     <div className="create-step">
-      <div className="create-step-content create-step-content--narrow">
-        <h1 className="create-step-title">One last step!</h1>
-        <p className="create-step-subtitle">Choose your package and let's make magic</p>
+      <div className="pw-page">
+        <h1 className="pw-heading">Your book is ready to come alive</h1>
 
-        {/* Emotional hook — summary card */}
-        <div className="pw-summary">
-          <div className="pw-summary-icon">{bookType?.emoji || "\uD83D\uDCD6"}</div>
-          <div className="pw-summary-text">
-            <div className="pw-summary-hero">{heroName}'s {bookTitle}</div>
-            <div className="pw-summary-details">
-              {styleName}{toneName ? ` \u00B7 ${toneName}` : ""}
-            </div>
-            {heroData?.companions?.length > 0 && (
-              <div className="pw-summary-companions">
-                With {heroData.companions.map(c => c.name).join(" & ")}
+        {/* Hero summary card */}
+        <div className="pw-hero-card">
+          <div className="pw-hero-left">
+            {heroData?.heroPhoto ? (
+              <div className="pw-hero-photo">
+                <img src={heroData.heroPhoto} alt={heroName} />
               </div>
+            ) : (
+              <div className="pw-hero-emoji">{bookType?.emoji || "\uD83D\uDCD6"}</div>
+            )}
+          </div>
+          <div className="pw-hero-right">
+            <h2 className="pw-hero-title">{heroName}'s {bookType?.title || "Story"}</h2>
+            <p className="pw-hero-details">
+              {artStyle?.style?.name}{artStyle?.tone ? ` \u00B7 ${artStyle.tone.label}` : ""}
+            </p>
+            {heroData?.companions?.length > 0 && (
+              <p className="pw-hero-companions">
+                Co-starring {heroData.companions.map(c => c.name).join(" & ")}
+              </p>
             )}
           </div>
         </div>
 
-        {/* Tier selection */}
-        {!showPayment && (
-          <>
-            <div className="pw-tiers">
-              <button className={`pw-tier${selectedTier === "standard" ? " pw-tier--selected" : ""}`} onClick={() => setSelectedTier("standard")}>
-                <div className="pw-tier-label">Standard</div>
-                <div className="pw-tier-price">$9.99</div>
-                <div className="pw-tier-pages">{bookType?.pageCount?.standard || 6} illustrated pages</div>
-                <ul className="pw-tier-features">
-                  <li>AI-generated illustrations</li>
-                  <li>Personalized story</li>
-                  <li>PDF download</li>
-                </ul>
-              </button>
-
-              <button className={`pw-tier pw-tier--premium${selectedTier === "premium" ? " pw-tier--selected" : ""}`} onClick={() => setSelectedTier("premium")}>
-                <div className="pw-tier-badge">Best Value</div>
-                <div className="pw-tier-label">Premium</div>
-                <div className="pw-tier-price">$19.99</div>
-                <div className="pw-tier-pages">{bookType?.pageCount?.premium || 10} illustrated pages + Family Vault</div>
-                <ul className="pw-tier-features">
-                  <li>Everything in Standard</li>
-                  <li>More pages & detail</li>
-                  <li>Family Vault access</li>
-                  <li>Priority generation</li>
-                </ul>
-              </button>
+        {/* What you get */}
+        <div className="pw-includes">
+          <h3 className="pw-includes-title">Everything included</h3>
+          <div className="pw-includes-list">
+            <div className="pw-include-item">
+              <span className="pw-include-icon">{"\uD83C\uDFA8"}</span>
+              <div className="pw-include-text">
+                <strong>10 illustrated pages</strong>
+                <span>Every page uniquely painted by AI</span>
+              </div>
             </div>
+            <div className="pw-include-item">
+              <span className="pw-include-icon">{"\uD83D\uDCD6"}</span>
+              <div className="pw-include-text">
+                <strong>Digital storybook</strong>
+                <span>Read on any device, share with family</span>
+              </div>
+            </div>
+            <div className="pw-include-item">
+              <span className="pw-include-icon">{"\uD83D\uDD0A"}</span>
+              <div className="pw-include-text">
+                <strong>AI narration</strong>
+                <span>A warm voice reads the story aloud</span>
+              </div>
+            </div>
+            <div className="pw-include-item">
+              <span className="pw-include-icon">{"\uD83D\uDCC4"}</span>
+              <div className="pw-include-text">
+                <strong>PDF download</strong>
+                <span>Print-ready quality, yours forever</span>
+              </div>
+            </div>
+            <div className="pw-include-item">
+              <span className="pw-include-icon">{"\uD83C\uDFF0"}</span>
+              <div className="pw-include-text">
+                <strong>Family Vault</strong>
+                <span>Save characters for future books</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            <button className="create-continue-btn" onClick={handleProceedToPayment}>
-              Continue &mdash; {price}
+        {/* Physical book teaser */}
+        <div className="pw-physical">
+          <div className="pw-physical-badge">COMING SOON</div>
+          <div className="pw-physical-content">
+            <div className="pw-physical-icon">{"\uD83D\uDCDA"}</div>
+            <div className="pw-physical-text">
+              <h4 className="pw-physical-title">Turn it into a real hardcover book</h4>
+              <p className="pw-physical-desc">
+                Premium printed {"\u00B7"} Delivered in days {"\u00B7"} The perfect keepsake
+              </p>
+              <p className="pw-physical-price">
+                Other personalised books cost $47+. Yours starts at <strong>$19.99</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Price + CTA */}
+        {!showPayment && (
+          <div className="pw-price-section">
+            <div className="pw-price-display">
+              <span className="pw-price-amount">$19.99</span>
+              <span className="pw-price-label">one-time payment</span>
+            </div>
+            <button className="pw-cta-btn" onClick={handleProceedToPayment}>
+              Create {heroName}'s Book {"\u2728"}
             </button>
-          </>
+          </div>
         )}
 
         {/* Payment form */}
@@ -165,13 +200,25 @@ export default function Paywall({ bookType, artStyle, heroData, wizardData, onPa
                   },
                 }}
               >
-                <PaymentForm onSuccess={() => onPaid(selectedTier)} price={price} tier={selectedTier} />
+                <PaymentForm onSuccess={() => onPaid("premium")} heroName={heroName} />
               </Elements>
             )}
           </div>
         )}
 
-        <p className="pw-trust">{"\uD83D\uDD12"} Secure payment {"\u00B7"} One-time {"\u00B7"} No subscription</p>
+        {/* Trust signals */}
+        <div className="pw-trust">
+          <div className="pw-trust-row">
+            <span>{"\uD83D\uDD12"} Secured by Stripe</span>
+            <span>{"\u00B7"}</span>
+            <span>{"\uD83D\uDCB3"} One-time payment</span>
+            <span>{"\u00B7"}</span>
+            <span>{"\u26A1"} Book ready in minutes</span>
+          </div>
+          <p className="pw-trust-guarantee">
+            Not happy? We'll make it right. No questions asked.
+          </p>
+        </div>
       </div>
     </div>
   );
