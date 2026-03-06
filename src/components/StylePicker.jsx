@@ -2,16 +2,15 @@ import { useState } from "react";
 import { STYLES, TONES } from "../constants/data";
 
 const STYLE_EXAMPLES = {
-  storybook: "/examples/storybook.webp",
-  watercolor: "/examples/watercolor.webp",
-  pixar: "/examples/pixar.webp",
-  bold: "/examples/bold.webp",
-  cozy: "/examples/cozy.webp",
-  sketch: "/examples/sketch.webp",
-  anime: "/examples/anime.webp",
-  retro: "/examples/retro.webp",
-  collage: "/examples/collage.webp",
-  minimal: "/examples/minimal.webp",
+  storybook: "/styles/storybook.jpg",
+  watercolor: "/styles/watercolor.jpg",
+  pixar: "/styles/pixar.jpg",
+  bold: "/styles/bold.jpg",
+  cozy: "/styles/cozy.jpg",
+  sketch: "/styles/sketch.jpg",
+  anime: "/styles/anime.jpg",
+  retro: "/styles/retro.jpg",
+  collage: "/styles/collage.jpg",
 };
 
 const STYLE_EMOJIS = {
@@ -82,19 +81,20 @@ export default function StylePicker({ onSelect, onBack }) {
                 onClick={() => setSelectedStyle(s)}
               >
                 {isSelected && <span className="sp-style-check">✓</span>}
-                <div className="sp-style-preview" data-style={s.id}>
-                  {hasImage ? (
+                {hasImage ? (
+                  <div className="style-card-preview">
                     <img
                       src={exampleUrl}
                       alt={`${s.name} example`}
-                      className="sp-style-example-img"
                       loading="lazy"
                       onError={() => handleImgError(s.id)}
                     />
-                  ) : (
+                  </div>
+                ) : (
+                  <div className="sp-style-preview" data-style={s.id}>
                     <span className="sp-style-emoji-icon">{STYLE_EMOJIS[s.id] || "🎨"}</span>
-                  )}
-                </div>
+                  </div>
+                )}
                 <div className="sp-style-info">
                   <span className="sp-style-name">{s.name}</span>
                   <span className="sp-style-tagline">{s.tagline}</span>
