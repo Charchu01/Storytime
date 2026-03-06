@@ -7,6 +7,7 @@ export default function APIs() {
   const [errors, setErrors] = useState([]);
   const [dailyStats, setDailyStats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -16,12 +17,22 @@ export default function APIs() {
         adminFetch("/api/admin?action=errors&limit=20"),
         adminFetch("/api/admin?action=daily_stats&days=7"),
       ]);
+
+      if (!healthRes.ok) {
+        const errData = await healthRes.json().catch(() => ({}));
+        setFetchError(`API error (${healthRes.status}): ${errData.error || 'Unknown error'}`);
+        setLoading(false);
+        return;
+      }
+
       setHealth(await healthRes.json());
       setCalls((await callsRes.json()).calls || []);
       setErrors((await errorsRes.json()).errors || []);
       setDailyStats((await statsRes.json()).stats || []);
+      setFetchError(null);
     } catch (err) {
       console.error("Failed to fetch API data:", err);
+      setFetchError(`Failed to connect: ${err.message}`);
     }
     setLoading(false);
   }, []);
@@ -33,6 +44,20 @@ export default function APIs() {
   }, [fetchData]);
 
   if (loading) return <Loading />;
+
+  if (fetchError) {
+    return (
+      <div style={{ ...card, border: "1px solid #fecaca", background: "#fef2f2" }}>
+        <h3 style={{ ...cardTitle, color: "#dc2626" }}>APIs Error</h3>
+        <p style={{ fontSize: 13, color: "#991b1b", margin: 0 }}>{fetchError}</p>
+        <button onClick={() => { setLoading(true); setFetchError(null); fetchData(); }}
+          style={{ marginTop: 12, padding: "6px 14px", borderRadius: 8, border: "1px solid #fecaca",
+            background: "#fff", fontSize: 13, cursor: "pointer", fontWeight: 600, color: "#dc2626" }}>
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   // Aggregate today's stats
   const today = dailyStats[dailyStats.length - 1] || {};
@@ -196,7 +221,7 @@ export default function APIs() {
                     {c.durationMs ? c.durationMs.toLocaleString() : "-"}
                   </td>
                   <td style={{ ...tdStyle, fontSize: 11, color: "#64748b", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {c.error || c.details || "-"}
+                    {c.error || (typeof c.details === 'string' ? c.details : c.details ? JSON.stringify(c.details) : "-")}
                   </td>
                 </tr>
               ))}
@@ -226,7 +251,7 @@ export default function APIs() {
                   </span>
                 </div>
                 <div style={{ color: "#991b1b" }}>{err.error}</div>
-                {err.details && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{err.details}</div>}
+                {err.details && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{typeof err.details === 'string' ? err.details : JSON.stringify(err.details)}</div>}
               </div>
             ))}
           </div>
