@@ -263,6 +263,9 @@ export default function CreatePage() {
   return (
     <CreateWizardContext.Provider value={ctx}>
       <div className="create-page">
+        <div className="create-magic-bg" aria-hidden="true">
+          <div className="create-magic-dots" />
+        </div>
         {showProgress && <ProgressBar currentPath={location.pathname} />}
         <Outlet />
       </div>

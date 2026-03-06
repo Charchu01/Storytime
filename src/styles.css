@@ -3222,11 +3222,145 @@
 
 /* ── Create Page wrapper ─────────────────────────────────────────────────────── */
 .create-page {
+  position: relative;
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--warm-bg);
   font-family: var(--font-body);
   color: var(--text-body);
+}
+
+/* Ensure all create content sits above the decorations */
+.create-page > *:not(.create-magic-bg) {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Magical Background Decorations ─────────────────────────────────────────── */
+
+.create-magic-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+/* Top-left cluster: small stars */
+.create-magic-bg::before {
+  content: '\2726';
+  position: absolute;
+  top: 18%;
+  left: 6%;
+  font-size: 14px;
+  color: var(--color-gold);
+  opacity: 0.12;
+  text-shadow:
+    60px -40px 0 0.08em,
+    -20px 80px 0 -0.02em,
+    120px 30px 0 0.04em,
+    30px 200px 0 -0.01em,
+    -10px 350px 0 0.03em,
+    80px 500px 0 -0.02em;
+}
+
+/* Right side cluster: sparkles */
+.create-magic-bg::after {
+  content: '\2727';
+  position: absolute;
+  top: 12%;
+  right: 7%;
+  font-size: 12px;
+  color: var(--color-accent);
+  opacity: 0.08;
+  text-shadow:
+    -40px 60px 0 0.05em,
+    20px 150px 0 -0.01em,
+    -80px 250px 0 0.04em,
+    50px 380px 0 -0.02em,
+    -30px 500px 0 0.03em,
+    70px 620px 0 -0.01em;
+}
+
+/* Soft dots scattered across the page */
+.create-magic-dots {
+  position: absolute;
+  inset: 0;
+}
+
+.create-magic-dots::before {
+  content: '';
+  position: absolute;
+  top: 25%;
+  left: 4%;
+  width: 6px;
+  height: 6px;
+  background: var(--color-gold);
+  border-radius: 50%;
+  opacity: 0.1;
+  box-shadow:
+    20px 60px 0 var(--color-gold),
+    8px 180px 0 var(--color-accent),
+    30px 320px 0 var(--color-gold),
+    12px 480px 0 var(--color-accent),
+    25px 600px 0 var(--color-gold),
+    calc(100vw - 80px) 40px 0 var(--color-accent),
+    calc(100vw - 100px) 160px 0 var(--color-gold),
+    calc(100vw - 70px) 300px 0 var(--color-accent),
+    calc(100vw - 90px) 440px 0 var(--color-gold),
+    calc(100vw - 75px) 580px 0 var(--color-accent);
+}
+
+.create-magic-dots::after {
+  content: '';
+  position: absolute;
+  top: 15%;
+  left: 8%;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-gold);
+  border-radius: 50%;
+  opacity: 0.06;
+  box-shadow:
+    -20px 200px 0 0px var(--color-accent),
+    calc(100vw - 120px) 80px 0 5px var(--color-gold),
+    10px 450px 0 -5px var(--color-accent),
+    calc(100vw - 90px) 350px 0 10px var(--color-gold),
+    calc(100vw - 140px) 550px 0 -3px var(--color-accent);
+}
+
+/* Warm ambient light spots */
+.create-page::before {
+  content: '';
+  position: fixed;
+  top: -20%;
+  right: -10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(212, 168, 83, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.create-page::after {
+  content: '';
+  position: fixed;
+  bottom: -15%;
+  left: -10%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(200, 93, 42, 0.04) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Hide decorations on mobile — no margin space to decorate */
+@media (max-width: 768px) {
+  .create-magic-bg,
+  .create-page::before,
+  .create-page::after {
+    display: none;
+  }
 }
 
 /* ── Progress Bar ────────────────────────────────────────────────────────────── */
