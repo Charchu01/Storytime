@@ -27,16 +27,16 @@ const STYLE_EMOJIS = {
 };
 
 const STYLE_DESCRIPTIONS = {
-  storybook: "Warm, painterly, timeless picture book charm",
-  watercolor: "Dreamy washes of colour, soft and ethereal",
-  pixar: "Cinematic 3D characters with movie-quality glow",
-  bold: "Thick outlines, electric colours, playful energy",
-  cozy: "Pastel tones, rounded shapes, bedtime warmth",
-  sketch: "Hand-drawn pencil lines with watercolour fills",
-  anime: "Expressive eyes, soft shading, Ghibli-inspired magic",
-  retro: "1960s nostalgia with muted vintage palette",
-  collage: "Torn paper textures, layered and handcrafted",
-  minimal: "Scandinavian simplicity, clean geometric elegance",
+  storybook: "Warm and painterly, timeless charm",
+  watercolor: "Soft dreamy washes of colour",
+  pixar: "Cinematic 3D, like a Pixar movie",
+  bold: "Thick outlines, electric colours",
+  cozy: "Pastel tones, cozy bedtime warmth",
+  sketch: "Hand-drawn lines, watercolour fills",
+  anime: "Expressive eyes, Ghibli-inspired",
+  retro: "Vintage 1960s nostalgia",
+  collage: "Torn paper textures, handcrafted",
+  minimal: "Scandinavian simplicity, clean lines",
 };
 
 export default function StylePicker({ onSelect, onBack }) {
@@ -90,7 +90,7 @@ export default function StylePicker({ onSelect, onBack }) {
         {selectedStyle && (
           <div className="sp-tone-section">
             <h2 className="sp-tone-title">Set the mood <span className="sp-tone-optional">(optional)</span></h2>
-            <p className="sp-tone-subtitle">This adjusts the lighting and atmosphere of every illustration</p>
+            <p className="sp-tone-subtitle">Adjusts the lighting and atmosphere</p>
             <div className="sp-tone-row">
               {TONES.map((t) => (
                 <button key={t.id} className={`sp-tone-chip${selectedTone?.id === t.id ? " sp-tone-chip--active" : ""}`} onClick={() => setSelectedTone(selectedTone?.id === t.id ? null : t)}>
@@ -106,12 +106,14 @@ export default function StylePicker({ onSelect, onBack }) {
       {/* Sticky footer — only visible after selecting a style */}
       {selectedStyle && (
         <div className="sp-footer">
-          <p className="sp-selection-summary">
-            {selectedStyle.name}{selectedTone ? ` \u00B7 ${selectedTone.label}` : ""}
-          </p>
-          <button className="create-continue-btn" onClick={handleContinue}>
-            Continue &rarr;
-          </button>
+          <div className="sp-footer-inner">
+            <p className="sp-selection-summary">
+              {selectedStyle.name}{selectedTone ? ` \u00B7 ${selectedTone.label}` : ""}
+            </p>
+            <button className="create-continue-btn" onClick={handleContinue}>
+              Continue &rarr;
+            </button>
+          </div>
         </div>
       )}
     </div>
