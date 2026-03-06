@@ -50,9 +50,38 @@ export default function StoryStudio({ bookType, heroData, artStyle, onComplete, 
       <div className="create-step-header">
         <button className="create-back" onClick={onBack}>&larr; Back</button>
       </div>
-      <div className="create-step-content ss-content">
-        <h1 className="create-step-title">Let's build your story</h1>
-        <p className="create-step-subtitle">Answer a few quick questions</p>
+      <div className="ss-content">
+        {/* Context card — shows journey so far */}
+        <div className="ss-context-card">
+          {heroData?.heroPhoto && (
+            <div className="ss-context-photo">
+              <img src={heroData.heroPhoto} alt={heroData.heroName} />
+            </div>
+          )}
+          <div className="ss-context-item">
+            <span className="ss-context-label">Book</span>
+            <span className="ss-context-value">{bookType?.emoji} {bookType?.title}</span>
+          </div>
+          <div className="ss-context-divider" />
+          <div className="ss-context-item">
+            <span className="ss-context-label">Hero</span>
+            <span className="ss-context-value">{heroData?.heroName}</span>
+          </div>
+          <div className="ss-context-divider" />
+          <div className="ss-context-item">
+            <span className="ss-context-label">Style</span>
+            <span className="ss-context-value">{artStyle?.style?.name}</span>
+          </div>
+          {artStyle?.tone && (
+            <>
+              <div className="ss-context-divider" />
+              <div className="ss-context-item">
+                <span className="ss-context-label">Mood</span>
+                <span className="ss-context-value">{artStyle.tone.emoji} {artStyle.tone.label}</span>
+              </div>
+            </>
+          )}
+        </div>
 
         <div className="ss-chat-area">
           <StoryChat
