@@ -3,6 +3,12 @@ import { useState, useEffect, createContext, useContext, useCallback } from "rea
 import { ClerkProvider } from "@clerk/clerk-react";
 import HomePage from "./pages/HomePage";
 import CreatePage from "./pages/CreatePage";
+import BookTypeStep from "./pages/create/BookTypeStep";
+import HeroStep from "./pages/create/HeroStep";
+import StyleStep from "./pages/create/StyleStep";
+import StudioStep from "./pages/create/StudioStep";
+import CheckoutStep from "./pages/create/CheckoutStep";
+import GeneratingStep from "./pages/create/GeneratingStep";
 import BookReaderPage from "./pages/BookReaderPage";
 import LibraryPage from "./pages/LibraryPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -100,7 +106,14 @@ export default function App() {
       <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
         <Routes>
           <Route path="/" element={<><Navbar /><HomePage /></>} />
-          <Route path="/create" element={<CreatePage />} />
+          <Route path="/create" element={<CreatePage />}>
+            <Route index element={<BookTypeStep />} />
+            <Route path="hero" element={<HeroStep />} />
+            <Route path="style" element={<StyleStep />} />
+            <Route path="studio" element={<StudioStep />} />
+            <Route path="checkout" element={<CheckoutStep />} />
+            <Route path="generating" element={<GeneratingStep />} />
+          </Route>
           <Route path="/book/:id" element={<BookReaderPage />} />
           <Route path="/library" element={<><Navbar /><LibraryPage /></>} />
           <Route path="/profile" element={<><Navbar /><ProfilePage /></>} />
@@ -109,7 +122,7 @@ export default function App() {
           <Route path="/privacy" element={<><Navbar /><PrivacyPage /></>} />
           <Route path="/terms" element={<><Navbar /><TermsPage /></>} />
           <Route path="/status" element={<><Navbar /><StatusPage /></>} />
-          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/*" element={<AdminPage />} />
           <Route path="*" element={<><Navbar /><NotFoundPage /></>} />
         </Routes>
         <CookieBanner />
