@@ -11,6 +11,7 @@ import {
 import {
   saveToVault,
   logBookToAdmin,
+  saveBookToSupabase,
 } from "../api/client";
 
 const PHASE_CONFIG = {
@@ -448,6 +449,54 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         storyTexts: (storyPlan.spreads || []).map(s => ({ left: s.leftPageText, right: s.rightPageText })),
         dedication: wizardData?.dedication || storyPlan.dedication || null,
       }).catch(() => {});
+
+      // Save to Supabase (fire-and-forget — don't block the user)
+      try {
+        const genDurationMs = Date.now() - (window.__genStartTime || Date.now());
+        const clerkId = window.__clerk_user?.id || null;
+        const bookMeta = {
+          title: storyPlan.title || "Untitled",
+          tier,
+          style,
+          book_type: wizardData?.bookType || "adventure",
+          tone: wizardData?.tone || null,
+          hero_name: heroName,
+          hero_age: wizardData?.heroAge || null,
+          hero_type: wizardData?.heroType || "child",
+          has_photo: !!heroPhotoUrl,
+          character_count: enrichedCast?.length || 1,
+          dedication: wizardData?.dedication || storyPlan.dedication || null,
+          author_name: wizardData?.authorName || "A loving family",
+          story_idea: wizardData?.storyIdea || null,
+          total_duration_ms: genDurationMs,
+          total_cost: 0.05 + (Object.keys(images).length * 0.045),
+          story_plan: storyPlan,
+        };
+        const bookPages = [];
+        // Cover
+        if (images.cover) {
+          bookPages.push({ page_type: "cover", page_index: 0, image_url: images.cover });
+        }
+        // Spreads
+        (storyPlan.spreads || []).forEach((spread, i) => {
+          bookPages.push({
+            page_type: "spread",
+            page_index: i + 1,
+            left_page_text: spread.leftPageText || null,
+            right_page_text: spread.rightPageText || null,
+            scene_description: spread.visualDescription || spread.scene || null,
+            layout_type: spread.layout || null,
+            image_url: images[`spread_${i}`] || null,
+          });
+        });
+        // Back cover
+        if (images.backCover) {
+          bookPages.push({ page_type: "back_cover", page_index: bookPages.length, image_url: images.backCover });
+        }
+        saveBookToSupabase(bookMeta, bookPages, clerkId).catch(() => {});
+      } catch (e) {
+        console.warn("Supabase save failed:", e.message);
+      }
 
       onNext({
         story: storyPlan,
