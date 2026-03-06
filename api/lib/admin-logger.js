@@ -64,7 +64,7 @@ export async function logBook(bookData) {
 
     return bookId;
   } catch (err) {
-    console.error('Admin logger - logBook error:', err.message);
+    console.error('Admin logger - logBook error:', err.message, err.stack);
     return null;
   }
 }

@@ -13,8 +13,12 @@ export default function Books() {
     try {
       const res = await fetch(`/api/admin?action=books&page=${page}&limit=20`);
       const data = await res.json();
-      setBooks(data.books || []);
-      setTotal(data.total || 0);
+      if (!res.ok) {
+        console.error("Books API error:", data.error || res.status);
+      } else {
+        setBooks(data.books || []);
+        setTotal(data.total || 0);
+      }
     } catch (err) {
       console.error("Failed to fetch books:", err);
     }

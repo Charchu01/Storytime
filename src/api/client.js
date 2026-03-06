@@ -262,13 +262,17 @@ export async function deleteFromVault(characterId, userId = "anonymous") {
 
 export async function logBookToAdmin(bookData) {
   try {
-    await fetch('/api/admin-log-book', {
+    const res = await fetch('/api/admin-log-book', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(bookData),
     });
-  } catch {
-    // Non-critical — admin logging failure doesn't affect user experience
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      console.warn('Admin log-book API error:', res.status, errData.error || '');
+    }
+  } catch (err) {
+    console.warn('Admin log-book failed:', err.message);
   }
 }
 
@@ -322,7 +326,7 @@ export async function saveBookImage(imageUrl, bookId, pageType, pageIndex) {
 
 export async function validateImage(
   imageUrl, expectedTexts, heroName,
-  artStyle, pageType, sceneDescription
+  artStyle, pageType, sceneDescription, bookId
 ) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -336,6 +340,7 @@ export async function validateImage(
           artStyle,
           pageType,
           sceneDescription,
+          bookId: bookId || null,
         }),
       });
       const data = await response.json();

@@ -4,6 +4,7 @@ export default function Overview() {
   const [data, setData] = useState(null);
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -11,12 +12,22 @@ export default function Overview() {
         fetch("/api/admin?action=overview"),
         fetch("/api/admin?action=health"),
       ]);
+
+      if (!overviewRes.ok) {
+        const errData = await overviewRes.json().catch(() => ({}));
+        setError(`Overview API error (${overviewRes.status}): ${errData.error || 'Unknown error'}. Check that Vercel KV is configured.`);
+        setLoading(false);
+        return;
+      }
+
       const overview = await overviewRes.json();
       const healthData = await healthRes.json();
       setData(overview);
       setHealth(healthData);
+      setError(null);
     } catch (err) {
       console.error("Failed to fetch overview:", err);
+      setError(`Failed to connect to admin API: ${err.message}. Check that API routes are deployed.`);
     }
     setLoading(false);
   }, []);
@@ -28,6 +39,20 @@ export default function Overview() {
   }, [fetchData]);
 
   if (loading) return <LoadingState />;
+
+  if (error) {
+    return (
+      <div style={{ ...card, border: "1px solid #fecaca", background: "#fef2f2" }}>
+        <h3 style={{ ...cardTitle, color: "#dc2626" }}>Dashboard Error</h3>
+        <p style={{ fontSize: 13, color: "#991b1b", margin: 0 }}>{error}</p>
+        <button onClick={() => { setLoading(true); setError(null); fetchData(); }}
+          style={{ marginTop: 12, padding: "6px 14px", borderRadius: 8, border: "1px solid #fecaca",
+            background: "#fff", fontSize: 13, cursor: "pointer", fontWeight: 600, color: "#dc2626" }}>
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   const daily = data?.daily || {};
   const events = data?.events || [];

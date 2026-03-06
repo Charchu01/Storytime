@@ -19,6 +19,7 @@ export default async function handler(req, res) {
     artStyle,
     pageType,
     sceneDescription,
+    bookId,
   } = req.body || {};
 
   if (!imageUrl) {
@@ -126,6 +127,7 @@ export default async function handler(req, res) {
         logApiCall({
           service: 'anthropic',
           type: 'validation',
+          bookId: bookId || null,
           status: 200,
           durationMs: valDuration,
           model: 'claude-sonnet-4-20250514',
@@ -134,6 +136,7 @@ export default async function handler(req, res) {
         }).catch(() => {});
         updateDailyApiStats('anthropic', valDuration, 0.004, false).catch(() => {});
         logValidation({
+          bookId: bookId || null,
           page: pageType,
           attempt: attempt + 1,
           textScore: normalized.textScore,
