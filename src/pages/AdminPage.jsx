@@ -37,8 +37,12 @@ export default function AdminPage() {
     document.title = "Admin Dashboard \u2014 Storytime";
   }, []);
 
-  // Check auth
+  // Check auth — sessionStorage first (synchronous), then server checks
   useEffect(() => {
+    if (sessionStorage.getItem("admin_auth") === "true") {
+      setAuthorized(true);
+      return;
+    }
     checkAuth();
   }, []);
 
@@ -56,6 +60,7 @@ export default function AdminPage() {
         const data = await res.json();
         if (data.authorized) {
           setAuthorized(true);
+          sessionStorage.setItem("admin_auth", "true");
           return;
         }
       }
@@ -100,13 +105,6 @@ export default function AdminPage() {
       setLoginError("Connection error");
     }
   };
-
-  // Check sessionStorage for prior auth
-  useEffect(() => {
-    if (sessionStorage.getItem("admin_auth") === "true") {
-      setAuthorized(true);
-    }
-  }, []);
 
   if (authorized === null) {
     return (

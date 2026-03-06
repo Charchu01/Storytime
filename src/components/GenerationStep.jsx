@@ -429,8 +429,11 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
 
       // Admin logging: log book to admin dashboard
       const genDuration = Date.now() - (window.__genStartTime || Date.now());
+      const clerkUser = window.__clerk_user;
       logBookToAdmin({
         bookId: `book_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        userId: clerkUser?.id || storySessionId || `anon_${Date.now().toString(36)}`,
+        userEmail: clerkUser?.primaryEmailAddress?.emailAddress || null,
         title: storyPlan.title || "Untitled",
         tier,
         style,
@@ -441,14 +444,14 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         heroType: wizardData?.heroType || "child",
         hasPhoto: !!heroPhotoUrl,
         characterCount: enrichedCast?.length || 1,
-        pageCount: storyPlan.spreads?.length || 0,
+        pageCount: (storyPlan.spreads?.length || 0) + 2,
         totalDurationMs: genDuration,
         totalCost: 0.05 + (Object.keys(images).length * 0.045),
         status: Object.values(images).every(Boolean) ? "healthy" : Object.values(images).some(Boolean) ? "warnings" : "failed",
         images,
         storyTexts: (storyPlan.spreads || []).map(s => ({ left: s.leftPageText, right: s.rightPageText })),
         dedication: wizardData?.dedication || storyPlan.dedication || null,
-      }).catch(() => {});
+      }).catch((err) => console.warn("Admin log failed:", err.message));
 
       // Save to Supabase — blocking, we need the UUID for navigation
       let supabaseBookId = null;

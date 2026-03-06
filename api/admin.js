@@ -10,6 +10,10 @@ export default async function handler(req, res) {
 
   const action = req.query.action || req.body?.action;
 
+  if (!action) {
+    return res.status(400).json({ error: 'action parameter is required' });
+  }
+
   try {
     switch (action) {
       // ── Overview Data ────────────────────────────────────────
