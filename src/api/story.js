@@ -807,6 +807,7 @@ export async function generateAllImages(
   const savePromises = [];
   const tempBookId = `book_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   let previousImageUrl = null;
+  let totalImageGenerations = 0; // tracks all attempts including retries
 
   const { characterAppearances, textBoxDesign, artStyle } = storyPlan;
   const heroName = characterAppearances?.hero?.split("—")[0]?.trim() || "the character";
@@ -827,6 +828,7 @@ export async function generateAllImages(
   });
 
   try {
+    totalImageGenerations++;
     let coverUrl = await generateImage(
       coverPrompt,
       heroPhotoUrl,
@@ -852,6 +854,7 @@ export async function generateAllImages(
           const fixPrompt = coverPrompt +
             `\n\nCRITICAL FIXES FOR THIS RETRY:\n${coverValidation.fixNotes || coverValidation.issues?.join(". ") || "Improve text accuracy and character quality."}`;
           await new Promise(r => setTimeout(r, 2000));
+          totalImageGenerations++;
           const retryCover = await generateImage(
             fixPrompt, heroPhotoUrl, tier, null, [...companionUrls],
             storyPlan.cover.aspectRatio || "2:3", true
@@ -901,6 +904,7 @@ export async function generateAllImages(
     refImages.push(...companionUrls);
 
     try {
+      totalImageGenerations++;
       let url = await generateImage(
         spreadPrompt,
         heroPhotoUrl,
@@ -928,6 +932,7 @@ export async function generateAllImages(
             const fixPrompt = spreadPrompt +
               `\n\nCRITICAL FIXES FOR THIS RETRY:\n${validation.fixNotes || validation.issues?.join(". ") || "Improve text accuracy and character quality."}`;
             await new Promise(r => setTimeout(r, 2000));
+            totalImageGenerations++;
             const retryUrl = await generateImage(
               fixPrompt, heroPhotoUrl, tier, null,
               refImages, spread.aspectRatio || "4:3", false
@@ -971,6 +976,7 @@ export async function generateAllImages(
         if (!isFirst && previousImageUrl && previousImageUrl !== images.cover) {
           retryRefs.push(previousImageUrl);
         }
+        totalImageGenerations++;
         const retryUrl = await generateImage(
           spreadPrompt, heroPhotoUrl, tier, null,
           retryRefs, spread.aspectRatio || "4:3", false
@@ -1014,6 +1020,7 @@ export async function generateAllImages(
   backRefs.push(...companionUrls);
 
   try {
+    totalImageGenerations++;
     const backUrl = await generateImage(
       backPrompt,
       heroPhotoUrl,
@@ -1035,6 +1042,7 @@ export async function generateAllImages(
           const fixPrompt = backPrompt +
             `\n\nCRITICAL FIXES:\n${backValidation.fixNotes || backValidation.issues?.join(". ")}`;
           await new Promise(r => setTimeout(r, 2000));
+          totalImageGenerations++;
           const retryBack = await generateImage(
             fixPrompt, heroPhotoUrl, tier, null,
             backRefs, storyPlan.backCover?.aspectRatio || "2:3", false
@@ -1079,7 +1087,7 @@ export async function generateAllImages(
     new Promise(r => setTimeout(r, 5000)),
   ]);
 
-  return { images, tempBookId, permanentImages };
+  return { images, tempBookId, permanentImages, totalImageGenerations };
 }
 
 // ── Upload hero photo once ────────────────────────────────────────────────────

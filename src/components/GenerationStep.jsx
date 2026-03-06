@@ -410,6 +410,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       const images = genResult.images || genResult; // backward compat
       const permanentImages = genResult.permanentImages || {};
       const tempBookId = genResult.tempBookId || null;
+      const totalImageGenerations = genResult.totalImageGenerations || Object.keys(images).length;
 
       setLoadPhase("finishing");
       await new Promise((r) => setTimeout(r, 500));
@@ -450,7 +451,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
           author_name: wizardData?.authorName || "A loving family",
           story_idea: wizardData?.storyIdea || null,
           total_duration_ms: genDurationMs,
-          total_cost: 0.05 + (Object.keys(images).length * 0.045),
+          total_cost: 0.05 + (totalImageGenerations * 0.045),
           story_plan: storyPlan,
           health_status: Object.values(images).every(Boolean) ? "healthy" : Object.values(images).some(Boolean) ? "warnings" : "failed",
         };
@@ -497,7 +498,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         characterCount: enrichedCast?.length || 1,
         pageCount: (storyPlan.spreads?.length || 0) + 2,
         totalDurationMs: genDuration,
-        totalCost: 0.05 + (Object.keys(images).length * 0.045),
+        totalCost: 0.05 + (totalImageGenerations * 0.045),
         status: Object.values(images).every(Boolean) ? "healthy" : Object.values(images).some(Boolean) ? "warnings" : "failed",
         images,
         storyTexts: (storyPlan.spreads || []).map(s => ({ left: s.leftPageText, right: s.rightPageText })),

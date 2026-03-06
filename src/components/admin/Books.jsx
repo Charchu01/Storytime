@@ -129,10 +129,28 @@ function BookDetailModal({ detail, onClose }) {
   const book = detail.book;
   const postgame = detail.postgame;
   const feedback = detail.feedback;
+  const apiCalls = detail.apiCalls || [];
 
   if (!book) return null;
 
   const statusIcon = (s) => s === "healthy" ? "\u{1F7E2}" : s === "warnings" ? "\u{1F7E1}" : "\u{1F534}";
+
+  // Compute generation stats
+  const imageGenCalls = apiCalls.filter(c => c.type === 'cover' || c.type === 'spread' || c.type === 'back_cover' || c.service === 'replicate');
+  const validationCalls = apiCalls.filter(c => c.type === 'validation' || c.service === 'anthropic');
+  const totalApiCost = apiCalls.reduce((sum, c) => sum + (parseFloat(c.cost) || 0), 0);
+  const totalImageGens = imageGenCalls.length;
+  const finalImageCount = book.images ? Object.values(book.images).filter(Boolean).length : 0;
+  const retryCount = totalImageGens > finalImageCount ? totalImageGens - finalImageCount : 0;
+  const failedValidations = (book.validations || []).filter(v => !v.pass);
+
+  // Build per-page generation timeline from validations
+  const pageTimeline = {};
+  (book.validations || []).forEach(v => {
+    const key = v.page || 'unknown';
+    if (!pageTimeline[key]) pageTimeline[key] = [];
+    pageTimeline[key].push(v);
+  });
 
   return (
     <div style={overlay} onClick={onClose}>
@@ -161,8 +179,40 @@ function BookDetailModal({ detail, onClose }) {
             <KV label="Pages" value={book.pageCount} />
             <KV label="Has Photo" value={book.hasPhoto ? "Yes" : "No"} />
             <KV label="Duration" value={book.totalDurationMs ? `${(book.totalDurationMs / 1000).toFixed(1)}s` : "-"} />
-            <KV label="Total Cost" value={`$${(book.totalCost || 0).toFixed(2)}`} />
           </Grid>
+        </Section>
+
+        {/* Cost Breakdown — always visible */}
+        <Section title="Cost Breakdown">
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ ...costCard, borderColor: "#e2e8f0" }}>
+              <span style={{ fontSize: 11, color: "#94a3b8" }}>Reported Cost</span>
+              <span style={{ fontSize: 18, fontWeight: 800, color: "#334155" }}>${(book.totalCost || 0).toFixed(2)}</span>
+            </div>
+            {totalApiCost > 0 && (
+              <div style={{ ...costCard, borderColor: totalApiCost > (book.totalCost || 0) ? "#fecaca" : "#e2e8f0" }}>
+                <span style={{ fontSize: 11, color: "#94a3b8" }}>Actual API Cost</span>
+                <span style={{ fontSize: 18, fontWeight: 800, color: totalApiCost > (book.totalCost || 0) ? "#dc2626" : "#334155" }}>${totalApiCost.toFixed(3)}</span>
+              </div>
+            )}
+          </div>
+          <Grid>
+            <KV label="Final Images" value={finalImageCount} />
+            <KV label="Total Generations" value={totalImageGens || finalImageCount} />
+            <KV label="Retries" value={retryCount > 0 ? `${retryCount} (extra $${(retryCount * 0.045).toFixed(3)})` : "0"} />
+            <KV label="Validation Checks" value={validationCalls.length || (book.validations || []).length} />
+            <KV label="Validation Failures" value={failedValidations.length} />
+            <KV label="Story Writing" value="$0.050" />
+          </Grid>
+          {book.costs && (
+            <div style={{ marginTop: 8 }}>
+              <Grid>
+                {Object.entries(book.costs).map(([k, v]) => (
+                  <KV key={k} label={k} value={`$${(v || 0).toFixed(3)}`} />
+                ))}
+              </Grid>
+            </div>
+          )}
         </Section>
 
         {/* Images */}
@@ -170,52 +220,112 @@ function BookDetailModal({ detail, onClose }) {
           <Section title="Images">
             <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "4px 0" }}>
               {Object.entries(book.images).filter(([, url]) => url).map(([key, url]) => (
-                <a key={key} href={url} target="_blank" rel="noopener noreferrer">
-                  <img src={url} alt={key} style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8 }} />
-                </a>
+                <div key={key} style={{ textAlign: "center", flexShrink: 0 }}>
+                  <a href={url} target="_blank" rel="noopener noreferrer">
+                    <img src={url} alt={key} style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8 }} />
+                  </a>
+                  <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 4 }}>{key}</div>
+                </div>
               ))}
             </div>
           </Section>
         )}
 
-        {/* Validations */}
-        {book.validations?.length > 0 && (
-          <Section title="Validation Results">
-            <table style={{ ...table, fontSize: 12 }}>
-              <thead>
-                <tr>
-                  <th style={th}>Page</th>
-                  <th style={th}>Attempt</th>
-                  <th style={th}>Text</th>
-                  <th style={th}>Face</th>
-                  <th style={th}>Pass</th>
-                  <th style={th}>Issues</th>
-                </tr>
-              </thead>
-              <tbody>
-                {book.validations.map((v, i) => (
-                  <tr key={i} style={tr}>
-                    <td style={td}>{v.page}</td>
-                    <td style={td}>{v.attempt}</td>
-                    <td style={td}>{v.textScore}/10</td>
-                    <td style={td}>{v.faceScore}/10</td>
-                    <td style={td}>{v.pass ? "\u2705" : "\u274C"}</td>
-                    <td style={{ ...td, fontSize: 11, color: "#64748b" }}>{(v.issues || []).join(", ") || "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Image Generation Timeline — the key new section */}
+        {(book.validations?.length > 0 || apiCalls.length > 0) && (
+          <Section title="Image Generation Timeline">
+            <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 10px" }}>
+              Each page's generation attempts, validation scores, failures, and retries.
+            </p>
+
+            {Object.keys(pageTimeline).length > 0 ? (
+              Object.entries(pageTimeline).map(([pageName, attempts]) => (
+                <div key={pageName} style={{ marginBottom: 14, padding: 12, background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: "#334155" }}>{pageName}</span>
+                    <span style={{ fontSize: 11, color: "#94a3b8" }}>{attempts.length} attempt{attempts.length > 1 ? "s" : ""}</span>
+                    {attempts.some(a => !a.pass) && attempts.some(a => a.pass) && (
+                      <span style={{ ...badge, background: "#fef3c7", color: "#92400e", fontSize: 10 }}>Failed then Regenerated</span>
+                    )}
+                    {attempts.every(a => a.pass) && (
+                      <span style={{ ...badge, background: "#dcfce7", color: "#16a34a", fontSize: 10 }}>Passed</span>
+                    )}
+                    {attempts.every(a => !a.pass) && (
+                      <span style={{ ...badge, background: "#fef2f2", color: "#dc2626", fontSize: 10 }}>All Failed</span>
+                    )}
+                  </div>
+                  {attempts.map((v, ai) => (
+                    <div key={ai} style={{
+                      display: "flex", gap: 8, alignItems: "flex-start", padding: "8px 10px",
+                      background: v.pass ? "#f0fdf4" : "#fef2f2",
+                      borderRadius: 8, marginBottom: 4, fontSize: 12, flexWrap: "wrap",
+                      border: `1px solid ${v.pass ? "#bbf7d0" : "#fecaca"}`,
+                    }}>
+                      <span style={{ fontWeight: 700, minWidth: 65, color: v.pass ? "#16a34a" : "#dc2626" }}>
+                        {v.pass ? "\u2705 Pass" : "\u274C Fail"} #{v.attempt}
+                      </span>
+                      <span style={scoreChip}>Text: {v.textScore}/10</span>
+                      <span style={scoreChip}>Face: {v.faceScore}/10</span>
+                      {v.sceneAccuracy != null && <span style={scoreChip}>Scene: {v.sceneAccuracy}/10</span>}
+                      {v.formatOk === false && <span style={{ ...scoreChip, background: "#fecaca" }}>Format: Bad</span>}
+                      {(v.issues || []).length > 0 && (
+                        <div style={{ width: "100%", marginTop: 4, fontSize: 11, color: "#dc2626" }}>
+                          Issues: {v.issues.join("; ")}
+                        </div>
+                      )}
+                      {v.fixNotes && (
+                        <div style={{ width: "100%", marginTop: 2, fontSize: 11, color: "#92400e", fontStyle: "italic" }}>
+                          Fix notes: {v.fixNotes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))
+            ) : apiCalls.length > 0 ? (
+              <p style={{ fontSize: 12, color: "#94a3b8" }}>No validation records found, but {apiCalls.length} API calls were made.</p>
+            ) : null}
           </Section>
         )}
 
-        {/* Cost Breakdown */}
-        {book.costs && (
-          <Section title="Cost Breakdown">
-            <Grid>
-              {Object.entries(book.costs).map(([k, v]) => (
-                <KV key={k} label={k} value={`$${(v || 0).toFixed(3)}`} />
-              ))}
-            </Grid>
+        {/* API Calls Log */}
+        {apiCalls.length > 0 && (
+          <Section title={`API Calls (${apiCalls.length})`}>
+            <div style={{ maxHeight: 250, overflowY: "auto" }}>
+              <table style={{ ...table, fontSize: 11 }}>
+                <thead>
+                  <tr>
+                    <th style={th}>Time</th>
+                    <th style={th}>Service</th>
+                    <th style={th}>Type</th>
+                    <th style={th}>Model</th>
+                    <th style={th}>Status</th>
+                    <th style={th}>Duration</th>
+                    <th style={{ ...th, textAlign: "right" }}>Cost</th>
+                    <th style={th}>Error</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {apiCalls.map((c, i) => (
+                    <tr key={i} style={{ ...tr, background: c.error ? "#fef2f2" : "transparent" }}>
+                      <td style={{ ...td, fontSize: 10, whiteSpace: "nowrap" }}>{c.createdAt ? new Date(c.createdAt).toLocaleTimeString() : "-"}</td>
+                      <td style={td}>{c.service}</td>
+                      <td style={td}>{c.type || "-"}</td>
+                      <td style={{ ...td, fontSize: 10 }}>{c.model || "-"}</td>
+                      <td style={td}>
+                        <span style={{ color: c.status >= 400 ? "#dc2626" : "#16a34a" }}>{c.status}</span>
+                      </td>
+                      <td style={td}>{c.durationMs ? `${(c.durationMs / 1000).toFixed(1)}s` : "-"}</td>
+                      <td style={{ ...td, textAlign: "right" }}>{c.cost ? `$${parseFloat(c.cost).toFixed(4)}` : "-"}</td>
+                      <td style={{ ...td, fontSize: 10, color: "#dc2626", maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                        title={c.error || ""}>
+                        {c.error || "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Section>
         )}
 
@@ -325,3 +435,5 @@ const select = { padding: "4px 8px", borderRadius: 6, border: "1px solid #e2e8f0
 const overlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 16px", overflowY: "auto" };
 const modal = { background: "#fff", borderRadius: 16, padding: "28px 32px", width: 720, maxWidth: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.15)" };
 const closeBtn = { background: "none", border: "none", fontSize: 28, cursor: "pointer", color: "#94a3b8", lineHeight: 1 };
+const costCard = { display: "flex", flexDirection: "column", gap: 2, padding: "10px 16px", borderRadius: 10, border: "2px solid", background: "#fff" };
+const scoreChip = { display: "inline-block", padding: "2px 8px", borderRadius: 6, background: "#f1f5f9", fontSize: 11, fontWeight: 600, color: "#475569" };
