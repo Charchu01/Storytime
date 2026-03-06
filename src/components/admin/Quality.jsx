@@ -69,6 +69,7 @@ export default function Quality() {
     .slice(0, 8);
 
   const failedVals = validations.filter(v => !v.pass);
+  const passedVals = validations.filter(v => v.pass);
 
   return (
     <div>
@@ -121,8 +122,14 @@ export default function Quality() {
               <tr>
                 <th style={th}>Time</th>
                 <th style={th}>Page</th>
+                <th style={th}>Attempt</th>
                 <th style={th}>Text</th>
                 <th style={th}>Face</th>
+                <th style={th}>TextBox</th>
+                <th style={th}>Scene</th>
+                <th style={th}>Likeness</th>
+                <th style={th}>Format</th>
+                <th style={th}>Fingers</th>
                 <th style={th}>Pass</th>
                 <th style={th}>Issues</th>
               </tr>
@@ -132,21 +139,93 @@ export default function Quality() {
                 <tr key={i}>
                   <td style={tdStyle}>{v.ts ? new Date(v.ts).toLocaleTimeString() : "-"}</td>
                   <td style={tdStyle}>{v.page || "-"}</td>
-                  <td style={{ ...tdStyle, color: (v.textScore || 0) < 6 ? "#dc2626" : "#16a34a", fontWeight: 600 }}>
-                    {v.textScore || 0}/10
+                  <td style={tdStyle}>{v.attempt || "-"}</td>
+                  <td style={{ ...tdStyle, color: scoreColor(v.textScore), fontWeight: 600 }}>
+                    {v.textScore ?? "-"}/10
                   </td>
-                  <td style={{ ...tdStyle, color: (v.faceScore || 0) < 6 ? "#dc2626" : "#16a34a", fontWeight: 600 }}>
-                    {v.faceScore || 0}/10
+                  <td style={{ ...tdStyle, color: scoreColor(v.faceScore), fontWeight: 600 }}>
+                    {v.faceScore ?? "-"}/10
                   </td>
-                  <td style={tdStyle}>{v.pass ? "\u2705" : "\u274C"}</td>
-                  <td style={{ ...tdStyle, fontSize: 11, color: "#64748b", maxWidth: 250 }}>
+                  <td style={{ ...tdStyle, color: scoreColor(v.textBoxScore), fontWeight: 600 }}>
+                    {v.textBoxScore ?? "-"}/10
+                  </td>
+                  <td style={{ ...tdStyle, color: scoreColor(v.sceneAccuracy), fontWeight: 600 }}>
+                    {v.sceneAccuracy ?? "-"}/10
+                  </td>
+                  <td style={{ ...tdStyle, color: scoreColor(v.likenessScore), fontWeight: 600 }}>
+                    {v.likenessScore != null ? `${v.likenessScore}/10` : "-"}
+                  </td>
+                  <td style={tdStyle}>{v.formatOk ? "\u2705" : "\u274C"}</td>
+                  <td style={tdStyle}>{v.fingersOk != null ? (v.fingersOk ? "\u2705" : "\u274C") : "-"}</td>
+                  <td style={tdStyle}>{"\u274C"}</td>
+                  <td style={{ ...tdStyle, fontSize: 11, color: "#64748b", maxWidth: 300 }}>
                     {(v.issues || []).join(", ") || "-"}
                   </td>
                 </tr>
               ))}
               {failedVals.length === 0 && (
-                <tr><td colSpan={6} style={{ ...tdStyle, textAlign: "center", color: "#94a3b8", padding: 40 }}>
+                <tr><td colSpan={12} style={{ ...tdStyle, textAlign: "center", color: "#94a3b8", padding: 40 }}>
                   No validation failures logged.
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Recent Validation Passes */}
+      <div style={card}>
+        <h3 style={cardTitle}>Recent Validation Passes</h3>
+        <div style={{ overflowX: "auto" }}>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={th}>Time</th>
+                <th style={th}>Page</th>
+                <th style={th}>Attempt</th>
+                <th style={th}>Text</th>
+                <th style={th}>Face</th>
+                <th style={th}>TextBox</th>
+                <th style={th}>Scene</th>
+                <th style={th}>Likeness</th>
+                <th style={th}>Format</th>
+                <th style={th}>Fingers</th>
+                <th style={th}>Pass</th>
+                <th style={th}>Notes / Issues</th>
+              </tr>
+            </thead>
+            <tbody>
+              {passedVals.slice(0, 20).map((v, i) => (
+                <tr key={i}>
+                  <td style={tdStyle}>{v.ts ? new Date(v.ts).toLocaleTimeString() : "-"}</td>
+                  <td style={tdStyle}>{v.page || "-"}</td>
+                  <td style={tdStyle}>{v.attempt || "-"}</td>
+                  <td style={{ ...tdStyle, color: scoreColor(v.textScore), fontWeight: 600 }}>
+                    {v.textScore ?? "-"}/10
+                  </td>
+                  <td style={{ ...tdStyle, color: scoreColor(v.faceScore), fontWeight: 600 }}>
+                    {v.faceScore ?? "-"}/10
+                  </td>
+                  <td style={{ ...tdStyle, color: scoreColor(v.textBoxScore), fontWeight: 600 }}>
+                    {v.textBoxScore ?? "-"}/10
+                  </td>
+                  <td style={{ ...tdStyle, color: scoreColor(v.sceneAccuracy), fontWeight: 600 }}>
+                    {v.sceneAccuracy ?? "-"}/10
+                  </td>
+                  <td style={{ ...tdStyle, color: scoreColor(v.likenessScore), fontWeight: 600 }}>
+                    {v.likenessScore != null ? `${v.likenessScore}/10` : "-"}
+                  </td>
+                  <td style={tdStyle}>{v.formatOk ? "\u2705" : "\u274C"}</td>
+                  <td style={tdStyle}>{v.fingersOk != null ? (v.fingersOk ? "\u2705" : "\u274C") : "-"}</td>
+                  <td style={tdStyle}>{"\u2705"}</td>
+                  <td style={{ ...tdStyle, fontSize: 11, color: "#64748b", maxWidth: 300 }}>
+                    {(v.issues || []).length > 0 ? (v.issues || []).join(", ") : v.fixNotes || "-"}
+                  </td>
+                </tr>
+              ))}
+              {passedVals.length === 0 && (
+                <tr><td colSpan={12} style={{ ...tdStyle, textAlign: "center", color: "#94a3b8", padding: 40 }}>
+                  No validation passes logged yet.
                 </td></tr>
               )}
             </tbody>
@@ -212,6 +291,13 @@ export default function Quality() {
       </div>
     </div>
   );
+}
+
+function scoreColor(score) {
+  if (score == null) return "#94a3b8";
+  if (score >= 8) return "#16a34a";
+  if (score >= 6) return "#f59e0b";
+  return "#dc2626";
 }
 
 function MetricCard({ value, label, color }) {
