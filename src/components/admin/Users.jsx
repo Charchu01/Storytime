@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import adminFetch from "../../lib/adminFetch";
 
 export default function Users() {
   const [users, setUsers] = useState([]);
@@ -10,8 +11,8 @@ export default function Users() {
   const fetchData = useCallback(async () => {
     try {
       const [usersRes, statsRes] = await Promise.all([
-        fetch(`/api/admin?action=users&page=${page}&limit=20`),
-        fetch("/api/admin?action=daily_stats&days=7"),
+        adminFetch(`/api/admin?action=users&page=${page}&limit=20`),
+        adminFetch("/api/admin?action=daily_stats&days=7"),
       ]);
       const u = await usersRes.json();
       const s = await statsRes.json();

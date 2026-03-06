@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import adminFetch from "../../lib/adminFetch";
 
 export default function Books() {
   const [books, setBooks] = useState([]);
@@ -11,7 +12,7 @@ export default function Books() {
 
   const fetchBooks = useCallback(async () => {
     try {
-      const res = await fetch(`/api/admin?action=books&page=${page}&limit=20`);
+      const res = await adminFetch(`/api/admin?action=books&page=${page}&limit=20`);
       const data = await res.json();
       if (!res.ok) {
         console.error("Books API error:", data.error || res.status);
@@ -30,7 +31,7 @@ export default function Books() {
   const openDetail = async (bookId) => {
     setSelectedBook(bookId);
     try {
-      const res = await fetch(`/api/admin?action=book&bookId=${bookId}`);
+      const res = await adminFetch(`/api/admin?action=book&bookId=${bookId}`);
       const data = await res.json();
       setDetail(data);
     } catch {

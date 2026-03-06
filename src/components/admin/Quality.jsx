@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import adminFetch from "../../lib/adminFetch";
 
 export default function Quality() {
   const [validations, setValidations] = useState([]);
@@ -10,8 +11,8 @@ export default function Quality() {
   const fetchData = useCallback(async () => {
     try {
       const [qualRes, insightsRes] = await Promise.all([
-        fetch("/api/admin?action=quality&limit=50"),
-        fetch("/api/admin?action=insights"),
+        adminFetch("/api/admin?action=quality&limit=50"),
+        adminFetch("/api/admin?action=insights"),
       ]);
       const q = await qualRes.json();
       const ins = await insightsRes.json();

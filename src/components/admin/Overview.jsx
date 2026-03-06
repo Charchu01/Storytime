@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import adminFetch from "../../lib/adminFetch";
 
 export default function Overview() {
   const [data, setData] = useState(null);
@@ -9,8 +10,8 @@ export default function Overview() {
   const fetchData = useCallback(async () => {
     try {
       const [overviewRes, healthRes] = await Promise.all([
-        fetch("/api/admin?action=overview"),
-        fetch("/api/admin?action=health"),
+        adminFetch("/api/admin?action=overview"),
+        adminFetch("/api/admin?action=health"),
       ]);
 
       if (!overviewRes.ok) {
