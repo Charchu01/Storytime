@@ -1,4 +1,5 @@
 import Replicate from "replicate";
+import { logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
 
 export const config = { maxDuration: 60 };
 
@@ -136,14 +137,27 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Failed to start image generation" });
     }
 
+    const durationMs = Date.now() - startTime;
     console.log("IMG_GEN:", JSON.stringify({
       ts: Date.now(),
       model: modelUsed,
       imageCount: imageInputs.length,
       tier: tier || "standard",
       predictionId: prediction.id,
-      durationMs: Date.now() - startTime,
+      durationMs,
     }));
+
+    // Admin logging
+    logApiCall({
+      service: 'replicate',
+      type: isCover ? 'cover' : 'spread',
+      status: 200,
+      durationMs,
+      model: modelUsed,
+      cost: 0.045,
+      details: `${modelUsed} | ${imageInputs.length} refs`,
+    }).catch(() => {});
+    updateDailyApiStats('replicate', durationMs, 0.045, false).catch(() => {});
 
     res.json({
       predictionId: prediction.id,
@@ -152,6 +166,14 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error("generate-image error:", err);
+    logApiCall({
+      service: 'replicate',
+      type: 'image_gen',
+      status: 500,
+      durationMs: Date.now() - startTime,
+      error: err.message,
+    }).catch(() => {});
+    updateDailyApiStats('replicate', Date.now() - startTime, 0, true).catch(() => {});
     res.status(500).json({ error: `Image generation failed: ${err.message}` });
   }
 }

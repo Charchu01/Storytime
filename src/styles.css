@@ -330,10 +330,11 @@
 }
 .big-btn:hover { transform: translateY(-2px); }
 .big-btn:disabled {
-  background: #D4A898;
+  background: #c4b5ad;
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
+  opacity: 0.65;
 }
 
 /* ── Cast Stage ─────────────────────────────────────────────────────────────── */
@@ -2425,6 +2426,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 @keyframes pageIn {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
@@ -2540,7 +2542,7 @@
 }
 .drawer {
   position: absolute; right: 0; top: 0; bottom: 0; width: 80%; max-width: 320px;
-  background: #FEF7ED; padding: 20px 24px;
+  background: #FEF7ED; padding: 20px 24px 32px;
   animation: drawerIn .3s cubic-bezier(.22,1,.36,1);
   overflow-y: auto;
 }
@@ -3328,6 +3330,10 @@
   color: var(--ink);
   line-height: 1.5;
   margin: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 .ss-sidebar-dedication {
   font-style: italic;
@@ -3848,6 +3854,12 @@
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
 }
 .sc-suggestion-chip:hover {
   background: var(--tpal);

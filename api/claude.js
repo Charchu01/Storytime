@@ -1,6 +1,9 @@
+import { logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
+
 export const config = { maxDuration: 60 };
 
 export default async function handler(req, res) {
+  const startTime = Date.now();
   try {
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
@@ -58,17 +61,51 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
+    const durationMs = Date.now() - startTime;
 
     if (!response.ok) {
+      // Admin logging: error
+      logApiCall({
+        service: 'anthropic',
+        type: imageDataUrl ? 'photo_analysis' : 'story',
+        status: response.status,
+        durationMs,
+        model: 'claude-sonnet-4-20250514',
+        error: data.error?.message,
+      }).catch(() => {});
+      updateDailyApiStats('anthropic', durationMs, 0, true).catch(() => {});
+
       return res.status(response.status).json({
         error: data.error?.message || "Anthropic API error",
       });
     }
 
+    // Admin logging: success
+    const callType = imageDataUrl ? 'photo_analysis' : 'story';
+    const cost = imageDataUrl ? 0.02 : (maxTokens > 2000 ? 0.05 : 0.02);
+    logApiCall({
+      service: 'anthropic',
+      type: callType,
+      status: 200,
+      durationMs,
+      model: 'claude-sonnet-4-20250514',
+      cost,
+    }).catch(() => {});
+    updateDailyApiStats('anthropic', durationMs, cost, false).catch(() => {});
+
     const text = data.content.map((block) => block.text || "").join("").trim();
     res.json({ text });
   } catch (err) {
     console.error("Claude API error:", err);
+    const durationMs = Date.now() - startTime;
+    logApiCall({
+      service: 'anthropic',
+      type: 'unknown',
+      status: 500,
+      durationMs,
+      error: err.message,
+    }).catch(() => {});
+    updateDailyApiStats('anthropic', durationMs, 0, true).catch(() => {});
     res.status(500).json({ error: `Failed to call Claude API: ${err.message}` });
   }
 }

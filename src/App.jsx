@@ -12,6 +12,7 @@ import PrivacyPage from "./pages/PrivacyPage";
 import TermsPage from "./pages/TermsPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import StatusPage from "./pages/StatusPage";
+import AdminPage from "./pages/AdminPage";
 import Navbar from "./components/Navbar";
 import CookieBanner from "./components/CookieBanner";
 import ToastContainer from "./components/ToastContainer";
@@ -108,6 +109,7 @@ export default function App() {
           <Route path="/privacy" element={<><Navbar /><PrivacyPage /></>} />
           <Route path="/terms" element={<><Navbar /><TermsPage /></>} />
           <Route path="/status" element={<><Navbar /><StatusPage /></>} />
+          <Route path="/admin" element={<AdminPage />} />
           <Route path="*" element={<><Navbar /><NotFoundPage /></>} />
         </Routes>
         <CookieBanner />

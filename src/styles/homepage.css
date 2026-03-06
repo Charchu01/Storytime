@@ -560,6 +560,15 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Tablet */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .hp-who-grid, .hp-steps, .hp-test-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .hp-hero { padding: 80px 32px 60px; }
+  .hp-h1 { font-size: 38px; }
+}
+
 /* Mobile */
 @media (max-width: 768px) {
   .hp-hero { padding: 70px 20px 40px; min-height: auto; }

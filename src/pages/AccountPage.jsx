@@ -16,7 +16,10 @@ export default function AccountPage() {
   const shareCount = activity.filter((a) => a.action === "Link Shared").length;
 
   function handleWaitlist() {
-    if (!waitlistEmail.includes("@")) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(waitlistEmail)) {
+      addToast("Please enter a valid email address", "error");
+      return;
+    }
     localStorage.setItem("sk_waitlist_email", waitlistEmail);
     setWaitlistDone(true);
     addToast("You're on the list! 🎉", "success");

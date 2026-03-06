@@ -52,6 +52,12 @@ export default function FamilyVault({ userId = "anonymous" }) {
         <h2 className="vault-h2">✨ Family Vault</h2>
         <div className="vault-empty">
           <p>Could not load Family Vault. Create a Premium story to save characters here!</p>
+          <button onClick={() => { setError(null); setLoading(true); }} style={{
+            marginTop: 12, padding: "8px 20px", borderRadius: 8, border: "1px solid #e2e8f0",
+            background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600,
+          }}>
+            Retry
+          </button>
         </div>
       </div>
     );

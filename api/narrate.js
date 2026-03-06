@@ -1,3 +1,5 @@
+import { logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
+
 export const config = { maxDuration: 30 };
 
 // Preprocess story text for more natural narration
@@ -13,6 +15,8 @@ function prepareNarrationText(text) {
 }
 
 export default async function handler(req, res) {
+  const startTime = Date.now();
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -54,13 +58,36 @@ export default async function handler(req, res) {
       }
     );
 
+    const durationMs = Date.now() - startTime;
+
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
       console.error("ElevenLabs error:", response.status, errText.substring(0, 200));
+
+      logApiCall({
+        service: 'elevenlabs',
+        type: 'narration',
+        status: response.status,
+        durationMs,
+        error: `HTTP ${response.status}`,
+      }).catch(() => {});
+      updateDailyApiStats('elevenlabs', durationMs, 0, true).catch(() => {});
+
       return res.status(response.status).json({
         error: `Narration failed: ${response.status}`,
       });
     }
+
+    // Admin logging: success
+    logApiCall({
+      service: 'elevenlabs',
+      type: 'narration',
+      status: 200,
+      durationMs,
+      cost: 0.005,
+      details: `${text.length} chars`,
+    }).catch(() => {});
+    updateDailyApiStats('elevenlabs', durationMs, 0.005, false).catch(() => {});
 
     const contentType = response.headers.get("content-type");
     res.setHeader("Content-Type", contentType || "audio/mpeg");
@@ -69,6 +96,15 @@ export default async function handler(req, res) {
     res.send(Buffer.from(buffer));
   } catch (err) {
     console.error("Narrate error:", err);
+    const durationMs = Date.now() - startTime;
+    logApiCall({
+      service: 'elevenlabs',
+      type: 'narration',
+      status: 500,
+      durationMs,
+      error: err.message,
+    }).catch(() => {});
+    updateDailyApiStats('elevenlabs', durationMs, 0, true).catch(() => {});
     res.status(500).json({ error: "Narration unavailable" });
   }
 }

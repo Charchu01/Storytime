@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../App";
 import EditDrawer from "./EditDrawer";
+import BookRating from "./BookRating";
 import { editPageText, generatePageImage } from "../api/story";
 
 function isGeneratedImage(url) {
@@ -32,6 +33,8 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const [narrating, setNarrating] = useState(false);
   const [autoNarrate, setAutoNarrate] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [showRating, setShowRating] = useState(false);
+  const [ratingDismissed, setRatingDismissed] = useState(false);
   const narrationAudio = useRef(null);
   const narrationCache = useRef({});
   const touchStartX = useRef(null);
@@ -445,6 +448,26 @@ export default function BookReader({ data, cast, styleName, onReset }) {
               </button>
               <button className="br-back-btn" onClick={onReset}>✨ New Story</button>
             </div>
+            {!ratingDismissed && (
+              <div style={{ marginTop: 16 }}>
+                {!showRating ? (
+                  <button onClick={() => setShowRating(true)} style={{
+                    background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)",
+                    color: "#fff", padding: "8px 16px", borderRadius: 10, fontSize: 13,
+                    cursor: "pointer", backdropFilter: "blur(4px)",
+                  }}>
+                    Rate this book
+                  </button>
+                ) : (
+                  <div style={{ background: "rgba(255,255,255,0.95)", borderRadius: 14, overflow: "hidden" }}>
+                    <BookRating
+                      bookId={data.id || story.title}
+                      onClose={() => { setShowRating(false); setRatingDismissed(true); }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
