@@ -3,18 +3,18 @@
 html { scroll-behavior: smooth; }
 
 .hp {
-  background: #FEF7ED;
+  background: var(--color-bg);
   overflow-x: hidden;
-  --warm-bg: #FEF7ED;
-  --accent: #C85D2A;
-  --accent-hover: #B5491E;
-  --accent-light: #FFF0E6;
-  --gold: #D4A853;
+  --warm-bg: var(--color-bg);
+  --accent: var(--color-accent);
+  --accent-hover: var(--color-accent-hover);
+  --accent-light: var(--color-accent-light);
+  --gold: var(--color-gold);
   --gold-light: #FFF8EE;
-  --text-primary: #2D1B0E;
-  --text-body: #5C4033;
-  --text-muted: #9C8578;
-  --border: #E8D5C4;
+  --text-primary: var(--color-text);
+  --text-body: var(--color-text-body);
+  --text-muted: var(--color-text-muted);
+  --border: var(--color-border);
   --font-display: 'Playfair Display', Georgia, serif;
   --font-body: 'DM Sans', -apple-system, sans-serif;
 }
@@ -27,7 +27,7 @@ html { scroll-behavior: smooth; }
   text-align: center;
 }
 .hp-section--alt {
-  background: #FFF8F0;
+  background: var(--color-bg-subtle);
   max-width: none;
   padding-left: 24px;
   padding-right: 24px;
@@ -801,7 +801,7 @@ html { scroll-behavior: smooth; }
 
 /* ── BOTTOM CTA ── */
 .hp-bottom-cta {
-  background: linear-gradient(135deg, #2D1B0E, #3D2518);
+  background: linear-gradient(135deg, var(--color-text), #3D2518);
   padding: 80px 24px;
   text-align: center;
 }
@@ -819,7 +819,7 @@ html { scroll-behavior: smooth; }
 .hp-bot-sub {
   font-family: var(--font-body);
   font-size: 16px;
-  color: #e8d5c4;
+  color: var(--color-border);
   margin-bottom: 32px;
   max-width: 480px;
   margin-left: auto;
@@ -873,7 +873,7 @@ html { scroll-behavior: smooth; }
   font-family: var(--font-display);
   font-size: 18px;
   font-weight: 700;
-  color: #FEF7ED;
+  color: var(--color-bg);
 }
 .hp-f-center {
   display: flex;

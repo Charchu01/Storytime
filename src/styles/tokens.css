@@ -1,0 +1,42 @@
+:root {
+  --color-bg: #FEF7ED;
+  --color-bg-subtle: #FFF8F0;
+  --color-bg-deep: #F5E6D3;
+  --color-accent: #C85D2A;
+  --color-accent-hover: #B5491E;
+  --color-accent-light: #FFF0E6;
+  --color-accent-glow: rgba(200, 93, 42, 0.15);
+  --color-gold: #D4A853;
+  --color-gold-light: #FDF6E3;
+  --color-text: #2D1B0E;
+  --color-text-body: #5C4033;
+  --color-text-muted: #9C8578;
+  --color-border: #E8D5C4;
+  --color-border-light: #F0E4D7;
+  --color-white: #FFFFFF;
+  --color-success: #22c55e;
+  --color-warning: #eab308;
+  --color-error: #ef4444;
+
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'DM Sans', -apple-system, sans-serif;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 2px 8px rgba(45, 27, 14, 0.06);
+  --shadow-md: 0 4px 20px rgba(45, 27, 14, 0.08);
+  --shadow-lg: 0 8px 40px rgba(45, 27, 14, 0.12);
+  --shadow-glow: 0 0 20px rgba(200, 93, 42, 0.12);
+}

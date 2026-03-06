@@ -1,10 +1,20 @@
 import { logApiCall, logValidation, updateDailyApiStats } from './lib/admin-logger.js';
+import { rateLimit } from './lib/rate-limiter.js';
 
 export const config = { maxDuration: 25 };
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const rl = rateLimit(req, { key: 'validate-image', limit: 20, windowMs: 60000 });
+  if (!rl.allowed) {
+    res.setHeader('Retry-After', Math.ceil((rl.resetAt - Date.now()) / 1000));
+    return res.status(429).json({
+      error: 'Too many requests. Please try again in a moment.',
+      retryAfter: Math.ceil((rl.resetAt - Date.now()) / 1000),
+    });
   }
 
   const apiKey = process.env.ANTHROPIC_KEY;
@@ -98,11 +108,16 @@ export default async function handler(req, res) {
           await new Promise(r => setTimeout(r, 3000));
           continue;
         }
-        // Other API errors — fail open but log clearly
+        // Other API errors — fail closed so bad images don't sneak through
         return res.json({
-          pass: true,
+          pass: false,
           reason: "validation_api_error",
           apiStatus: response.status,
+          textScore: 0,
+          faceScore: 0,
+          textBoxScore: 0,
+          sceneAccuracy: 0,
+          formatOk: false,
           issues: [`Validation unavailable (HTTP ${response.status})`],
         });
       }
@@ -116,20 +131,20 @@ export default async function handler(req, res) {
         const cleaned = text.replace(/```json\s*|```\s*/g, "").trim();
         const result = JSON.parse(cleaned);
 
-        // Ensure required fields exist with sensible defaults
+        // Ensure required fields exist — default LOW so missing data fails safely
         const normalized = {
           pass: Boolean(result.pass),
-          textScore: Number(result.textScore) || 5,
-          faceScore: Number(result.faceScore) || 5,
-          textBoxScore: Number(result.textBoxScore) || 7,
-          sceneAccuracy: Number(result.sceneAccuracy) || 7,
-          formatOk: result.formatOk !== false,
+          textScore: Number(result.textScore) || 1,
+          faceScore: Number(result.faceScore) || 1,
+          textBoxScore: Number(result.textBoxScore) || 1,
+          sceneAccuracy: Number(result.sceneAccuracy) || 1,
+          formatOk: result.formatOk === true,
           likenessScore: result.likenessScore ? Number(result.likenessScore) : null,
           issues: Array.isArray(result.issues) ? result.issues : [],
           fixNotes: result.fixNotes || "",
           textBoxDescription: result.textBoxDescription || "",
           characterCount: Number(result.characterCount) || 1,
-          fingersOk: result.fingersOk !== false,
+          fingersOk: result.fingersOk === true,
         };
 
         // Re-compute pass based on actual scores (don't trust Claude's pass field blindly)
@@ -137,7 +152,7 @@ export default async function handler(req, res) {
         const textThreshold = pageType === "cover" ? 4 : 6;
         normalized.pass = normalized.textScore >= textThreshold
           && normalized.faceScore >= 6
-          && (normalized.textBoxScore || 10) >= 6
+          && normalized.textBoxScore >= 6
           && normalized.formatOk
           && normalized.sceneAccuracy >= 5;
 
@@ -206,10 +221,15 @@ export default async function handler(req, res) {
         await new Promise(r => setTimeout(r, 2000));
         continue;
       }
-      // Final attempt failed — fail open but mark it
+      // Final attempt failed — fail closed so bad images don't sneak through
       return res.json({
-        pass: true,
+        pass: false,
         reason: "network_error",
+        textScore: 0,
+        faceScore: 0,
+        textBoxScore: 0,
+        sceneAccuracy: 0,
+        formatOk: false,
         issues: ["Validation could not reach API"],
       });
     }
