@@ -287,6 +287,37 @@ export async function submitBookFeedback(bookId, feedback) {
   }
 }
 
+// ── Supabase Book Save ──────────────────────────────────────────────────────
+
+export async function saveBookToSupabase(bookData, pages, clerkId) {
+  try {
+    const response = await fetch('/api/save-book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book: bookData, pages, clerkId }),
+    });
+    const data = await response.json();
+    return data.bookId || null;
+  } catch (err) {
+    console.warn('Supabase book save failed:', err.message);
+    return null;
+  }
+}
+
+export async function saveBookImage(imageUrl, bookId, pageType, pageIndex) {
+  try {
+    const response = await fetch('/api/save-book-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUrl, bookId, pageType, pageIndex }),
+    });
+    const data = await response.json();
+    return data.permanentUrl || imageUrl;
+  } catch {
+    return imageUrl; // fall back to original URL
+  }
+}
+
 // ── Image Validation (Claude Vision) ─────────────────────────────────────────
 
 export async function validateImage(

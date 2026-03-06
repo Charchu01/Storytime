@@ -1,6 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAppContext } from "../App";
+import { supabase } from "../lib/supabase";
 const BookReader = lazy(() => import("../components/BookReader"));
 const PrintUpsell = lazy(() => import("../components/PrintUpsell"));
 
@@ -16,6 +17,46 @@ function findStory(id, stories, locationState) {
     || null;
 }
 
+function transformSupabaseBook(data) {
+  const pages = (data.book_pages || []).sort((a, b) => a.page_index - b.page_index);
+  const spreads = pages
+    .filter(p => p.page_type === "spread")
+    .map(p => ({
+      leftPageText: p.left_page_text || "",
+      rightPageText: p.right_page_text || "",
+      scene: p.scene_description || "",
+      layout: p.layout_type || "full",
+      mood: "wonder",
+    }));
+
+  const images = {};
+  for (const p of pages) {
+    const url = p.image_url_permanent || p.image_url;
+    if (!url) continue;
+    if (p.page_type === "cover") images.cover = url;
+    else if (p.page_type === "back_cover") images.backCover = url;
+    else if (p.page_type === "spread") images[`spread_${p.page_index - 1}`] = url;
+  }
+
+  return {
+    id: data.id,
+    story: {
+      title: data.title || "Untitled",
+      spreads,
+      ...(data.story_plan || {}),
+    },
+    images,
+    styleName: data.style || "Watercolor",
+    cast: [],
+    tier: data.tier || "standard",
+    mode: data.hero_type || "child",
+    bookType: data.book_type || "adventure",
+    dedication: data.dedication || null,
+    authorName: data.author_name || "A loving family",
+    createdAt: data.created_at,
+  };
+}
+
 export default function BookReaderPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -27,7 +68,7 @@ export default function BookReaderPage() {
     id !== "demo" ? findStory(id, stories, location.state) : null
   );
 
-  // Keep trying to find the story as React state propagates
+  // Keep trying to find the story as React state propagates, then try Supabase
   useEffect(() => {
     if (id === "demo" || resolvedStory) return;
     const found = findStory(id, stories, location.state);
@@ -37,17 +78,35 @@ export default function BookReaderPage() {
     }
     // Retry a few times for race condition with state propagation
     let attempts = 0;
-    const interval = setInterval(() => {
+    let cancelled = false;
+    const interval = setInterval(async () => {
       attempts++;
       const retry = findStory(id, stories, location.state);
       if (retry) {
         setResolvedStory(retry);
         clearInterval(interval);
-      } else if (attempts >= 10) {
+        return;
+      }
+      if (attempts >= 10) {
         clearInterval(interval);
+        // Try Supabase as fallback
+        if (!cancelled) {
+          try {
+            const { data } = await supabase
+              .from('books')
+              .select('*, book_pages(*)')
+              .eq('id', id)
+              .single();
+            if (data && !cancelled) {
+              setResolvedStory(transformSupabaseBook(data));
+            }
+          } catch {
+            // Supabase not available or book not found
+          }
+        }
       }
     }, 500);
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [id, stories, location.state, resolvedStory]);
 
   // Handle demo book
