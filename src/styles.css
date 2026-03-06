@@ -5629,3 +5629,238 @@
   .print-opt-price { margin: 0 0 0 auto; }
   .print-opt-badge { top: 50%; right: -4px; left: auto; transform: translateY(-50%); }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   MOBILE FOUNDATIONS — overflow, safe areas, touch targets, iOS zoom
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Constrain all images */
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ── iOS Input Zoom Prevention ────────────────────────────────────────────── */
+/* iOS Safari auto-zooms on focus when font-size < 16px — breaks the layout */
+@media (max-width: 768px) {
+  input, textarea, select,
+  .f-inp, .sc-input, .btp-custom-input, .btp-custom-textarea,
+  .print-input, .ded-ta {
+    font-size: 16px !important;
+  }
+}
+
+/* ── Touch Targets — minimum 44px for all interactive elements ──────────── */
+@media (max-width: 768px) {
+  button, [role="button"] {
+    min-height: 44px;
+  }
+  .drawer-link {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+  }
+}
+
+/* ── Safe Area Insets — for iPhones with notch / home indicator ──────────── */
+.sp-footer {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+}
+.ss-create-footer {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 40px);
+}
+.br-toolbar {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 8px);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   MOBILE — Grids without breakpoints
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Legacy .add-grid (4 columns, character add buttons in old modal) */
+@media (max-width: 480px) {
+  .add-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Legacy .sug-grid (3 columns, story suggestion cards) */
+@media (max-width: 480px) {
+  .sug-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   MOBILE — Book Reader (highest priority — parents show books on phones)
+   ══════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Scene fills the viewport */
+  .br-scene {
+    padding: 8px 0;
+  }
+
+  /* Stage: collapse nav arrow slots on mobile — use swipe instead */
+  .br-stage {
+    gap: 0;
+    padding: 0 4px;
+  }
+  .br-nav-slot {
+    width: 0;
+    overflow: hidden;
+    flex: 0 0 0px;
+  }
+
+  /* Page display takes full width */
+  .br-page-display {
+    max-width: 100%;
+    max-height: 72vh;
+    border-radius: 4px;
+  }
+  .br-page-display.br-landscape {
+    max-width: 100%;
+  }
+
+  /* Cover adjustments */
+  .br-page-cover {
+    max-width: 96vw;
+    max-height: 75vh;
+  }
+  .br-page-cover .br-page-image {
+    max-width: 96vw;
+    max-height: 75vh;
+  }
+
+  /* Floating toolbar */
+  .br-toolbar {
+    min-width: 0;
+    width: calc(100% - 24px);
+    max-width: 360px;
+    padding: 6px 12px;
+    gap: 8px;
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+  }
+
+  /* Edit button */
+  .br-edit-floating {
+    bottom: 80px;
+    right: 16px;
+    font-size: 12px;
+    padding: 8px 16px;
+  }
+
+  /* Page indicator */
+  .br-page-indicator {
+    font-size: 12px;
+    padding: 4px 12px;
+    margin-top: 10px;
+  }
+
+  /* Back cover actions */
+  .br-back-actions {
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    padding: 0 16px;
+  }
+  .br-back-btn {
+    width: 100%;
+    text-align: center;
+    padding: 14px 22px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   MOBILE — Homepage / Landing
+   ══════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .land-body {
+    padding: 16px 16px 32px;
+  }
+  .land-cta {
+    padding: 16px 36px;
+    font-size: 16px;
+    width: 100%;
+    justify-content: center;
+  }
+  .land-steps {
+    gap: 6px;
+  }
+  .land-step {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   MOBILE — Create Flow General
+   ══════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Prevent horizontal overflow on all step containers */
+  .create-step,
+  .create-step-content,
+  .create-step-header {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Reduce oversized titles */
+  .create-step-title {
+    font-size: 26px;
+  }
+  .create-step-subtitle {
+    font-size: 14px;
+  }
+
+  /* Style picker: tone chips horizontal scroll on narrow screens */
+  .sp-tone-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+    justify-content: flex-start;
+  }
+  .sp-tone-chip {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Story studio context card horizontal scroll */
+  .ss-context-card {
+    justify-content: flex-start;
+  }
+  .ss-context-item {
+    flex-shrink: 0;
+  }
+
+  /* Suggestion chips full width */
+  .sc-suggestion-chip {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Checkout: Stripe input zoom prevention */
+  .StripeElement {
+    font-size: 16px !important;
+  }
+
+  /* Paywall summary: stack on very narrow */
+  .pw-summary {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+}
