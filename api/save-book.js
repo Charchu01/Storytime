@@ -8,6 +8,7 @@ export default async function handler(req, res) {
   const { book, pages, userId, clerkId } = req.body;
 
   if (!book) return res.status(400).json({ error: 'book data required' });
+  if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase not configured' });
 
   try {
     // Find or create user
