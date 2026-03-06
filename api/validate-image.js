@@ -184,7 +184,7 @@ export default async function handler(req, res) {
           model: 'claude-sonnet-4-20250514',
           cost,
           details: { inputTokens, outputTokens, summary: `${pageType}: text=${normalized.textScore} face=${normalized.faceScore} textBox=${normalized.textBoxScore} scene=${normalized.sceneAccuracy} ${normalized.pass ? 'PASS' : 'FAIL'}` },
-        }).catch(() => {});
+        }).catch(e => console.warn('logApiCall failed:', e.message));
         updateDailyApiStats('anthropic', valDuration, cost, false).catch(() => {});
         logValidation({
           bookId: bookId || null,
@@ -200,7 +200,7 @@ export default async function handler(req, res) {
           fixNotes: normalized.fixNotes,
           likenessScore: normalized.likenessScore,
           fingersOk: normalized.fingersOk,
-        }).catch(() => {});
+        }).catch(e => console.warn('logValidation failed:', e.message));
 
         return res.json(normalized);
       } catch (parseErr) {

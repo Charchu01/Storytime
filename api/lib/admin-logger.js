@@ -4,13 +4,18 @@
 
 import { supabaseAdmin } from './supabase-admin.js';
 
-const sb = supabaseAdmin; // shorthand
+// Lazy getter — if supabaseAdmin was null at first import (e.g. cold start
+// before env vars were available), re-check on each call.
+function getSb() {
+  return supabaseAdmin;
+}
 
 // ── Book Logging ─────────────────────────────────────────────────────────────
 // Updates an existing book record with health_status, or logs to activity_log.
 // The book must already exist in Supabase (saved via save-book.js).
 
 export async function logBook(bookData) {
+  const sb = getSb();
   if (!sb) {
     console.warn('admin-logger: Supabase not configured, skipping logBook');
     return null;
@@ -44,6 +49,7 @@ export async function logBook(bookData) {
 // ── API Call Logging ─────────────────────────────────────────────────────────
 
 export async function logApiCall(callData) {
+  const sb = getSb();
   if (!sb) return;
   try {
     const record = {
@@ -81,6 +87,7 @@ export async function logApiCall(callData) {
 // ── Error Logging ────────────────────────────────────────────────────────────
 
 export async function logError(errorData) {
+  const sb = getSb();
   if (!sb) return;
   try {
     await sb.from('admin_errors').insert({
@@ -98,6 +105,7 @@ export async function logError(errorData) {
 // ── Event Logging (Activity Feed) ────────────────────────────────────────────
 
 export async function logEvent(type, data) {
+  const sb = getSb();
   if (!sb) return;
   try {
     await sb.from('activity_log').insert({
@@ -134,6 +142,7 @@ function formatEventMessage(type, data) {
 // This function logs payment events for the activity feed.
 
 export async function logRevenue(paymentData) {
+  const sb = getSb();
   if (!sb) return;
   try {
     await logEvent(
@@ -153,6 +162,7 @@ export async function logRevenue(paymentData) {
 // ── Validation Logging ───────────────────────────────────────────────────────
 
 export async function logValidation(validationData) {
+  const sb = getSb();
   if (!sb) return;
   try {
     const record = {
@@ -196,6 +206,7 @@ export async function logValidation(validationData) {
 // ── Post-Game Analysis Logging ───────────────────────────────────────────────
 
 export async function logPostGameAnalysis(bookId, analysis) {
+  const sb = getSb();
   if (!sb) return;
   try {
     await sb.from('admin_postgame').upsert({
@@ -237,6 +248,7 @@ export async function updateDailyApiStats(/* service, durationMs, cost, isError 
 // ── Config Management ────────────────────────────────────────────────────────
 
 export async function getConfig(key, defaultValue) {
+  const sb = getSb();
   if (!sb) return defaultValue;
   try {
     const { data } = await sb.from('admin_config')
@@ -250,6 +262,7 @@ export async function getConfig(key, defaultValue) {
 }
 
 export async function setConfig(key, value) {
+  const sb = getSb();
   if (!sb) return false;
   try {
     await sb.from('admin_config').upsert({
@@ -266,6 +279,7 @@ export async function setConfig(key, value) {
 // ── Prompt Override Management ───────────────────────────────────────────────
 
 export async function getPromptOverride(section) {
+  const sb = getSb();
   if (!sb) return null;
   try {
     const { data } = await sb.from('admin_config')
@@ -279,6 +293,7 @@ export async function getPromptOverride(section) {
 }
 
 export async function setPromptOverride(section, text) {
+  const sb = getSb();
   if (!sb) return false;
   try {
     if (text === null || text === '') {
@@ -299,6 +314,7 @@ export async function setPromptOverride(section, text) {
 // ── Experiment Management ────────────────────────────────────────────────────
 
 export async function getActiveExperiment(target) {
+  const sb = getSb();
   if (!sb) return null;
   try {
     const { data } = await sb.from('admin_experiments')
@@ -314,6 +330,7 @@ export async function getActiveExperiment(target) {
 }
 
 export async function logExperimentBookResult(experimentId, variant, scores) {
+  const sb = getSb();
   if (!sb) return false;
   try {
     const { data: exp } = await sb.from('admin_experiments')
@@ -348,6 +365,7 @@ export async function logExperimentBookResult(experimentId, variant, scores) {
 // ── User Feedback Logging ────────────────────────────────────────────────────
 
 export async function logUserFeedback(bookId, feedback) {
+  const sb = getSb();
   if (!sb) return false;
   try {
     await sb.from('admin_feedback').insert({
