@@ -1,6 +1,32 @@
 import { useState } from "react";
 import { STYLES, TONES } from "../constants/data";
 
+const STYLE_EMOJIS = {
+  storybook: "📚",
+  watercolor: "🎨",
+  pixar: "🎬",
+  bold: "🌈",
+  cozy: "🧸",
+  sketch: "✏️",
+  anime: "🌸",
+  retro: "📻",
+  collage: "✂️",
+  minimal: "🔲",
+};
+
+const STYLE_DESCRIPTIONS = {
+  storybook: "Think Beatrix Potter meets modern picture books — warm, painterly, timeless charm.",
+  watercolor: "Soft washes of colour that bleed gently together, like a dreamy afternoon.",
+  pixar: "Cinematic 3D characters with expressive faces, like a still from your favourite movie.",
+  bold: "Punchy, modern illustrations with thick outlines and electric colours. Award-winning vibes.",
+  cozy: "Pastel tones, rounded shapes, rosy cheeks. Perfect for bedtime stories.",
+  sketch: "Charming hand-drawn lines with loose watercolour fills. Perfectly imperfect.",
+  anime: "Large expressive eyes, soft cel-shading, and a touch of Studio Ghibli magic.",
+  retro: "Mid-century nostalgia — muted palettes, print textures, and vintage charm.",
+  collage: "Torn paper, fabric textures, and layered cutouts. Crafty and tactile.",
+  minimal: "Clean Scandinavian simplicity — generous white space, geometric elegance.",
+};
+
 export default function StylePicker({ onSelect, onBack }) {
   const [selectedStyle, setSelectedStyle] = useState(null);
   const [selectedTone, setSelectedTone] = useState(null);
@@ -27,21 +53,26 @@ export default function StylePicker({ onSelect, onBack }) {
       <div className="sp-section">
         <h2 className="sp-section-title">Art Style</h2>
         <div className="sp-style-grid">
-          {STYLES.map((s) => (
-            <button
-              key={s.id}
-              className={`sp-style-card${selectedStyle?.id === s.id ? " sp-style-selected" : ""}`}
-              onClick={() => setSelectedStyle(s)}
-            >
-              <div className="sp-style-preview" data-style={s.id}>
-                <span className="sp-style-initial">{s.name.charAt(0)}</span>
-              </div>
-              <div className="sp-style-info">
-                <span className="sp-style-name">{s.name}</span>
-                <span className="sp-style-tagline">{s.tagline}</span>
-              </div>
-            </button>
-          ))}
+          {STYLES.map((s) => {
+            const isSelected = selectedStyle?.id === s.id;
+            return (
+              <button
+                key={s.id}
+                className={`sp-style-card${isSelected ? " sp-style-selected" : ""}`}
+                onClick={() => setSelectedStyle(s)}
+              >
+                {isSelected && <span className="sp-style-check">✓</span>}
+                <div className="sp-style-preview" data-style={s.id}>
+                  <span className="sp-style-emoji-icon">{STYLE_EMOJIS[s.id] || "🎨"}</span>
+                </div>
+                <div className="sp-style-info">
+                  <span className="sp-style-name">{s.name}</span>
+                  <span className="sp-style-tagline">{s.tagline}</span>
+                </div>
+                <p className="sp-style-desc">{STYLE_DESCRIPTIONS[s.id]}</p>
+              </button>
+            );
+          })}
         </div>
       </div>
 

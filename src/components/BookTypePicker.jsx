@@ -4,10 +4,27 @@ import { BOOK_TYPES, BOOK_TYPE_CATEGORIES } from "../constants/data";
 export default function BookTypePicker({ onSelect, onBack }) {
   const [filter, setFilter] = useState("all");
   const [expanded, setExpanded] = useState(null);
+  const [showCustom, setShowCustom] = useState(false);
+  const [customTitle, setCustomTitle] = useState("");
+  const [customDesc, setCustomDesc] = useState("");
 
   const filtered = filter === "all"
     ? BOOK_TYPES
     : BOOK_TYPES.filter((t) => t.category === filter);
+
+  function handleCustomSubmit() {
+    if (!customTitle.trim()) return;
+    onSelect({
+      id: "custom",
+      emoji: "✏️",
+      title: customTitle.trim(),
+      subtitle: customDesc.trim() || "A custom story",
+      category: "story",
+      claudeFormat: `Write a personalized children's story based on this concept: "${customTitle.trim()}". ${customDesc.trim()}`,
+      example: "",
+      pageCount: { standard: 6, premium: 10 },
+    });
+  }
 
   return (
     <div className="btp-container">
@@ -42,16 +59,20 @@ export default function BookTypePicker({ onSelect, onBack }) {
               className={`btp-card${isExpanded ? " btp-card-expanded" : ""}`}
               onClick={() => setExpanded(isExpanded ? null : type.id)}
             >
-              <span className="btp-card-emoji">{type.emoji}</span>
-              <h3 className="btp-card-title">{type.title}</h3>
-              <p className="btp-card-subtitle">{type.subtitle}</p>
+              <div className="btp-card-top">
+                <span className="btp-card-emoji">{type.emoji}</span>
+                <div className="btp-card-text">
+                  <h3 className="btp-card-title">{type.title}</h3>
+                  <p className="btp-card-subtitle">{type.subtitle}</p>
+                </div>
+              </div>
+
+              {type.example && (
+                <p className="btp-card-preview">"{type.example}"</p>
+              )}
 
               {isExpanded && (
                 <div className="btp-card-detail">
-                  <div className="btp-card-example">
-                    <span className="btp-example-label">Example:</span>
-                    <em>"{type.example}"</em>
-                  </div>
                   <button
                     className="btp-choose-btn"
                     onClick={(e) => {
@@ -66,6 +87,46 @@ export default function BookTypePicker({ onSelect, onBack }) {
             </button>
           );
         })}
+
+        {/* Custom / Other card */}
+        <button
+          className={`btp-card btp-card-custom${showCustom ? " btp-card-expanded" : ""}`}
+          onClick={() => setShowCustom(!showCustom)}
+        >
+          <div className="btp-card-top">
+            <span className="btp-card-emoji">✏️</span>
+            <div className="btp-card-text">
+              <h3 className="btp-card-title">Something Else</h3>
+              <p className="btp-card-subtitle">Describe your own idea</p>
+            </div>
+          </div>
+
+          {showCustom && (
+            <div className="btp-card-detail" onClick={(e) => e.stopPropagation()}>
+              <input
+                className="btp-custom-input"
+                value={customTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+                placeholder="What kind of book? e.g. 'A fairy tale about kindness'"
+                autoFocus
+              />
+              <textarea
+                className="btp-custom-textarea"
+                value={customDesc}
+                onChange={(e) => setCustomDesc(e.target.value)}
+                placeholder="Any extra details... (optional)"
+                rows={2}
+              />
+              <button
+                className="btp-choose-btn"
+                disabled={!customTitle.trim()}
+                onClick={handleCustomSubmit}
+              >
+                Use This Idea →
+              </button>
+            </div>
+          )}
+        </button>
       </div>
     </div>
   );
