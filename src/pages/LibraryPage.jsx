@@ -5,7 +5,7 @@ import { useAppContext, useToast } from "../App";
 import { STYLE_GRADIENTS } from "../api/story";
 
 export default function LibraryPage() {
-  const { stories, deleteStory } = useAppContext();
+  const { stories, storiesLoading, deleteStory } = useAppContext();
   const { addToast } = useToast();
   const navigate = useNavigate();
   const [hoveredId, setHoveredId] = useState(null);
@@ -21,11 +21,22 @@ export default function LibraryPage() {
 
   function handleShare(story) {
     try {
-      const shareData = { story: { title: story.story?.title, pages: story.story?.pages?.map(p => ({ text: p.text })) }, styleName: story.styleName, heroName: story.cast?.[0]?.name };
+      const shareData = { story: { title: story.title || story.story?.title }, styleName: story.style || story.styleName, heroName: story.hero_name };
       const encoded = btoa(encodeURIComponent(JSON.stringify(shareData)));
       navigator.clipboard.writeText(`${window.location.origin}/shared?d=${encoded}`);
       addToast("Link copied! Send it to grandma 👵", "magic");
     } catch { addToast("Failed to copy link", "error"); }
+  }
+
+  if (storiesLoading) {
+    return (
+      <div className="lib-page">
+        <div className="lib-empty">
+          <div className="lib-empty-book">📚</div>
+          <h2 className="lib-empty-h">Loading your library...</h2>
+        </div>
+      </div>
+    );
   }
 
   if (stories.length === 0) {
@@ -41,7 +52,7 @@ export default function LibraryPage() {
     );
   }
 
-  const heroName = stories[0]?.cast?.find(c => c.isHero)?.name || stories[0]?.cast?.[0]?.name || "friend";
+  const heroName = stories[0]?.hero_name || "friend";
 
   return (
     <div className="lib-page">
@@ -63,11 +74,11 @@ export default function LibraryPage() {
         </Link>
 
         {stories.map((s, i) => {
-          const title = s.story?.title || "Untitled";
-          const style = s.styleName || "Watercolor";
-          const grad = STYLE_GRADIENTS[style] || STYLE_GRADIENTS.Storybook;
-          const childName = s.cast?.find(c => c.isHero)?.name || s.cast?.[0]?.name || "";
-          const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
+          const title = s.title || s.story?.title || "Untitled";
+          const styleName = s.style || s.styleName || "Watercolor";
+          const grad = STYLE_GRADIENTS[styleName] || STYLE_GRADIENTS.Storybook;
+          const childName = s.hero_name || "";
+          const date = s.created_at ? new Date(s.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
           const hovered = hoveredId === s.id;
 
           return (
@@ -80,8 +91,8 @@ export default function LibraryPage() {
             >
               <div className="lib-card-cover" style={{ background: grad }}>
                 <div className="lib-card-spine" />
-                <h3 className={`lib-card-title`}>{title}</h3>
-                <div className={`lib-card-badge`}>{style}</div>
+                <h3 className="lib-card-title">{title}</h3>
+                <div className="lib-card-badge">{styleName}</div>
 
                 {hovered && (
                   <div className="lib-card-overlay">

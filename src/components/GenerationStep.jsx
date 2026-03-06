@@ -450,7 +450,8 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         dedication: wizardData?.dedication || storyPlan.dedication || null,
       }).catch(() => {});
 
-      // Save to Supabase (fire-and-forget — don't block the user)
+      // Save to Supabase — blocking, we need the UUID for navigation
+      let supabaseBookId = null;
       try {
         const genDurationMs = Date.now() - (window.__genStartTime || Date.now());
         const clerkId = window.__clerk_user?.id || null;
@@ -473,11 +474,9 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
           story_plan: storyPlan,
         };
         const bookPages = [];
-        // Cover
         if (images.cover) {
           bookPages.push({ page_type: "cover", page_index: 0, image_url: images.cover });
         }
-        // Spreads
         (storyPlan.spreads || []).forEach((spread, i) => {
           bookPages.push({
             page_type: "spread",
@@ -489,16 +488,16 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
             image_url: images[`spread_${i}`] || null,
           });
         });
-        // Back cover
         if (images.backCover) {
           bookPages.push({ page_type: "back_cover", page_index: bookPages.length, image_url: images.backCover });
         }
-        saveBookToSupabase(bookMeta, bookPages, clerkId).catch(() => {});
+        supabaseBookId = await saveBookToSupabase(bookMeta, bookPages, clerkId);
       } catch (e) {
         console.warn("Supabase save failed:", e.message);
       }
 
       onNext({
+        supabaseBookId,
         story: storyPlan,
         images,
         dedication: wizardData?.dedication || storyPlan.dedication || null,

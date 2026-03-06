@@ -1,21 +1,8 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useAppContext } from "../App";
 import { supabase } from "../lib/supabase";
 const BookReader = lazy(() => import("../components/BookReader"));
 const PrintUpsell = lazy(() => import("../components/PrintUpsell"));
-
-function loadStoriesFromDisk() {
-  try { return JSON.parse(localStorage.getItem("sk_stories") || "[]"); }
-  catch { return []; }
-}
-
-function findStory(id, stories, locationState) {
-  return stories.find((s) => s.id === id)
-    || locationState?.storyData
-    || loadStoriesFromDisk().find((s) => s.id === id)
-    || null;
-}
 
 function transformSupabaseBook(data) {
   const pages = (data.book_pages || []).sort((a, b) => a.page_index - b.page_index);
@@ -61,53 +48,45 @@ export default function BookReaderPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { stories } = useAppContext();
   const [showPrint, setShowPrint] = useState(false);
   const [demoData, setDemoData] = useState(null);
-  const [resolvedStory, setResolvedStory] = useState(() =>
-    id !== "demo" ? findStory(id, stories, location.state) : null
-  );
+  const [resolvedStory, setResolvedStory] = useState(null);
+  const [notFound, setNotFound] = useState(false);
 
-  // Keep trying to find the story as React state propagates, then try Supabase
+  // Load book from Supabase (or from navigation state as immediate fallback)
   useEffect(() => {
     if (id === "demo" || resolvedStory) return;
-    const found = findStory(id, stories, location.state);
-    if (found) {
-      setResolvedStory(found);
+
+    // Check if story was passed via navigation state (immediate after generation)
+    if (location.state?.storyData) {
+      setResolvedStory(location.state.storyData);
       return;
     }
-    // Retry a few times for race condition with state propagation
-    let attempts = 0;
+
     let cancelled = false;
-    const interval = setInterval(async () => {
-      attempts++;
-      const retry = findStory(id, stories, location.state);
-      if (retry) {
-        setResolvedStory(retry);
-        clearInterval(interval);
-        return;
-      }
-      if (attempts >= 10) {
-        clearInterval(interval);
-        // Try Supabase as fallback
-        if (!cancelled) {
-          try {
-            const { data } = await supabase
-              .from('books')
-              .select('*, book_pages(*)')
-              .eq('id', id)
-              .single();
-            if (data && !cancelled) {
-              setResolvedStory(transformSupabaseBook(data));
-            }
-          } catch {
-            // Supabase not available or book not found
-          }
+    async function loadBook() {
+      try {
+        const { data, error } = await supabase
+          .from('books')
+          .select('*, book_pages(*)')
+          .eq('id', id)
+          .single();
+
+        if (cancelled) return;
+
+        if (error || !data) {
+          setNotFound(true);
+          return;
         }
+        setResolvedStory(transformSupabaseBook(data));
+      } catch {
+        if (!cancelled) setNotFound(true);
       }
-    }, 500);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [id, stories, location.state, resolvedStory]);
+    }
+
+    loadBook();
+    return () => { cancelled = true; };
+  }, [id, resolvedStory, location.state]);
 
   // Handle demo book
   useEffect(() => {
@@ -170,6 +149,17 @@ export default function BookReaderPage() {
       <div className="gen-screen">
         <div className="gen-emoji">📖</div>
         <div className="gen-headline">Loading demo story...</div>
+      </div>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <div className="gen-screen">
+        <div className="gen-emoji">📖</div>
+        <div className="gen-headline">Book not found</div>
+        <p style={{ color: "#64748b", marginTop: 8 }}>This book may have been deleted or the link is invalid.</p>
+        <button className="gen-retry-btn" onClick={() => navigate("/library")} style={{ marginTop: 16 }}>Go to Library</button>
       </div>
     );
   }

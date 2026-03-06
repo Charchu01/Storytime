@@ -7,14 +7,24 @@ export default function ProfilePage() {
   useEffect(() => { document.title = "My Profile — Storytime"; }, []);
   const { stories } = useAppContext();
 
-  // Deduplicate family members from all stories
+  // Deduplicate family members from all stories (Supabase format uses hero_name)
   const familyMembers = useMemo(() => {
     const seen = new Map();
     stories.forEach((s) => {
+      // Handle Supabase format (hero_name field)
+      const heroName = s.hero_name;
+      if (heroName) {
+        const key = heroName.toLowerCase();
+        if (!seen.has(key)) {
+          const count = stories.filter((st) => st.hero_name?.toLowerCase() === key).length;
+          seen.set(key, { name: heroName, role: s.hero_type || "child", emoji: s.hero_type === "pet" ? "🐾" : "🧒", storyCount: count });
+        }
+      }
+      // Also handle legacy cast format
       (s.cast || []).forEach((c) => {
         const key = c.name?.toLowerCase();
         if (key && !seen.has(key)) {
-          const count = stories.filter((st) => (st.cast || []).some((x) => x.name?.toLowerCase() === key)).length;
+          const count = stories.filter((st) => (st.cast || []).some((x) => x.name?.toLowerCase() === key) || st.hero_name?.toLowerCase() === key).length;
           seen.set(key, { ...c, storyCount: count });
         }
       });

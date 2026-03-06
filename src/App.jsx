@@ -24,6 +24,7 @@ import CookieBanner from "./components/CookieBanner";
 import ToastContainer from "./components/ToastContainer";
 import OfflineBanner from "./components/OfflineBanner";
 import InstallPrompt from "./components/InstallPrompt";
+import { supabase } from "./lib/supabase";
 import "./styles.css";
 import "./styles/homepage.css";
 
@@ -31,37 +32,34 @@ import "./styles/homepage.css";
 const ToastContext = createContext();
 export function useToast() { return useContext(ToastContext); }
 
-// ── Story storage helpers ────────────────────────────────────────────────────
-function loadStories() {
-  try { return JSON.parse(localStorage.getItem("sk_stories") || "[]"); }
-  catch { return []; }
-}
-function saveStories(stories) {
-  try {
-    localStorage.setItem("sk_stories", JSON.stringify(stories));
-  } catch (e) {
-    // localStorage quota exceeded — prune oldest stories and retry once
-    console.warn("localStorage quota exceeded, pruning old stories", e);
-    try {
-      const trimmed = stories.slice(0, Math.max(1, stories.length - 2));
-      localStorage.setItem("sk_stories", JSON.stringify(trimmed));
-    } catch (_) {
-      // Still failing — clear sk_stories entirely so the app doesn't crash
-      console.warn("localStorage still full, clearing sk_stories");
-      localStorage.removeItem("sk_stories");
-    }
-  }
-}
-
 // ── App Context for global state ─────────────────────────────────────────────
 const AppContext = createContext();
 export function useAppContext() { return useContext(AppContext); }
 
 export default function App() {
-  const [stories, setStories] = useState(loadStories);
+  const [stories, setStories] = useState([]);
+  const [storiesLoading, setStoriesLoading] = useState(true);
   const [toasts, setToasts] = useState([]);
 
-  useEffect(() => { saveStories(stories); }, [stories]);
+  // Fetch books from Supabase on mount
+  const fetchBooks = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('books')
+        .select('*')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setStories(data || []);
+    } catch (err) {
+      console.warn('Failed to fetch books from Supabase:', err.message);
+      setStories([]);
+    } finally {
+      setStoriesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchBooks(); }, [fetchBooks]);
 
   // Toast system
   const addToast = useCallback((message, type = "info", duration = 4000) => {
@@ -75,19 +73,18 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  function addStory(story) {
-    const entry = { ...story, id: story.id || Date.now().toString(36) + Math.random().toString(36).slice(2), createdAt: new Date().toISOString() };
-    // Save to localStorage BEFORE React processes the state update,
-    // so /book/:id can find it immediately even if navigate() fires first
-    const current = loadStories();
-    saveStories([entry, ...current]);
-    setStories([entry, ...current]);
-    return entry.id;
-  }
-
-  function deleteStory(id) {
+  const deleteStory = useCallback(async (id) => {
+    // Optimistic removal from local state
     setStories((prev) => prev.filter((s) => s.id !== id));
-  }
+    try {
+      await supabase
+        .from('books')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
+    } catch (err) {
+      console.warn('Failed to delete from Supabase:', err.message);
+    }
+  }, []);
 
   function addActivity(action, storyTitle) {
     try {
@@ -97,7 +94,7 @@ export default function App() {
     } catch {}
   }
 
-  const appValue = { stories, addStory, deleteStory, addActivity };
+  const appValue = { stories, storiesLoading, deleteStory, addActivity, refreshBooks: fetchBooks };
 
   const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 

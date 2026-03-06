@@ -1,6 +1,5 @@
 import { useState, useEffect, createContext, useContext, useCallback } from "react";
 import { useNavigate, useSearchParams, useLocation, Outlet } from "react-router-dom";
-import { useAppContext } from "../App";
 import { STYLES, BOOK_TYPES } from "../constants/data";
 
 const DRAFT_KEY = "sk_draft";
@@ -29,8 +28,6 @@ export default function CreatePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { addStory } = useAppContext();
-
   const [bookType, setBookType] = useState(null);
   const [heroData, setHeroData] = useState(null);
   const [artStyle, setArtStyle] = useState(null);
@@ -165,22 +162,16 @@ export default function CreatePage() {
 
   const handleStoryComplete = useCallback((storyResult) => {
     clearDraft();
-    const lightCast = cast.map(({ photo, photos, ...rest }) => ({
-      ...rest,
-      photo: null,
-      photos: [],
-    }));
-    const storyEntry = {
-      ...storyResult,
-      styleName: style,
-      cast: lightCast,
-      tier,
-      mode: heroData?.heroType || "child",
-      bookType: bookType?.id,
-    };
-    const id = addStory(storyEntry);
-    navigate(`/book/${id}`, { replace: true, state: { storyData: { ...storyEntry, id } } });
-  }, [cast, style, tier, heroData, bookType, addStory, navigate]);
+    // storyResult.supabaseBookId is the UUID from Supabase
+    const bookId = storyResult.supabaseBookId;
+    if (bookId) {
+      navigate(`/book/${bookId}`, { replace: true });
+    } else {
+      // Fallback: use a local ID if Supabase save failed
+      const fallbackId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+      navigate(`/book/${fallbackId}`, { replace: true, state: { storyData: { ...storyResult, id: fallbackId } } });
+    }
+  }, [navigate]);
 
   const reset = useCallback(() => {
     clearDraft();
