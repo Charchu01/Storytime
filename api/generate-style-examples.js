@@ -73,7 +73,7 @@ export default async function handler(req, res) {
           model: "black-forest-labs/flux-1.1-pro",
           input: {
             prompt: style.prompt,
-            aspect_ratio: "3:4",
+            aspect_ratio: "2:3",
             output_format: "webp",
             output_quality: 80,
             safety_tolerance: 5,

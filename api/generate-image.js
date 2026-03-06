@@ -47,7 +47,7 @@ export default async function handler(req, res) {
       hasRefPhoto: !!referencePhotoUrl,
       refImageCount: referenceImageUrls?.length || 0,
       imageInputUrls: imageInputs.map(u => u?.substring(0, 60)),
-      aspectRatio: aspectRatio || "3:4",
+      aspectRatio: aspectRatio || "2:3",
     }));
 
     // ── PRIMARY: Nano Banana Pro (with images) ────────────────
@@ -59,7 +59,7 @@ export default async function handler(req, res) {
           input: {
             prompt: prompt,
             image_input: imageInputs,
-            aspect_ratio: aspectRatio || "3:4",
+            aspect_ratio: aspectRatio || "2:3",
             output_format: "jpg",
             allow_fallback_model: true,
           },
@@ -76,7 +76,7 @@ export default async function handler(req, res) {
         modelUsed = "google/nano-banana-pro";
         const input = {
           prompt: prompt,
-          aspect_ratio: aspectRatio || "3:4",
+          aspect_ratio: aspectRatio || "2:3",
           output_format: "jpg",
           allow_fallback_model: true,
         };
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
           model: modelUsed,
           input: {
             prompt: `Children's picture book illustration: ${prompt}. Rich detailed environment, warm lighting, magical atmosphere.`,
-            aspect_ratio: aspectRatio || "3:4",
+            aspect_ratio: aspectRatio || "2:3",
             output_format: "webp",
             output_quality: 90,
           },
