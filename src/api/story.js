@@ -1,4 +1,4 @@
-import { claudeCall, generateImage, uploadPhoto, validateImage } from "./client";
+import { claudeCall, generateImage, uploadPhoto, validateImage, saveBookImage } from "./client";
 import { ROLES, STYLES, WORLDS, OCCASIONS, THEMES } from "../constants/data";
 
 // ── Face-ref-lost tracking ───────────────────────────────────────────────────
@@ -796,6 +796,9 @@ export async function generateAllImages(
   storyPlan, heroPhotoUrl, onImageReady, tier, companionPhotoUrls = {}
 ) {
   const images = {};
+  const permanentImages = {};
+  const savePromises = [];
+  const tempBookId = `book_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   let previousImageUrl = null;
 
   const { characterAppearances, textBoxDesign, artStyle } = storyPlan;
@@ -854,6 +857,12 @@ export async function generateAllImages(
       images.cover = coverUrl;
       previousImageUrl = coverUrl;
       logCost("nano_banana", tier, true, 0, null);
+      // Save cover to permanent storage (fire and forget)
+      savePromises.push(
+        saveBookImage(coverUrl, tempBookId, 'cover', 0)
+          .then(permanentUrl => { if (permanentUrl && permanentUrl !== coverUrl) permanentImages.cover = permanentUrl; })
+          .catch(() => {})
+      );
     }
   } catch (err) {
     console.warn("Cover generation failed:", err.message);
@@ -933,6 +942,12 @@ export async function generateAllImages(
         images[`spread_${i}`] = url;
         previousImageUrl = url;
         logCost("nano_banana", tier, true, 0, null);
+        // Save spread to permanent storage (fire and forget)
+        savePromises.push(
+          saveBookImage(url, tempBookId, 'spread', i)
+            .then(permanentUrl => { if (permanentUrl && permanentUrl !== url) permanentImages[`spread_${i}`] = permanentUrl; })
+            .catch(() => {})
+        );
       } else {
         throw new Error("Invalid image URL");
       }
@@ -954,6 +969,12 @@ export async function generateAllImages(
         if (retryUrl && await validateImageUrl(retryUrl)) {
           images[`spread_${i}`] = retryUrl;
           previousImageUrl = retryUrl;
+          // Save retry spread to permanent storage (fire and forget)
+          savePromises.push(
+            saveBookImage(retryUrl, tempBookId, 'spread', i)
+              .then(permanentUrl => { if (permanentUrl && permanentUrl !== retryUrl) permanentImages[`spread_${i}`] = permanentUrl; })
+              .catch(() => {})
+          );
         } else {
           images[`spread_${i}`] = null;
         }
@@ -1021,6 +1042,15 @@ export async function generateAllImages(
         images.backCover = backUrl;
       }
       logCost("nano_banana", tier, true, 0, null);
+      // Save back cover to permanent storage (fire and forget)
+      if (images.backCover) {
+        const backCoverUrl = images.backCover;
+        savePromises.push(
+          saveBookImage(backCoverUrl, tempBookId, 'back_cover', 0)
+            .then(permanentUrl => { if (permanentUrl && permanentUrl !== backCoverUrl) permanentImages.backCover = permanentUrl; })
+            .catch(() => {})
+        );
+      }
     }
   } catch (err) {
     console.warn("Back cover generation failed:", err.message);
@@ -1034,7 +1064,13 @@ export async function generateAllImages(
     throw new Error("All illustrations failed. Please try again.");
   }
 
-  return images;
+  // Wait briefly for any in-flight permanent saves (don't block for long)
+  await Promise.race([
+    Promise.allSettled(savePromises),
+    new Promise(r => setTimeout(r, 5000)),
+  ]);
+
+  return { images, tempBookId, permanentImages };
 }
 
 // ── Upload hero photo once ────────────────────────────────────────────────────

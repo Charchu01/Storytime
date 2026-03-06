@@ -404,9 +404,12 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         });
       };
 
-      const images = await generateAllImages(
+      const genResult = await generateAllImages(
         storyPlan, heroPhotoUrl, onImageReady, tier, companionPhotoUrls
       );
+      const images = genResult.images || genResult; // backward compat
+      const permanentImages = genResult.permanentImages || {};
+      const tempBookId = genResult.tempBookId || null;
 
       setLoadPhase("finishing");
       await new Promise((r) => setTimeout(r, 500));
@@ -478,7 +481,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
         };
         const bookPages = [];
         if (images.cover) {
-          bookPages.push({ page_type: "cover", page_index: 0, image_url: images.cover });
+          bookPages.push({ page_type: "cover", page_index: 0, image_url: permanentImages.cover || images.cover });
         }
         (storyPlan.spreads || []).forEach((spread, i) => {
           bookPages.push({
@@ -488,11 +491,11 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
             right_page_text: spread.rightPageText || null,
             scene_description: spread.visualDescription || spread.scene || null,
             layout_type: spread.layout || null,
-            image_url: images[`spread_${i}`] || null,
+            image_url: permanentImages[`spread_${i}`] || images[`spread_${i}`] || null,
           });
         });
         if (images.backCover) {
-          bookPages.push({ page_type: "back_cover", page_index: bookPages.length, image_url: images.backCover });
+          bookPages.push({ page_type: "back_cover", page_index: bookPages.length, image_url: permanentImages.backCover || images.backCover });
         }
         supabaseBookId = await saveBookToSupabase(bookMeta, bookPages, clerkId);
       } catch (e) {
