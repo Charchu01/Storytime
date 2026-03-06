@@ -53,6 +53,7 @@ export default function HeroSetup({ bookType, onComplete, onBack }) {
   const [newCharName, setNewCharName] = useState("");
   const [newCharRelation, setNewCharRelation] = useState("friend");
   const [newCharPhoto, setNewCharPhoto] = useState(null);
+  const [photoError, setPhotoError] = useState(null);
   const fileRef = useRef();
   const companionFileRef = useRef();
 
@@ -60,7 +61,11 @@ export default function HeroSetup({ bookType, onComplete, onBack }) {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
-    if (file.size > MAX_PHOTO_SIZE) return;
+    if (file.size > MAX_PHOTO_SIZE) {
+      setPhotoError("Photo too large! Please use a photo under 10MB.");
+      return;
+    }
+    setPhotoError(null);
     try {
       const compressed = await compressPhoto(file);
       setPhoto(compressed);
@@ -129,6 +134,7 @@ export default function HeroSetup({ bookType, onComplete, onBack }) {
               </div>
             )}
           </button>
+          {photoError && <p style={{ color: "#ef4444", fontSize: 12, margin: "6px 0 0", textAlign: "center" }}>{photoError}</p>}
           {!photo && <p className="hs-photo-skip">or skip for now</p>}
           {photo && (
             <button className="hs-photo-change" onClick={() => fileRef.current?.click()}>

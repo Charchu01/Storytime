@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { kv } from '@vercel/kv';
 import getRawBody from 'raw-body';
+import { logRevenue, logEvent as logAdminEvent } from './lib/admin-logger.js';
 
 export const config = { maxDuration: 30, api: { bodyParser: false } };
 
@@ -23,14 +24,37 @@ export default async function handler(req, res) {
   }
 
   if (event.type === 'payment_intent.succeeded') {
-    const { storySessionId, tier } = event.data.object.metadata;
+    const pi = event.data.object;
+    const { storySessionId, tier } = pi.metadata;
     if (storySessionId) {
       await kv.set(`paid:${storySessionId}`, {
         paid: true,
         tier,
         paidAt: new Date().toISOString(),
       }, { ex: 86400 });
+
+      // Admin logging: revenue
+      const amount = pi.amount ? pi.amount / 100 : (tier === 'premium' ? 19.99 : 9.99);
+      await logRevenue({
+        status: 'succeeded',
+        amount,
+        tier,
+        sessionId: storySessionId,
+        stripeId: pi.id,
+      }).catch(() => {});
     }
+  }
+
+  if (event.type === 'payment_intent.payment_failed') {
+    const pi = event.data.object;
+    const { storySessionId, tier } = pi.metadata || {};
+    await logRevenue({
+      status: 'failed',
+      amount: 0,
+      tier,
+      sessionId: storySessionId,
+      stripeId: pi.id,
+    }).catch(() => {});
   }
 
   res.json({ received: true });

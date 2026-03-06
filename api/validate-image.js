@@ -1,3 +1,5 @@
+import { logApiCall, logValidation, updateDailyApiStats } from './lib/admin-logger.js';
+
 export const config = { maxDuration: 20 };
 
 export default async function handler(req, res) {
@@ -22,6 +24,8 @@ export default async function handler(req, res) {
   if (!imageUrl) {
     return res.status(400).json({ error: "imageUrl is required" });
   }
+
+  req._adminStartTime = Date.now();
 
   // Retry up to 2 times on transient failures
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -116,6 +120,30 @@ export default async function handler(req, res) {
           formatOk: normalized.formatOk,
           issues: normalized.issues,
         }));
+
+        // Admin logging
+        const valDuration = Date.now() - (req._adminStartTime || Date.now());
+        logApiCall({
+          service: 'anthropic',
+          type: 'validation',
+          status: 200,
+          durationMs: valDuration,
+          model: 'claude-sonnet-4-20250514',
+          cost: 0.004,
+          details: `${pageType}: text=${normalized.textScore} face=${normalized.faceScore} ${normalized.pass ? 'PASS' : 'FAIL'}`,
+        }).catch(() => {});
+        updateDailyApiStats('anthropic', valDuration, 0.004, false).catch(() => {});
+        logValidation({
+          page: pageType,
+          attempt: attempt + 1,
+          textScore: normalized.textScore,
+          faceScore: normalized.faceScore,
+          sceneAccuracy: normalized.sceneAccuracy,
+          formatOk: normalized.formatOk,
+          pass: normalized.pass,
+          issues: normalized.issues,
+          fixNotes: normalized.fixNotes,
+        }).catch(() => {});
 
         return res.json(normalized);
       } catch (parseErr) {

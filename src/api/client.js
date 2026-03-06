@@ -258,6 +258,35 @@ export async function deleteFromVault(characterId, userId = "anonymous") {
   }
 }
 
+// ── Admin Book Logging ────────────────────────────────────────────────────────
+
+export async function logBookToAdmin(bookData) {
+  try {
+    await fetch('/api/admin-log-book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bookData),
+    });
+  } catch {
+    // Non-critical — admin logging failure doesn't affect user experience
+  }
+}
+
+// ── Admin Feedback Submission ─────────────────────────────────────────────────
+
+export async function submitBookFeedback(bookId, feedback) {
+  try {
+    const response = await fetch('/api/admin?action=submit_feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookId, ...feedback }),
+    });
+    return await response.json();
+  } catch {
+    return { success: false };
+  }
+}
+
 // ── Image Validation (Claude Vision) ─────────────────────────────────────────
 
 export async function validateImage(
