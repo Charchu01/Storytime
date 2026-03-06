@@ -939,7 +939,9 @@ export async function generateAllImages(
                 [spread.leftPageText, spread.rightPageText],
                 heroName, artStyle, "spread", spread.sceneDescription
               );
-              if (retryValidation.pass || (retryValidation.faceScore || 0) >= (validation.faceScore || 0)) {
+              if (retryValidation.pass ||
+                  (retryValidation.textScore || 0) > (validation.textScore || 0) ||
+                  (retryValidation.faceScore || 0) >= (validation.faceScore || 0)) {
                 url = retryUrl;
                 logCost("nano_banana", tier, true, 0, "retry_after_validation");
               }

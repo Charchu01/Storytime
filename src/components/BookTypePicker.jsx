@@ -69,13 +69,19 @@ export default function BookTypePicker({ onSelect, onBack }) {
         <button
           className={`btp-card btp-card-custom${showCustom ? " btp-card-expanded" : ""}`}
           onClick={() => setShowCustom(!showCustom)}
+          onKeyDown={(e) => {
+            if (showCustom && (e.key === " " || e.key === "Enter")) {
+              const tag = e.target.tagName;
+              if (tag === "INPUT" || tag === "TEXTAREA") e.stopPropagation();
+            }
+          }}
         >
           <span className="btp-card-emoji">✏️</span>
           <h3 className="btp-card-title">Something Else</h3>
           <p className="btp-card-subtitle">Describe your own idea</p>
 
           {showCustom && (
-            <div className="btp-card-detail" onClick={(e) => e.stopPropagation()}>
+            <div className="btp-card-detail" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
               <input
                 className="btp-custom-input"
                 value={customTitle}
