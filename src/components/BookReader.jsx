@@ -374,13 +374,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         {current.type === "cover" && (
           <div className="br-page-content br-page-cover">
             {current.imageUrl ? (
-              <>
-                <img src={current.imageUrl} className="br-page-image" alt={story.title} />
-                <div className="br-cover-overlay-text">
-                  <h1 className="br-cover-overlay-title">{story.title}</h1>
-                  <p className="br-cover-overlay-for">A story for {heroName}</p>
-                </div>
-              </>
+              <img src={current.imageUrl} className="br-page-image" alt={story.title} />
             ) : (
               <div className="br-cover-fallback">
                 <h1 className="br-cover-title">{story.title}</h1>
