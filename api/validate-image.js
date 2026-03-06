@@ -99,7 +99,9 @@ export default async function handler(req, res) {
         };
 
         // Re-compute pass based on actual scores (don't trust Claude's pass field blindly)
-        normalized.pass = normalized.textScore >= 6
+        // Covers use hand-lettered artistic text — lower textScore threshold
+        const textThreshold = pageType === "cover" ? 4 : 6;
+        normalized.pass = normalized.textScore >= textThreshold
           && normalized.faceScore >= 6
           && normalized.formatOk
           && normalized.sceneAccuracy >= 5;
@@ -152,8 +154,22 @@ function buildValidationPrompt({
   pageType,
   sceneDescription,
 }) {
-  const textSection = expectedTexts?.filter(t => t?.trim()).length > 0
-    ? `EXPECTED TEXT IN IMAGE:
+  const isCover = pageType === "cover";
+  const hasExpectedText = expectedTexts?.filter(t => t?.trim()).length > 0;
+
+  let textSection;
+  if (isCover && hasExpectedText) {
+    textSection = `EXPECTED TITLE IN IMAGE:
+${expectedTexts.filter(t => t?.trim()).map((t) => `Title: "${t}"`).join("\n")}
+
+This is a COVER — the title is HAND-LETTERED artistic text that is PART OF the illustration, not in a text box.
+Check that the title is:
+- READABLE and RECOGNIZABLE as the correct title
+- Not garbled or nonsensical
+Do NOT penalize for artistic styling, glow effects, curved lettering, or slight stylization.
+Hand-lettered text will naturally look different from typed text — that is expected and correct.`;
+  } else if (hasExpectedText) {
+    textSection = `EXPECTED TEXT IN IMAGE:
 ${expectedTexts.filter(t => t?.trim()).map((t, i) => `Text box ${i + 1}: "${t}"`).join("\n")}
 
 Check EVERY word. Compare character by character. Report any:
@@ -161,8 +177,10 @@ Check EVERY word. Compare character by character. Report any:
 - Missing words
 - Extra words not in the original
 - Garbled or unreadable text
-- Text that is cut off or partially hidden`
-    : "No text boxes expected in this image.";
+- Text that is cut off or partially hidden`;
+  } else {
+    textSection = "No text boxes expected in this image.";
+  }
 
   return `You are a strict quality checker for AI-generated children's book illustrations.
 
