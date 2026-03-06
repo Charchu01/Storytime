@@ -128,23 +128,32 @@ export default async function handler(req, res) {
         .trim();
 
       try {
-        const cleaned = text.replace(/```json\s*|```\s*/g, "").trim();
+        // Robust JSON extraction — handle markdown fences and preamble text
+        let cleaned = text.replace(/```json\s*|```\s*/g, "").trim();
+        const firstBrace = cleaned.indexOf('{');
+        const lastBrace = cleaned.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+          cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+        }
         const result = JSON.parse(cleaned);
 
-        // Ensure required fields exist — default LOW so missing data fails safely
+        // Covers and back covers don't have text boxes — use null, not a penalty score
+        const hasTextBoxes = pageType !== "cover" && pageType !== "back_cover";
+
+        // Ensure required fields exist — default to 0 (fail-safe), not generous values
         const normalized = {
-          pass: Boolean(result.pass),
-          textScore: Number(result.textScore) || 1,
-          faceScore: Number(result.faceScore) || 1,
-          textBoxScore: Number(result.textBoxScore) || 1,
-          sceneAccuracy: Number(result.sceneAccuracy) || 1,
+          pass: false, // Re-computed below
+          textScore: Number(result.textScore) || 0,
+          faceScore: Number(result.faceScore) || 0,
+          textBoxScore: hasTextBoxes ? (result.textBoxScore != null ? Number(result.textBoxScore) : null) : null,
+          sceneAccuracy: Number(result.sceneAccuracy) || 0,
           formatOk: result.formatOk === true,
-          likenessScore: result.likenessScore ? Number(result.likenessScore) : null,
+          likenessScore: result.likenessScore != null ? Number(result.likenessScore) : null,
           issues: Array.isArray(result.issues) ? result.issues : [],
           fixNotes: result.fixNotes || "",
           textBoxDescription: result.textBoxDescription || "",
           characterCount: Number(result.characterCount) || 1,
-          fingersOk: result.fingersOk === true,
+          fingersOk: result.fingersOk !== false,
         };
 
         // Re-compute pass based on actual scores (don't trust Claude's pass field blindly)
@@ -152,9 +161,26 @@ export default async function handler(req, res) {
         const textThreshold = pageType === "cover" ? 4 : 6;
         normalized.pass = normalized.textScore >= textThreshold
           && normalized.faceScore >= 6
-          && normalized.textBoxScore >= 6
+          && (normalized.textBoxScore === null || normalized.textBoxScore >= 6)
           && normalized.formatOk
           && normalized.sceneAccuracy >= 5;
+
+        // Compute quality tier and composite score server-side for logging
+        const tbScore = normalized.textBoxScore ?? 7; // neutral for covers/back covers
+        if (normalized.textScore >= 9 && normalized.faceScore >= 8 && tbScore >= 7 && normalized.sceneAccuracy >= 7) {
+          normalized.qualityTier = 'excellent';
+        } else if (normalized.textScore >= 7 && normalized.faceScore >= 7 && tbScore >= 6 && normalized.sceneAccuracy >= 6) {
+          normalized.qualityTier = 'good';
+        } else if (normalized.textScore >= 5 && normalized.faceScore >= 5) {
+          normalized.qualityTier = 'acceptable';
+        } else {
+          normalized.qualityTier = 'poor';
+        }
+
+        const hasLikeness = normalized.likenessScore != null;
+        normalized.compositeScore = hasLikeness
+          ? Math.round(((normalized.textScore * 0.35) + (normalized.faceScore * 0.25) + (tbScore * 0.15) + (normalized.sceneAccuracy * 0.15) + (normalized.likenessScore * 0.10)) * 100) / 100
+          : Math.round(((normalized.textScore * 0.40) + (normalized.faceScore * 0.30) + (tbScore * 0.15) + (normalized.sceneAccuracy * 0.15)) * 100) / 100;
 
         console.log("IMG_VALIDATION:", JSON.stringify({
           pageType,
@@ -167,6 +193,8 @@ export default async function handler(req, res) {
           likenessScore: normalized.likenessScore,
           formatOk: normalized.formatOk,
           fingersOk: normalized.fingersOk,
+          qualityTier: normalized.qualityTier,
+          compositeScore: normalized.compositeScore,
           issues: normalized.issues,
         }));
 
@@ -200,6 +228,9 @@ export default async function handler(req, res) {
           fixNotes: normalized.fixNotes,
           likenessScore: normalized.likenessScore,
           fingersOk: normalized.fingersOk,
+          characterCount: normalized.characterCount,
+          qualityTier: normalized.qualityTier,
+          compositeScore: normalized.compositeScore,
         }).catch(e => console.warn('logValidation failed:', e.message));
 
         return res.json(normalized);
@@ -211,11 +242,11 @@ export default async function handler(req, res) {
           reason: "parse_error",
           issues: ["Validation response could not be parsed"],
           fixNotes: "Re-generate with clearer composition",
-          textScore: 5,
-          faceScore: 5,
-          textBoxScore: 7,
-          sceneAccuracy: 5,
-          formatOk: true,
+          textScore: 0,
+          faceScore: 0,
+          textBoxScore: null,
+          sceneAccuracy: 0,
+          formatOk: false,
         });
       }
     } catch (err) {

@@ -55,6 +55,12 @@ export default function Quality() {
   const retries = recentVals.filter(v => v.attempt > 1).length;
   const retryRate = recentVals.length > 0
     ? Math.round((retries / recentVals.length) * 100) : 0;
+  const tbVals = recentVals.filter(v => v.textBoxScore != null);
+  const avgTextBox = tbVals.length > 0
+    ? (tbVals.reduce((sum, v) => sum + v.textBoxScore, 0) / tbVals.length).toFixed(1) : "-";
+  const compVals = recentVals.filter(v => v.compositeScore != null);
+  const avgComposite = compVals.length > 0
+    ? (compVals.reduce((sum, v) => sum + v.compositeScore, 0) / compVals.length).toFixed(1) : "-";
 
   // Issue frequency
   const issueMap = {};
@@ -79,6 +85,8 @@ export default function Quality() {
         <MetricCard value={`${retryRate}%`} label="Retry Rate" color="#f59e0b" />
         <MetricCard value={avgText} label="Avg Text Score" color="#3b82f6" />
         <MetricCard value={avgFace} label="Avg Face Score" color="#8b5cf6" />
+        <MetricCard value={avgTextBox} label="Avg TextBox Score" color="#10b981" />
+        <MetricCard value={avgComposite} label="Avg Composite" color="#f97316" />
       </div>
 
       {/* Quality Trends Chart */}

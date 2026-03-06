@@ -64,7 +64,11 @@ export async function logApiCall(callData) {
       details: callData.details || null,
     };
 
-    await sb.from('admin_api_calls').insert(record);
+    const { error: insertError } = await sb.from('admin_api_calls').insert(record);
+    if (insertError) {
+      console.error('ADMIN_LOG_API_CALL_ERROR:', insertError.message, insertError.details);
+      return null;
+    }
 
     // Log errors specially
     if (callData.error || (callData.status && callData.status >= 400)) {
@@ -90,13 +94,14 @@ export async function logError(errorData) {
   const sb = getSb();
   if (!sb) return;
   try {
-    await sb.from('admin_errors').insert({
+    const { error } = await sb.from('admin_errors').insert({
       service: errorData.service || 'unknown',
       error_type: errorData.type || 'error',
       book_id: errorData.bookId || null,
       error: errorData.error || 'Unknown error',
       details: errorData.details || null,
     });
+    if (error) console.error('ADMIN_LOG_ERROR_INSERT_FAIL:', error.message);
   } catch (err) {
     console.error('Admin logger - logError error:', err.message);
   }
@@ -108,13 +113,14 @@ export async function logEvent(type, data) {
   const sb = getSb();
   if (!sb) return;
   try {
-    await sb.from('activity_log').insert({
+    const { error } = await sb.from('activity_log').insert({
       event_type: type,
       severity: type.includes('failed') || type.includes('error') ? 'error' : 'info',
       message: formatEventMessage(type, data),
       book_id: data.bookId || null,
       user_id: data.userId || null,
     });
+    if (error) console.error('ADMIN_LOG_EVENT_INSERT_FAIL:', error.message);
   } catch (err) {
     console.error('Admin logger - logEvent error:', err.message);
   }
@@ -169,22 +175,26 @@ export async function logValidation(validationData) {
       book_id: validationData.bookId || null,
       page: validationData.page || 'unknown',
       attempt: validationData.attempt || 1,
-      text_score: validationData.textScore || 0,
-      face_score: validationData.faceScore || 0,
-      scene_accuracy: validationData.sceneAccuracy || 0,
-      text_box_score: validationData.textBoxScore || null,
+      text_score: validationData.textScore ?? 0,
+      face_score: validationData.faceScore ?? 0,
+      scene_accuracy: validationData.sceneAccuracy ?? 0,
+      text_box_score: validationData.textBoxScore ?? null,
       format_ok: validationData.formatOk !== false,
-      pass: validationData.pass || false,
+      pass: validationData.pass === true,
       issues: validationData.issues || [],
       fix_notes: validationData.fixNotes || '',
-      likeness_score: validationData.likenessScore || null,
+      likeness_score: validationData.likenessScore ?? null,
       fingers_ok: validationData.fingersOk !== false,
       character_count: validationData.characterCount || null,
       quality_tier: validationData.qualityTier || null,
-      composite_score: validationData.compositeScore || null,
+      composite_score: validationData.compositeScore ?? null,
     };
 
-    await sb.from('admin_validations').insert(record);
+    const { error } = await sb.from('admin_validations').insert(record);
+    if (error) {
+      console.error('ADMIN_LOG_VALIDATION_ERROR:', error.message, error.details, error.hint);
+      return null;
+    }
 
     if (!record.pass) {
       await logEvent('validation_retry', {

@@ -112,15 +112,17 @@ function selectBestImage(attempts, hasReferencePhoto = false) {
   if (viable.length === 1) return viable[0];
 
   // Step 3: Calculate weighted composite score
+  // textBoxScore can be null for covers/back covers — use 7 (neutral) as fallback
   viable.forEach(a => {
     const v = a.validation;
+    const tbScore = v.textBoxScore ?? 7;
     if (hasReferencePhoto && v.likenessScore != null) {
       a.composite = (v.textScore * 0.35) + (v.faceScore * 0.25) +
-                     (v.textBoxScore * 0.15) + (v.sceneAccuracy * 0.15) +
+                     (tbScore * 0.15) + (v.sceneAccuracy * 0.15) +
                      (v.likenessScore * 0.10);
     } else {
       a.composite = (v.textScore * 0.40) + (v.faceScore * 0.30) +
-                     (v.textBoxScore * 0.15) + (v.sceneAccuracy * 0.15);
+                     (tbScore * 0.15) + (v.sceneAccuracy * 0.15);
     }
   });
 
@@ -131,10 +133,11 @@ function selectBestImage(attempts, hasReferencePhoto = false) {
 
 function getQualityTier(validation) {
   const v = validation;
-  if (v.textScore >= 9 && v.faceScore >= 8 && (v.textBoxScore ?? 0) >= 7 && v.sceneAccuracy >= 7) {
+  const tb = v.textBoxScore ?? 7; // neutral for covers/back covers
+  if (v.textScore >= 9 && v.faceScore >= 8 && tb >= 7 && v.sceneAccuracy >= 7) {
     return 'excellent';
   }
-  if (v.textScore >= 7 && v.faceScore >= 7 && (v.textBoxScore ?? 0) >= 6 && v.sceneAccuracy >= 6) {
+  if (v.textScore >= 7 && v.faceScore >= 7 && tb >= 6 && v.sceneAccuracy >= 6) {
     return 'good';
   }
   if (v.textScore >= 5 && v.faceScore >= 5) {
