@@ -166,10 +166,16 @@ export default async function handler(req, res) {
           textScore: v.text_score,
           faceScore: v.face_score,
           sceneAccuracy: v.scene_accuracy,
+          textBoxScore: v.text_box_score,
           formatOk: v.format_ok,
           pass: v.pass,
           issues: v.issues,
           fixNotes: v.fix_notes,
+          likenessScore: v.likeness_score,
+          fingersOk: v.fingers_ok,
+          characterCount: v.character_count,
+          qualityTier: v.quality_tier,
+          compositeScore: v.composite_score,
           createdAt: v.created_at,
         }));
 
@@ -327,10 +333,16 @@ export default async function handler(req, res) {
           textScore: v.text_score,
           faceScore: v.face_score,
           sceneAccuracy: v.scene_accuracy,
+          textBoxScore: v.text_box_score,
           formatOk: v.format_ok,
           pass: v.pass,
           issues: v.issues,
           fixNotes: v.fix_notes,
+          likenessScore: v.likeness_score,
+          fingersOk: v.fingers_ok,
+          characterCount: v.character_count,
+          qualityTier: v.quality_tier,
+          compositeScore: v.composite_score,
         }));
 
         const trends = await getQualityTrends();
@@ -494,7 +506,7 @@ export default async function handler(req, res) {
 
         // Get validations in date range
         const { data: validations } = await sb.from('admin_validations')
-          .select('created_at, text_score, face_score, attempt, pass')
+          .select('created_at, text_score, face_score, text_box_score, attempt, pass')
           .gte('created_at', since.toISOString());
 
         const stats = buildDailyStatsArray(days, books || [], apiCalls || [], validations || []);
@@ -648,6 +660,10 @@ function buildDailyStatsArray(days, books, apiCalls, validations) {
     if (!s) return;
     s.quality.totalTextScore += parseFloat(v.text_score) || 0;
     s.quality.totalFaceScore += parseFloat(v.face_score) || 0;
+    if (v.text_box_score != null) {
+      s.quality.totalTextBoxScore = (s.quality.totalTextBoxScore || 0) + (parseFloat(v.text_box_score) || 0);
+      s.quality.textBoxScoreCount = (s.quality.textBoxScoreCount || 0) + 1;
+    }
     s.quality.scoreCount += 1;
     s.quality.totalValidations += 1;
     if (v.attempt === 1 && v.pass) s.quality.firstPassCount += 1;
@@ -677,17 +693,20 @@ async function getQualityTrends() {
   since.setDate(since.getDate() - 30);
 
   const { data } = await sb.from('admin_validations')
-    .select('created_at, text_score, face_score, attempt, pass')
+    .select('created_at, text_score, face_score, text_box_score, likeness_score, composite_score, attempt, pass')
     .gte('created_at', since.toISOString());
 
   // Group by date
   const byDate = {};
   (data || []).forEach(v => {
     const date = v.created_at.split('T')[0];
-    if (!byDate[date]) byDate[date] = { totalText: 0, totalFace: 0, count: 0, firstPass: 0, total: 0, retries: 0 };
+    if (!byDate[date]) byDate[date] = { totalText: 0, totalFace: 0, totalTextBox: 0, totalLikeness: 0, totalComposite: 0, count: 0, textBoxCount: 0, likenessCount: 0, compositeCount: 0, firstPass: 0, total: 0, retries: 0 };
     const d = byDate[date];
     d.totalText += parseFloat(v.text_score) || 0;
     d.totalFace += parseFloat(v.face_score) || 0;
+    if (v.text_box_score != null) { d.totalTextBox += parseFloat(v.text_box_score) || 0; d.textBoxCount += 1; }
+    if (v.likeness_score != null) { d.totalLikeness += parseFloat(v.likeness_score) || 0; d.likenessCount += 1; }
+    if (v.composite_score != null) { d.totalComposite += parseFloat(v.composite_score) || 0; d.compositeCount += 1; }
     d.count += 1;
     d.total += 1;
     if (v.attempt === 1 && v.pass) d.firstPass += 1;
@@ -705,6 +724,9 @@ async function getQualityTrends() {
         date: dateStr,
         avgTextScore: q.count > 0 ? q.totalText / q.count : 0,
         avgFaceScore: q.count > 0 ? q.totalFace / q.count : 0,
+        avgTextBoxScore: q.textBoxCount > 0 ? q.totalTextBox / q.textBoxCount : null,
+        avgLikenessScore: q.likenessCount > 0 ? q.totalLikeness / q.likenessCount : null,
+        avgCompositeScore: q.compositeCount > 0 ? q.totalComposite / q.compositeCount : null,
         firstPassRate: q.total > 0 ? q.firstPass / q.total : 0,
         retryRate: q.total > 0 ? q.retries / q.total : 0,
       });
