@@ -35,6 +35,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [ratingDismissed, setRatingDismissed] = useState(false);
+  const [brokenImages, setBrokenImages] = useState(new Set());
   const narrationAudio = useRef(null);
   const narrationCache = useRef({});
   const touchStartX = useRef(null);
@@ -389,8 +390,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         <div className={`br-page-display ${current.type === "spread" || current.type === "page" ? "br-landscape" : "br-portrait"}`} key={fadeKey}>
           {current.type === "cover" && (
             <div className="br-page-content br-page-cover">
-              {current.imageUrl ? (
-                <img src={current.imageUrl} className="br-page-image" alt={story.title} />
+              {current.imageUrl && !brokenImages.has(current.imageUrl) ? (
+                <img src={current.imageUrl} className="br-page-image" alt={story.title}
+                  onError={() => setBrokenImages(prev => new Set(prev).add(current.imageUrl))} />
               ) : (
                 <div className="br-cover-fallback">
                   <h1 className="br-cover-title">{story.title}</h1>
@@ -409,8 +411,13 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                   <span className="br-page-loading-emoji">{"\uD83C\uDFA8"}</span>
                   <span>Regenerating...</span>
                 </div>
-              ) : current.imageUrl && isGeneratedImage(current.imageUrl) ? (
-                <img src={current.imageUrl} className="br-page-image" alt="" />
+              ) : current.imageUrl && isGeneratedImage(current.imageUrl) && !brokenImages.has(current.imageUrl) ? (
+                <img src={current.imageUrl} className="br-page-image" alt=""
+                  onError={() => setBrokenImages(prev => new Set(prev).add(current.imageUrl))} />
+              ) : current.text ? (
+                <div className="br-page-text-fallback" style={{ padding: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', borderRadius: 12 }}>
+                  <p style={{ fontSize: 20, fontFamily: 'Nunito', fontWeight: 700, color: '#92400E', textAlign: 'center', lineHeight: 1.6 }}>{current.text}</p>
+                </div>
               ) : null}
             </div>
           )}
@@ -422,8 +429,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                   <span className="br-page-loading-emoji">{"\uD83C\uDFA8"}</span>
                   <span>Regenerating...</span>
                 </div>
-              ) : current.imageUrl && isGeneratedImage(current.imageUrl) ? (
-                <img src={current.imageUrl} className="br-page-image" alt="" />
+              ) : current.imageUrl && isGeneratedImage(current.imageUrl) && !brokenImages.has(current.imageUrl) ? (
+                <img src={current.imageUrl} className="br-page-image" alt=""
+                  onError={() => setBrokenImages(prev => new Set(prev).add(current.imageUrl))} />
               ) : current.emoji ? (
                 <div className="br-page-emoji">{current.emoji}</div>
               ) : null}
@@ -432,8 +440,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
 
           {current.type === "back-cover" && (
             <div className="br-page-content br-page-back">
-              {current.imageUrl ? (
-                <img src={current.imageUrl} className="br-page-image" alt="Back cover" />
+              {current.imageUrl && !brokenImages.has(current.imageUrl) ? (
+                <img src={current.imageUrl} className="br-page-image" alt="Back cover"
+                  onError={() => setBrokenImages(prev => new Set(prev).add(current.imageUrl))} />
               ) : (
                 <div className="br-back-fallback">
                   <h2 className="br-back-title">The End</h2>
