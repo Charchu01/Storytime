@@ -1,8 +1,27 @@
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState, lazy, Suspense, Component } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 const BookReader = lazy(() => import("../components/BookReader"));
 const PrintUpsell = lazy(() => import("../components/PrintUpsell"));
+
+class BookErrorBoundary extends Component {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(err) { console.error("BookReader crash:", err); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="gen-screen">
+          <div className="gen-emoji">📖</div>
+          <div className="gen-headline">Something went wrong</div>
+          <p style={{ color: "#64748b", marginTop: 8 }}>Try reloading the page.</p>
+          <button className="gen-retry-btn" onClick={() => window.location.reload()} style={{ marginTop: 16 }}>Reload</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function transformSupabaseBook(data) {
   const pages = (data.book_pages || []).sort((a, b) => a.page_index - b.page_index);
@@ -25,12 +44,15 @@ function transformSupabaseBook(data) {
     else if (p.page_type === "spread") images[`spread_${p.page_index - 1}`] = url;
   }
 
+  // Extract story_plan but don't let it override our transformed spreads/title
+  const { spreads: _rawSpreads, title: _rawTitle, ...storyPlanExtras } = (data.story_plan || {});
+
   return {
     id: data.id,
     story: {
       title: data.title || "Untitled",
       spreads,
-      ...(data.story_plan || {}),
+      ...storyPlanExtras,
     },
     images,
     styleName: data.style || "Watercolor",
@@ -174,14 +196,16 @@ export default function BookReaderPage() {
   }
 
   return (
-    <Suspense fallback={<div className="gen-screen"><div className="gen-emoji gen-spin">📖</div><div className="gen-headline">Loading your book...</div></div>}>
-      <BookReader
-        data={story}
-        cast={story.cast || []}
-        styleName={story.styleName || "Watercolor"}
-        onReset={() => navigate("/create")}
-      />
-      {showPrint && <PrintUpsell onDismiss={handleDismissPrint} />}
-    </Suspense>
+    <BookErrorBoundary>
+      <Suspense fallback={<div className="gen-screen"><div className="gen-emoji gen-spin">📖</div><div className="gen-headline">Loading your book...</div></div>}>
+        <BookReader
+          data={story}
+          cast={story.cast || []}
+          styleName={story.styleName || "Watercolor"}
+          onReset={() => navigate("/create")}
+        />
+        {showPrint && <PrintUpsell onDismiss={handleDismissPrint} />}
+      </Suspense>
+    </BookErrorBoundary>
   );
 }
