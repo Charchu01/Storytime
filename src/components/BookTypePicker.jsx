@@ -3,7 +3,6 @@ import { BOOK_TYPES, BOOK_TYPE_CATEGORIES } from "../constants/data";
 
 export default function BookTypePicker({ onSelect, onBack }) {
   const [filter, setFilter] = useState("all");
-  const [expanded, setExpanded] = useState(null);
   const [showCustom, setShowCustom] = useState(false);
   const [customTitle, setCustomTitle] = useState("");
   const [customDesc, setCustomDesc] = useState("");
@@ -51,55 +50,29 @@ export default function BookTypePicker({ onSelect, onBack }) {
 
       {/* Book type grid */}
       <div className="btp-grid">
-        {filtered.map((type) => {
-          const isExpanded = expanded === type.id;
-          return (
-            <button
-              key={type.id}
-              className={`btp-card${isExpanded ? " btp-card-expanded" : ""}`}
-              onClick={() => setExpanded(isExpanded ? null : type.id)}
-            >
-              <div className="btp-card-top">
-                <span className="btp-card-emoji">{type.emoji}</span>
-                <div className="btp-card-text">
-                  <h3 className="btp-card-title">{type.title}</h3>
-                  <p className="btp-card-subtitle">{type.subtitle}</p>
-                </div>
-              </div>
-
-              {type.example && (
-                <p className="btp-card-preview">"{type.example}"</p>
-              )}
-
-              {isExpanded && (
-                <div className="btp-card-detail">
-                  <button
-                    className="btp-choose-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelect(type);
-                    }}
-                  >
-                    Choose This →
-                  </button>
-                </div>
-              )}
-            </button>
-          );
-        })}
+        {filtered.map((type) => (
+          <button
+            key={type.id}
+            className="btp-card"
+            onClick={() => onSelect(type)}
+          >
+            <span className="btp-card-emoji">{type.emoji}</span>
+            <h3 className="btp-card-title">{type.title}</h3>
+            <p className="btp-card-subtitle">{type.subtitle}</p>
+            {type.example && (
+              <p className="btp-card-preview">"{type.example}"</p>
+            )}
+          </button>
+        ))}
 
         {/* Custom / Other card */}
         <button
           className={`btp-card btp-card-custom${showCustom ? " btp-card-expanded" : ""}`}
           onClick={() => setShowCustom(!showCustom)}
         >
-          <div className="btp-card-top">
-            <span className="btp-card-emoji">✏️</span>
-            <div className="btp-card-text">
-              <h3 className="btp-card-title">Something Else</h3>
-              <p className="btp-card-subtitle">Describe your own idea</p>
-            </div>
-          </div>
+          <span className="btp-card-emoji">✏️</span>
+          <h3 className="btp-card-title">Something Else</h3>
+          <p className="btp-card-subtitle">Describe your own idea</p>
 
           {showCustom && (
             <div className="btp-card-detail" onClick={(e) => e.stopPropagation()}>

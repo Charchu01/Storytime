@@ -1,6 +1,19 @@
 import { useState } from "react";
 import { STYLES, TONES } from "../constants/data";
 
+const STYLE_EXAMPLES = {
+  storybook: "/examples/storybook.webp",
+  watercolor: "/examples/watercolor.webp",
+  pixar: "/examples/pixar.webp",
+  bold: "/examples/bold.webp",
+  cozy: "/examples/cozy.webp",
+  sketch: "/examples/sketch.webp",
+  anime: "/examples/anime.webp",
+  retro: "/examples/retro.webp",
+  collage: "/examples/collage.webp",
+  minimal: "/examples/minimal.webp",
+};
+
 const STYLE_EMOJIS = {
   storybook: "📚",
   watercolor: "🎨",
@@ -30,6 +43,7 @@ const STYLE_DESCRIPTIONS = {
 export default function StylePicker({ onSelect, onBack }) {
   const [selectedStyle, setSelectedStyle] = useState(null);
   const [selectedTone, setSelectedTone] = useState(null);
+  const [imgErrors, setImgErrors] = useState({});
 
   function handleContinue() {
     if (!selectedStyle) return;
@@ -37,6 +51,10 @@ export default function StylePicker({ onSelect, onBack }) {
       style: selectedStyle,
       tone: selectedTone,
     });
+  }
+
+  function handleImgError(styleId) {
+    setImgErrors((prev) => ({ ...prev, [styleId]: true }));
   }
 
   return (
@@ -55,6 +73,8 @@ export default function StylePicker({ onSelect, onBack }) {
         <div className="sp-style-grid">
           {STYLES.map((s) => {
             const isSelected = selectedStyle?.id === s.id;
+            const exampleUrl = STYLE_EXAMPLES[s.id];
+            const hasImage = exampleUrl && !imgErrors[s.id];
             return (
               <button
                 key={s.id}
@@ -63,7 +83,17 @@ export default function StylePicker({ onSelect, onBack }) {
               >
                 {isSelected && <span className="sp-style-check">✓</span>}
                 <div className="sp-style-preview" data-style={s.id}>
-                  <span className="sp-style-emoji-icon">{STYLE_EMOJIS[s.id] || "🎨"}</span>
+                  {hasImage ? (
+                    <img
+                      src={exampleUrl}
+                      alt={`${s.name} example`}
+                      className="sp-style-example-img"
+                      loading="lazy"
+                      onError={() => handleImgError(s.id)}
+                    />
+                  ) : (
+                    <span className="sp-style-emoji-icon">{STYLE_EMOJIS[s.id] || "🎨"}</span>
+                  )}
                 </div>
                 <div className="sp-style-info">
                   <span className="sp-style-name">{s.name}</span>

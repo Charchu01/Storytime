@@ -1,9 +1,9 @@
 import { useState } from "react";
 
 const PRINT_OPTIONS = [
-  { label: "Softcover", price: "$24.99", emoji: "📖" },
-  { label: "Hardcover", price: "$34.99", emoji: "📚" },
-  { label: "Gift Box", price: "$44.99", emoji: "🎁" },
+  { label: "Softcover", price: "$24.99", emoji: "📖", desc: "Perfect-bound, matte finish" },
+  { label: "Hardcover", price: "$34.99", emoji: "📚", desc: "Durable, glossy dust jacket", popular: true },
+  { label: "Gift Box", price: "$44.99", emoji: "🎁", desc: "Hardcover + keepsake box" },
 ];
 
 export default function PrintUpsell({ onDismiss }) {
@@ -19,7 +19,6 @@ export default function PrintUpsell({ onDismiss }) {
     e.preventDefault();
     if (email.trim()) {
       setSubmitted(true);
-      // Store for later — MVP doesn't actually send
       try {
         const waitlist = JSON.parse(localStorage.getItem("sk_print_waitlist") || "[]");
         waitlist.push({ email, date: new Date().toISOString() });
@@ -30,12 +29,13 @@ export default function PrintUpsell({ onDismiss }) {
 
   if (submitted) {
     return (
-      <div className="print-overlay">
-        <div className="print-modal">
+      <div className="print-overlay" onClick={onDismiss}>
+        <div className="print-modal" onClick={(e) => e.stopPropagation()}>
+          <button className="print-close" onClick={onDismiss}>&times;</button>
           <div className="print-emoji">🎉</div>
           <h3 className="print-h3">You're on the list!</h3>
           <p className="print-p">We'll email you at <strong>{email}</strong> when print books are ready.</p>
-          <button className="print-dismiss" onClick={onDismiss}>
+          <button className="print-action-btn" onClick={onDismiss}>
             Back to my story
           </button>
         </div>
@@ -45,11 +45,12 @@ export default function PrintUpsell({ onDismiss }) {
 
   if (showEmail) {
     return (
-      <div className="print-overlay">
-        <div className="print-modal">
-          <div className="print-emoji">📖</div>
+      <div className="print-overlay" onClick={onDismiss}>
+        <div className="print-modal" onClick={(e) => e.stopPropagation()}>
+          <button className="print-close" onClick={onDismiss}>&times;</button>
+          <div className="print-emoji">📬</div>
           <h3 className="print-h3">Print books are coming soon!</h3>
-          <p className="print-p">Leave your email and we'll notify you when ready.</p>
+          <p className="print-p">Leave your email and we'll notify you the moment they're ready.</p>
           <form onSubmit={handleEmailSubmit} className="print-form">
             <input
               type="email"
@@ -59,7 +60,7 @@ export default function PrintUpsell({ onDismiss }) {
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-            <button type="submit" className="print-submit">
+            <button type="submit" className="print-action-btn">
               Notify Me
             </button>
           </form>
@@ -72,19 +73,21 @@ export default function PrintUpsell({ onDismiss }) {
   }
 
   return (
-    <div className="print-overlay">
-      <div className="print-modal">
+    <div className="print-overlay" onClick={onDismiss}>
+      <div className="print-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="print-close" onClick={onDismiss}>&times;</button>
         <div className="print-emoji">📖</div>
         <h3 className="print-h3">Turn this into a real keepsake</h3>
         <p className="print-p">A physical book they'll treasure forever</p>
 
         <div className="print-options">
           {PRINT_OPTIONS.map((opt) => (
-            <button key={opt.label} className="print-opt-card" onClick={handleOrder}>
+            <button key={opt.label} className={`print-opt-card${opt.popular ? " print-opt-popular" : ""}`} onClick={handleOrder}>
+              {opt.popular && <span className="print-opt-badge">Most Popular</span>}
               <span className="print-opt-emoji">{opt.emoji}</span>
               <span className="print-opt-label">{opt.label}</span>
+              <span className="print-opt-desc">{opt.desc}</span>
               <span className="print-opt-price">{opt.price}</span>
-              <span className="print-opt-btn">Order</span>
             </button>
           ))}
         </div>
