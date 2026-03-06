@@ -5863,4 +5863,14 @@ img, video, canvas, svg {
     text-align: center;
     gap: 10px;
   }
+
+  /* Recap grid: stack on mobile */
+  .recap {
+    grid-template-columns: 1fr;
+  }
+
+  /* Final action buttons: stack on mobile */
+  .final-row, .bk-final {
+    grid-template-columns: 1fr;
+  }
 }
