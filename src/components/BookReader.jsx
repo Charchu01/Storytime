@@ -39,13 +39,8 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const flatPages = useMemo(() => {
     const result = [];
 
-    // Cover
+    // Cover (title overlaid in UI — no text baked into image)
     result.push({ type: "cover", imageUrl: coverImageUrl });
-
-    // Dedication — only include if it's a real sentence, not just the hero name
-    if (dedication && dedication.trim().length > 10 && dedication.toLowerCase().trim() !== heroName.toLowerCase().trim()) {
-      result.push({ type: "dedication", text: dedication });
-    }
 
     // Content pages — support both spreads and flat pages format
     if (localSpreads.length > 0) {
@@ -74,11 +69,11 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       });
     }
 
-    // Back cover
+    // Back cover (author + dedication overlaid in UI)
     result.push({ type: "back-cover", imageUrl: backCoverImageUrl });
 
     return result;
-  }, [localSpreads, localPages, dedication, images, coverImageUrl, backCoverImageUrl]);
+  }, [localSpreads, localPages, images, coverImageUrl, backCoverImageUrl]);
 
   // Navigation
   const goTo = useCallback((idx) => {
@@ -267,7 +262,13 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         {current.type === "cover" && (
           <div className="br-page-content br-page-cover">
             {current.imageUrl ? (
-              <img src={current.imageUrl} className="br-page-image" alt={story.title} />
+              <>
+                <img src={current.imageUrl} className="br-page-image" alt={story.title} />
+                <div className="br-cover-overlay-text">
+                  <h1 className="br-cover-overlay-title">{story.title}</h1>
+                  <p className="br-cover-overlay-for">A story for {heroName}</p>
+                </div>
+              </>
             ) : (
               <div className="br-cover-fallback">
                 <h1 className="br-cover-title">{story.title}</h1>
@@ -276,12 +277,6 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                 <p className="br-cover-author">By {authorName}</p>
               </div>
             )}
-          </div>
-        )}
-
-        {current.type === "dedication" && (
-          <div className="br-page-content br-dedication-card">
-            <p className="br-dedication-text">{current.text}</p>
           </div>
         )}
 
@@ -316,11 +311,24 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         {current.type === "back-cover" && (
           <div className="br-page-content br-page-back">
             {current.imageUrl ? (
-              <img src={current.imageUrl} className="br-page-image" alt="Back cover" />
+              <>
+                <img src={current.imageUrl} className="br-page-image" alt="Back cover" />
+                <div className="br-back-overlay">
+                  {dedication && dedication.trim().length > 3 && (
+                    <p className="br-back-dedication">"{dedication}"</p>
+                  )}
+                  <p className="br-back-author">Written by {authorName}</p>
+                  <div className="br-back-brand">A Storytime Original</div>
+                </div>
+              </>
             ) : (
               <div className="br-back-fallback">
                 <h2 className="br-back-title">The End</h2>
                 <div className="br-back-line" />
+                {dedication && dedication.trim().length > 3 && (
+                  <p className="br-back-ded-text">"{dedication}"</p>
+                )}
+                <p className="br-back-author-text">Written by {authorName}</p>
                 <p className="br-back-sub">A Storytime Original</p>
               </div>
             )}

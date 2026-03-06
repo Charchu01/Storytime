@@ -290,13 +290,19 @@ Must be IDENTICAL on every page. Match Image 2 exactly.`
   );
 
   // ── RULES ───────────────────────────────────────────
+  const noTextRule = isCover
+    ? "- ABSOLUTELY NO TEXT, TITLES, LETTERS, OR WORDS anywhere in the image. The app adds the title overlay. Pure illustration only."
+    : isBackCover
+    ? "- ABSOLUTELY NO TEXT, TITLES, LETTERS, OR WORDS anywhere in the image. The app adds author/dedication overlay. Pure illustration only."
+    : "- NO text outside the text boxes";
+
   sections.push(
 `RULES:
 - Illustration fills ENTIRE image edge-to-edge
 - NO borders, frames, or parchment edges
 - NO page numbers
 - NO speech bubbles or word balloons
-- NO text outside the text boxes
+${noTextRule}
 - Character IDENTICAL to Image 1${!isCover && !isFirstSpread ? " and Image 3" : ""}
 - Keep important content 5% from edges (safe zone)
 - NOT photorealistic — illustrated children's book style`
@@ -503,7 +509,7 @@ Return ONLY valid JSON with this structure:
   "textBoxDesign": "Simple rectangular box, thin dark brown ornate border, small corner flourishes, warm cream fill, dark brown elegant serif text, centred",
   "artStyle": "[full art style description matching the chosen style]",
   "cover": {
-    "sceneDescription": "Detailed description of the cover scene — composition, characters, environment, lighting, mood. Include where the title text should appear. 80-150 words.",
+    "sceneDescription": "Detailed description of the cover scene — composition, characters, environment, lighting, mood. Do NOT include any text or title — the app adds the title overlay separately. 80-150 words.",
     "titleText": "The Story Title",
     "aspectRatio": "3:4"
   },
@@ -517,7 +523,7 @@ Return ONLY valid JSON with this structure:
     }
   ],
   "backCover": {
-    "sceneDescription": "Back cover scene description...",
+    "sceneDescription": "A peaceful, emotional closing scene. The hero seen from behind or in silhouette in a beautiful setting that echoes the story's world. Warm, golden-hour or twilight lighting. Leave the lower third of the image slightly darker/softer to allow text overlay. Do NOT render any text in the image — the app overlays the author and dedication text separately. 80-150 words.",
     "aspectRatio": "3:4"
   }
 }
@@ -528,6 +534,8 @@ CRITICAL:
 - Include character appearance strings in each sceneDescription where that character appears
 - Include camera angle, lighting, character positions, expressions
 - Vary composition across spreads (wide shots, close-ups, etc.)
+- COVER: Do NOT describe any text, title, or lettering in the cover sceneDescription. The app overlays the title. Just describe the visual scene.
+- BACK COVER: Do NOT describe any text in the back cover sceneDescription. The app overlays author/dedication text. Leave the bottom third softer for text overlay.
 
 ${format === "rhyming" ? "Write in strict AABB rhyme scheme. 8-10 syllables per line." : ""}
 ${format === "funny" ? "Make it genuinely funny with surprises and silly moments." : ""}
@@ -657,9 +665,6 @@ export async function generateAllImages(
     characterAppearances,
     textBoxDesign,
     artStyle,
-    pageTexts: storyPlan.cover.titleText
-      ? [`Title: ${storyPlan.cover.titleText}`]
-      : null,
     isCover: true,
     heroName,
     companionNames,
