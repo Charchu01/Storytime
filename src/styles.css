@@ -2655,6 +2655,7 @@
 .br-page-cover {
   height: 100%;
   background: #1a1210;
+  position: relative;
 }
 .br-cover-fallback {
   display: flex;
@@ -2679,6 +2680,36 @@
 .br-cover-for, .br-cover-author {
   font-size: 14px;
   color: rgba(255,255,255,0.6);
+}
+
+/* Cover title overlay (over generated image) */
+.br-cover-overlay-text {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 40px 24px 28px;
+  background: linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.35) 60%, transparent 100%);
+  text-align: center;
+  z-index: 2;
+  pointer-events: none;
+}
+.br-cover-overlay-title {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(22px, 5vw, 38px);
+  font-weight: 900;
+  color: white;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.6), 0 0 40px rgba(0,0,0,0.3);
+  line-height: 1.15;
+  margin: 0 0 6px;
+}
+.br-cover-overlay-for {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(12px, 2vw, 16px);
+  font-style: italic;
+  color: rgba(255,255,255,0.8);
+  text-shadow: 0 1px 8px rgba(0,0,0,0.5);
+  margin: 0;
 }
 
 /* Dedication page — looks like a real book page */
@@ -2754,7 +2785,52 @@
 .br-page-back {
   height: 100%;
   background: #1a1210;
+  position: relative;
 }
+
+/* Back cover overlay (author + dedication over image) */
+.br-back-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 48px 28px 28px;
+  background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 55%, transparent 100%);
+  text-align: center;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.br-back-dedication {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(14px, 2.5vw, 20px);
+  font-style: italic;
+  color: rgba(255,255,255,0.9);
+  text-shadow: 0 1px 10px rgba(0,0,0,0.5);
+  line-height: 1.6;
+  max-width: 80%;
+  margin: 0;
+}
+.br-back-author {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(11px, 1.8vw, 14px);
+  font-weight: 700;
+  color: rgba(255,255,255,0.7);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+  margin: 0;
+}
+.br-back-brand {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* Back cover fallback (no image) */
 .br-back-fallback {
   display: flex;
   flex-direction: column;
@@ -2762,6 +2838,23 @@
   justify-content: center;
   gap: 10px;
   color: rgba(255,255,255,0.8);
+  padding: 32px;
+  text-align: center;
+}
+.br-back-ded-text {
+  font-family: 'Fraunces', serif;
+  font-size: 16px;
+  font-style: italic;
+  color: rgba(255,255,255,0.7);
+  max-width: 280px;
+  line-height: 1.6;
+  margin: 0;
+}
+.br-back-author-text {
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+  font-weight: 700;
+  margin: 0;
 }
 .br-back-title {
   font-family: 'Fraunces', serif;
