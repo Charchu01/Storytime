@@ -3,6 +3,21 @@ import { rateLimit } from './lib/rate-limiter.js';
 
 export const config = { maxDuration: 60 };
 
+// Download image URL and convert to base64 for Claude API (URL sources are unreliable)
+async function fetchImageAsBase64(url) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Image fetch failed: ${resp.status} for ${url.substring(0, 80)}`);
+  const contentType = resp.headers.get('content-type') || 'image/webp';
+  const buffer = await resp.arrayBuffer();
+  const base64 = Buffer.from(buffer).toString('base64');
+  // Map content type — Claude supports jpeg, png, gif, webp
+  const mediaType = contentType.includes('png') ? 'image/png'
+    : contentType.includes('gif') ? 'image/gif'
+    : contentType.includes('webp') ? 'image/webp'
+    : 'image/jpeg';
+  return { type: "base64", media_type: mediaType, data: base64 };
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -41,27 +56,43 @@ export default async function handler(req, res) {
 
   req._adminStartTime = Date.now();
 
+  console.log("VALIDATION_REQUEST:", JSON.stringify({
+    pageType,
+    hasImage: !!imageUrl,
+    hasRefPhoto: !!referencePhotoUrl,
+    hasCharDescriptions: !!(characterDescriptions?.length),
+    hasPrevStyle: !!previousPageStyle,
+    imageUrlStart: imageUrl?.substring(0, 80),
+    bookId: bookId || null,
+  }));
+
   // Retry up to 2 times on transient failures
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       // Build message content — generated image + optional reference photo + prompt
       const messageContent = [];
 
+      // Download images and convert to base64 (URL sources return HTTP 400)
+      const [generatedImgSrc, refPhotoSrc] = await Promise.all([
+        fetchImageAsBase64(imageUrl),
+        referencePhotoUrl ? fetchImageAsBase64(referencePhotoUrl) : null,
+      ]);
+
       // Generated image first
       messageContent.push({
         type: "image",
-        source: { type: "url", url: imageUrl },
+        source: generatedImgSrc,
       });
 
       // Reference photo for likeness comparison (when available)
-      if (referencePhotoUrl) {
+      if (refPhotoSrc) {
         messageContent.push({
           type: "text",
           text: "Above is the AI-generated illustration. Below is the REFERENCE PHOTO of the real person who should appear in the illustration:",
         });
         messageContent.push({
           type: "image",
-          source: { type: "url", url: referencePhotoUrl },
+          source: refPhotoSrc,
         });
       }
 
@@ -85,7 +116,7 @@ export default async function handler(req, res) {
         headers: {
           "Content-Type": "application/json",
           "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
+          "anthropic-version": "2025-01-01",
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
@@ -118,11 +149,20 @@ export default async function handler(req, res) {
           textBoxScore: null,
           sceneAccuracy: 0,
           formatOk: false,
-          issues: [`Validation unavailable (HTTP ${response.status})`],
+          issues: [`Validation unavailable (HTTP ${response.status}): ${data.error?.message || 'unknown'}`],
           qualityTier: 'poor',
           compositeScore: 0,
         };
         console.error("VALIDATION_API_ERROR:", JSON.stringify({ pageType, status: response.status, error: data.error?.message }));
+        const errDuration = Date.now() - (req._adminStartTime || Date.now());
+        logApiCall({
+          service: 'anthropic', type: 'validation', bookId: bookId || null,
+          status: response.status, durationMs: errDuration,
+          model: 'claude-sonnet-4-20250514', cost: 0,
+          error: data.error?.message || `HTTP ${response.status}`,
+          details: { summary: `${pageType}: API_ERROR ${response.status}` },
+        }).catch(() => {});
+        updateDailyApiStats('anthropic', errDuration, 0, true).catch(() => {});
         logValidation({
           bookId: bookId || null, page: pageType, attempt: attempt + 1,
           textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
@@ -261,6 +301,15 @@ export default async function handler(req, res) {
           qualityTier: 'poor',
           compositeScore: 0,
         };
+        const parseDuration = Date.now() - (req._adminStartTime || Date.now());
+        logApiCall({
+          service: 'anthropic', type: 'validation', bookId: bookId || null,
+          status: 200, durationMs: parseDuration,
+          model: 'claude-sonnet-4-20250514', cost: 0,
+          error: 'JSON parse error',
+          details: { summary: `${pageType}: PARSE_ERROR` },
+        }).catch(() => {});
+        updateDailyApiStats('anthropic', parseDuration, 0, true).catch(() => {});
         logValidation({
           bookId: bookId || null, page: pageType, attempt: attempt + 1,
           textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
@@ -289,6 +338,15 @@ export default async function handler(req, res) {
         compositeScore: 0,
       };
       console.error("VALIDATION_NETWORK_ERROR:", JSON.stringify({ pageType, error: err.message }));
+      const netDuration = Date.now() - (req._adminStartTime || Date.now());
+      logApiCall({
+        service: 'anthropic', type: 'validation', bookId: bookId || null,
+        status: 0, durationMs: netDuration,
+        model: 'claude-sonnet-4-20250514', cost: 0,
+        error: err.message,
+        details: { summary: `${pageType}: NETWORK_ERROR ${err.message}` },
+      }).catch(() => {});
+      updateDailyApiStats('anthropic', netDuration, 0, true).catch(() => {});
       logValidation({
         bookId: bookId || null, page: pageType, attempt: attempt + 1,
         textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
