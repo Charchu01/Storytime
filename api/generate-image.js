@@ -102,7 +102,7 @@ export default async function handler(req, res) {
           input: {
             prompt: `Turn this person into a children's storybook illustration. ${prompt}. Keep their exact face from the photo. No text or words.`,
             input_image: referencePhotoUrl,
-            aspect_ratio: "3:4",
+            aspect_ratio: aspectRatio || "2:3",
             output_format: "jpg",
           },
         });

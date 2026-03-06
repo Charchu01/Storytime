@@ -280,7 +280,7 @@ This is the COVER — the most polished, beautiful image in the entire book. Gal
 
     sections.push(
 `COVER RULES:
-- Illustration fills ENTIRE image edge-to-edge, portrait 3:4
+- Illustration fills ENTIRE image edge-to-edge, portrait 2:3
 - NO text boxes, NO frames, NO banners, NO borders
 - NO parchment, NO scroll, NO ribbon, NO badge around text
 - Title is HAND-LETTERED INTO the scene (not overlaid, not in a box)
@@ -326,7 +326,7 @@ Match the COVER art style exactly. This is the closing image — warm, gentle, r
 
     sections.push(
 `BACK COVER RULES:
-- Illustration fills ENTIRE image edge-to-edge, portrait 3:4
+- Illustration fills ENTIRE image edge-to-edge, portrait 2:3
 - ABSOLUTELY NO TEXT, TITLES, LETTERS, OR WORDS anywhere in the image
 - The app overlays "The End", author, and dedication text separately
 - NO text boxes, NO frames, NO banners, NO borders
@@ -529,13 +529,13 @@ ${worldVocab ? `SETTING: Use this visual vocabulary for the world: ${worldVocab}
 This is a ${pageCount}-page picture book with ${spreadCount} illustrated spreads.
 
 Physical structure:
-- PAGE 1: Front cover (single page, portrait 3:4)
+- PAGE 1: Front cover (single page, portrait 2:3)
 - PAGES 2-3: First spread (two facing pages, landscape 4:3)
 - PAGES 4-5: Second spread (landscape 4:3)
 - PAGES 6-7: Third spread (landscape 4:3)
 ${pageCount > 6 ? `- PAGES 8-9: Fourth spread (landscape 4:3)
 - PAGES 10-11: Fifth spread (landscape 4:3)` : ""}
-- LAST PAGE: Back cover (single page, portrait 3:4)
+- LAST PAGE: Back cover (single page, portrait 2:3)
 
 When a reader opens the book, they see TWO pages at once (a spread). Each spread image shows the LEFT page and RIGHT page together, with a subtle crease/spine visible down the centre.
 
@@ -655,7 +655,7 @@ Return ONLY valid JSON with this structure:
     "sceneDescription": "COVER SCENE: [80-150 words describing the cover composition]. The hero should be the focal point, positioned front and centre or in a dynamic pose. The scene shows the THRESHOLD of the adventure — the moment before it begins. Include: character position/pose/expression, environment that hints at the adventure, dramatic lighting (golden hour, magical glow, volumetric light rays), where the title text should flow in the upper portion, and overall mood. Make this the MOST BEAUTIFUL image in the entire book.",
     "titleText": "The Story Title",
     "authorName": "By [Author Name]",
-    "aspectRatio": "3:4"
+    "aspectRatio": "2:3"
   },
   "spreads": [
     {
@@ -668,7 +668,7 @@ Return ONLY valid JSON with this structure:
   ],
   "backCover": {
     "sceneDescription": "A peaceful, emotional closing scene. The hero seen from behind or in silhouette in a beautiful setting that echoes the story's world. Warm, golden-hour or twilight lighting. Leave the lower third of the image slightly darker/softer to allow text overlay. Do NOT render any text in the image — the app overlays the author and dedication text separately. 80-150 words.",
-    "aspectRatio": "3:4"
+    "aspectRatio": "2:3"
   }
 }
 
@@ -771,11 +771,11 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
   parsed.cover = {
     sceneDescription: parsed.cover.sceneDescription || parsed.cover.imagePrompt || "",
     titleText: parsed.cover.titleText || parsed.title || "",
-    aspectRatio: parsed.cover.aspectRatio || "3:4",
+    aspectRatio: parsed.cover.aspectRatio || "2:3",
   };
   parsed.backCover = parsed.backCover || {
     sceneDescription: "",
-    aspectRatio: "3:4",
+    aspectRatio: "2:3",
   };
   if (!parsed.backCover.sceneDescription && parsed.backCover.imagePrompt) {
     parsed.backCover.sceneDescription = parsed.backCover.imagePrompt;
@@ -823,7 +823,7 @@ export async function generateAllImages(
       tier,
       null,
       [...companionUrls],
-      storyPlan.cover.aspectRatio || "3:4",
+      storyPlan.cover.aspectRatio || "2:3",
       true
     );
     if (coverUrl && await validateImageUrl(coverUrl)) {
@@ -844,7 +844,7 @@ export async function generateAllImages(
           await new Promise(r => setTimeout(r, 2000));
           const retryCover = await generateImage(
             fixPrompt, heroPhotoUrl, tier, null, [...companionUrls],
-            storyPlan.cover.aspectRatio || "3:4", true
+            storyPlan.cover.aspectRatio || "2:3", true
           );
           if (retryCover && await validateImageUrl(retryCover)) {
             coverUrl = retryCover;
@@ -990,7 +990,7 @@ export async function generateAllImages(
       tier,
       null,
       backRefs,
-      storyPlan.backCover?.aspectRatio || "3:4",
+      storyPlan.backCover?.aspectRatio || "2:3",
       false
     );
     if (backUrl && await validateImageUrl(backUrl)) {
@@ -1007,7 +1007,7 @@ export async function generateAllImages(
           await new Promise(r => setTimeout(r, 2000));
           const retryBack = await generateImage(
             fixPrompt, heroPhotoUrl, tier, null,
-            backRefs, storyPlan.backCover?.aspectRatio || "3:4", false
+            backRefs, storyPlan.backCover?.aspectRatio || "2:3", false
           );
           if (retryBack && await validateImageUrl(retryBack)) {
             images.backCover = retryBack;
