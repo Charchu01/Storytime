@@ -346,128 +346,145 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     >
       <div className="br-ambient" />
 
-      {/* Toolbar */}
+      {/* Premium floating toolbar */}
       <div className="br-toolbar">
-        <button className="br-toolbar-btn" onClick={() => navigate("/library")}>&larr; Library</button>
-        <div className="br-toolbar-right">
+        <a className="br-toolbar-back" onClick={() => navigate("/library")}>
+          &larr; Library
+        </a>
+        <div className="br-toolbar-actions">
           <button
-            className={`br-narrate-toggle${autoNarrate ? " br-narrate-on" : ""}`}
+            className={`br-toolbar-icon${autoNarrate ? " br-toolbar-icon--narrate-on" : ""}`}
             onClick={toggleAutoNarrate}
-            title={autoNarrate ? "Turn off narration" : "Turn on narration"}
+            title={autoNarrate ? "Turn off narration" : "Read aloud"}
           >
-            <span className="br-narrate-icon">{narrating ? "🔊" : autoNarrate ? "🔊" : "🔇"}</span>
-            <span className="br-narrate-label">{autoNarrate ? "Narration On" : "Narration Off"}</span>
+            <span className="br-toolbar-icon-emoji">{autoNarrate ? "\uD83D\uDD0A" : "\uD83D\uDD07"}</span>
+            {narrating && (
+              <span className="br-narrate-wave">
+                <span /><span /><span />
+              </span>
+            )}
           </button>
-          <button className="br-toolbar-btn" onClick={handleShare}>🔗 Share</button>
-          <button className="br-toolbar-btn" onClick={handleDownloadPdf} disabled={downloadingPdf}>
-            {downloadingPdf ? "⏳" : "📄"} PDF
+          <button className="br-toolbar-icon" onClick={handleShare} title="Share">
+            <span className="br-toolbar-icon-emoji">{"\uD83D\uDD17"}</span>
           </button>
-          <button className="br-toolbar-btn" onClick={onReset}>✨ New</button>
+          <button className="br-toolbar-icon" onClick={handleDownloadPdf} disabled={downloadingPdf} title="Download PDF">
+            <span className="br-toolbar-icon-emoji">{downloadingPdf ? "\u23F3" : "\uD83D\uDCC4"}</span>
+          </button>
+          <button className="br-toolbar-icon" onClick={onReset} title="New story">
+            <span className="br-toolbar-icon-emoji">{"\u2728"}</span>
+          </button>
         </div>
       </div>
 
-      {/* Page display */}
-      <div className={`br-page-display ${current.type === "spread" || current.type === "page" ? "br-landscape" : "br-portrait"}`} key={fadeKey}>
-        {current.type === "cover" && (
-          <div className="br-page-content br-page-cover">
-            {current.imageUrl ? (
-              <img src={current.imageUrl} className="br-page-image" alt={story.title} />
-            ) : (
-              <div className="br-cover-fallback">
-                <h1 className="br-cover-title">{story.title}</h1>
-                <div className="br-cover-line" />
-                <p className="br-cover-for">A story for {heroName}</p>
-                <p className="br-cover-author">By {authorName}</p>
-              </div>
-            )}
-          </div>
-        )}
+      {/* Main content area: [prev] [book] [next] */}
+      <div className="br-stage">
+        {/* Previous arrow */}
+        <div className="br-nav-slot br-nav-slot--left">
+          {currentIndex > 0 && (
+            <button className="br-nav br-nav-prev" onClick={goPrev} aria-label="Previous page">&lsaquo;</button>
+          )}
+        </div>
 
-        {current.type === "spread" && (
-          <div className="br-page-content br-page-spread">
-            {regeneratingImage === current.spreadIndex ? (
-              <div className="br-page-loading">
-                <span className="br-page-loading-emoji">🎨</span>
-                <span>Regenerating...</span>
-              </div>
-            ) : current.imageUrl && isGeneratedImage(current.imageUrl) ? (
-              <img src={current.imageUrl} className="br-page-image" alt="" />
-            ) : null}
-          </div>
-        )}
-
-        {current.type === "page" && (
-          <div className="br-page-content br-page-single">
-            {regeneratingImage === current.pageIndex ? (
-              <div className="br-page-loading">
-                <span className="br-page-loading-emoji">🎨</span>
-                <span>Regenerating...</span>
-              </div>
-            ) : current.imageUrl && isGeneratedImage(current.imageUrl) ? (
-              <img src={current.imageUrl} className="br-page-image" alt="" />
-            ) : current.emoji ? (
-              <div className="br-page-emoji">{current.emoji}</div>
-            ) : null}
-          </div>
-        )}
-
-        {current.type === "back-cover" && (
-          <div className="br-page-content br-page-back" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            {current.imageUrl ? (
-              <img src={current.imageUrl} className="br-page-image" alt="Back cover" />
-            ) : (
-              <div className="br-back-fallback">
-                <h2 className="br-back-title">The End</h2>
-                <div className="br-back-line" />
-                {dedication && dedication.trim().length > 3 && (
-                  <p className="br-back-ded-text">"{dedication}"</p>
-                )}
-                <p className="br-back-author-text">Written by {authorName}</p>
-                <p className="br-back-sub">A Storytime Original</p>
-              </div>
-            )}
-            <div className="br-back-actions" style={{ position: "relative", marginTop: 12, zIndex: 1 }}>
-              <button className="br-back-btn" onClick={handleShare}>🔗 Share</button>
-              <button className="br-back-btn" onClick={handleDownloadPdf} disabled={downloadingPdf}>
-                {downloadingPdf ? "⏳ Saving..." : "📄 Download PDF"}
-              </button>
-              <button className="br-back-btn" onClick={onReset}>✨ New Story</button>
+        {/* Page display */}
+        <div className={`br-page-display ${current.type === "spread" || current.type === "page" ? "br-landscape" : "br-portrait"}`} key={fadeKey}>
+          {current.type === "cover" && (
+            <div className="br-page-content br-page-cover">
+              {current.imageUrl ? (
+                <img src={current.imageUrl} className="br-page-image" alt={story.title} />
+              ) : (
+                <div className="br-cover-fallback">
+                  <h1 className="br-cover-title">{story.title}</h1>
+                  <div className="br-cover-line" />
+                  <p className="br-cover-for">A story for {heroName}</p>
+                  <p className="br-cover-author">By {authorName}</p>
+                </div>
+              )}
             </div>
-            {!ratingDismissed && (
-              <div style={{ marginTop: 16 }}>
-                {!showRating ? (
-                  <button onClick={() => setShowRating(true)} style={{
-                    background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)",
-                    color: "#fff", padding: "8px 16px", borderRadius: 10, fontSize: 13,
-                    cursor: "pointer", backdropFilter: "blur(4px)",
-                  }}>
-                    Rate this book
-                  </button>
-                ) : (
-                  <div style={{ background: "rgba(255,255,255,0.95)", borderRadius: 14, overflow: "hidden" }}>
-                    <BookRating
-                      bookId={data.id || story.title}
-                      onClose={() => { setShowRating(false); setRatingDismissed(true); }}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+          )}
+
+          {current.type === "spread" && (
+            <div className="br-page-content br-page-spread">
+              {regeneratingImage === current.spreadIndex ? (
+                <div className="br-page-loading">
+                  <span className="br-page-loading-emoji">{"\uD83C\uDFA8"}</span>
+                  <span>Regenerating...</span>
+                </div>
+              ) : current.imageUrl && isGeneratedImage(current.imageUrl) ? (
+                <img src={current.imageUrl} className="br-page-image" alt="" />
+              ) : null}
+            </div>
+          )}
+
+          {current.type === "page" && (
+            <div className="br-page-content br-page-single">
+              {regeneratingImage === current.pageIndex ? (
+                <div className="br-page-loading">
+                  <span className="br-page-loading-emoji">{"\uD83C\uDFA8"}</span>
+                  <span>Regenerating...</span>
+                </div>
+              ) : current.imageUrl && isGeneratedImage(current.imageUrl) ? (
+                <img src={current.imageUrl} className="br-page-image" alt="" />
+              ) : current.emoji ? (
+                <div className="br-page-emoji">{current.emoji}</div>
+              ) : null}
+            </div>
+          )}
+
+          {current.type === "back-cover" && (
+            <div className="br-page-content br-page-back">
+              {current.imageUrl ? (
+                <img src={current.imageUrl} className="br-page-image" alt="Back cover" />
+              ) : (
+                <div className="br-back-fallback">
+                  <h2 className="br-back-title">The End</h2>
+                  <div className="br-back-line" />
+                  {dedication && dedication.trim().length > 3 && (
+                    <p className="br-back-ded-text">&ldquo;{dedication}&rdquo;</p>
+                  )}
+                  <p className="br-back-author-text">Written by {authorName}</p>
+                  <p className="br-back-sub">A Storytime Original</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Next arrow */}
+        <div className="br-nav-slot br-nav-slot--right">
+          {currentIndex < flatPages.length - 1 && (
+            <button className="br-nav br-nav-next" onClick={goNext} aria-label="Next page">&rsaquo;</button>
+          )}
+        </div>
       </div>
 
-      {/* Navigation arrows */}
-      {currentIndex > 0 && (
-        <button className="br-nav br-nav-prev" onClick={goPrev}>&lsaquo;</button>
-      )}
-      {currentIndex < flatPages.length - 1 && (
-        <button className="br-nav br-nav-next" onClick={goNext}>&rsaquo;</button>
+      {/* Back cover actions — below the book image */}
+      {current.type === "back-cover" && (
+        <div className="br-back-actions">
+          <button className="br-back-btn" onClick={handleShare}>{"\uD83D\uDD17"} Share</button>
+          <button className="br-back-btn" onClick={handleDownloadPdf} disabled={downloadingPdf}>
+            {downloadingPdf ? "\u23F3 Saving..." : "\uD83D\uDCC4 Download PDF"}
+          </button>
+          <button className="br-back-btn br-back-btn--primary" onClick={onReset}>{"\u2728"} New Story</button>
+          {!ratingDismissed && (
+            <>
+              {!showRating ? (
+                <button className="br-back-btn" onClick={() => setShowRating(true)}>Rate this book</button>
+              ) : (
+                <div className="br-back-rating-wrap">
+                  <BookRating
+                    bookId={data.id || story.title}
+                    onClose={() => { setShowRating(false); setRatingDismissed(true); }}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
       )}
 
-      {/* Page indicator */}
+      {/* Page indicator pill */}
       <div className="br-page-indicator">
-        {currentIndex + 1} / {flatPages.length}
+        Page {currentIndex + 1} of {flatPages.length}
       </div>
 
       {/* Edit button */}
@@ -476,7 +493,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
           className="br-edit-floating"
           onClick={() => setActiveEdit({ index: currentIndex, type: "art" })}
         >
-          ✏️ Edit
+          {"\u270F\uFE0F"} Edit this page
         </button>
       )}
 
