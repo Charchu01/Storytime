@@ -82,14 +82,40 @@ export default async function handler(req, res) {
   // Retry up to 2 times on transient failures
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
+      console.log("VALIDATE_PRE_CALL:", JSON.stringify({
+        attempt: attempt + 1,
+        hasApiKey: !!apiKey,
+        apiKeyStart: apiKey?.substring(0, 10),
+        imageUrl: imageUrl?.substring(0, 80),
+        imageUrlType: typeof imageUrl,
+        hasRefPhoto: !!referencePhotoUrl,
+        pageType,
+      }));
+
       // Build message content — generated image + optional reference photo + prompt
       const messageContent = [];
 
       // Download images and convert to base64 (URL sources return HTTP 400)
-      const [generatedImgSrc, refPhotoSrc] = await Promise.all([
-        fetchImageAsBase64(imageUrl),
-        referencePhotoUrl ? fetchImageAsBase64(referencePhotoUrl) : null,
-      ]);
+      let generatedImgSrc, refPhotoSrc;
+      try {
+        [generatedImgSrc, refPhotoSrc] = await Promise.all([
+          fetchImageAsBase64(imageUrl),
+          referencePhotoUrl ? fetchImageAsBase64(referencePhotoUrl) : null,
+        ]);
+        console.log("VALIDATE_IMAGE_FETCHED:", JSON.stringify({
+          mediaType: generatedImgSrc.media_type,
+          base64Length: generatedImgSrc.data?.length,
+          hasRefPhoto: !!refPhotoSrc,
+          refMediaType: refPhotoSrc?.media_type || null,
+        }));
+      } catch (fetchErr) {
+        console.error("VALIDATE_IMAGE_FETCH_FAILED:", JSON.stringify({
+          message: fetchErr.message,
+          imageUrl: imageUrl?.substring(0, 120),
+          refPhotoUrl: referencePhotoUrl?.substring(0, 120) || null,
+        }));
+        throw fetchErr; // Let outer catch handle it
+      }
 
       // Generated image first
       messageContent.push({
@@ -124,12 +150,19 @@ export default async function handler(req, res) {
         }),
       });
 
+      console.log("VALIDATE_CALLING_CLAUDE:", JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        messageContentTypes: messageContent.map(m => m.type),
+        firstImageSourceType: messageContent[0]?.source?.type,
+        firstImageMediaType: messageContent[0]?.source?.media_type,
+      }));
+
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-api-key": apiKey,
-          "anthropic-version": "2025-01-01",
+          "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
@@ -142,6 +175,12 @@ export default async function handler(req, res) {
           ],
         }),
       });
+
+      console.log("VALIDATE_CLAUDE_RESPONSE:", JSON.stringify({
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+      }));
 
       const data = await response.json();
 
@@ -332,7 +371,16 @@ export default async function handler(req, res) {
         return res.json(parseErrorResult);
       }
     } catch (err) {
-      console.error(`Validation network error (attempt ${attempt + 1}):`, err.message);
+      console.error("VALIDATE_CATCH_ERROR:", JSON.stringify({
+        attempt: attempt + 1,
+        message: err.message,
+        name: err.name,
+        status: err.status || null,
+        statusText: err.statusText || null,
+        stack: err.stack?.substring(0, 400),
+        pageType,
+        imageUrl: imageUrl?.substring(0, 80),
+      }));
       if (attempt === 0) {
         await new Promise(r => setTimeout(r, 2000));
         continue;
