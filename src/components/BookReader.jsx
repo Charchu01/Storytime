@@ -268,14 +268,18 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     addToast("Preparing your PDF...", "info", 3000);
     try {
       const { jsPDF } = await import("jspdf");
-      // A5 landscape-ish: 210 x 148mm
-      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a5" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
+      // Cover and back cover are portrait (2:3), interior spreads are landscape (4:3)
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a5" });
 
       for (let i = 0; i < flatPages.length; i++) {
         const pg = flatPages[i];
-        if (i > 0) pdf.addPage();
+        if (pg.type === "cover" || pg.type === "back-cover") {
+          if (i > 0) pdf.addPage("a5", "portrait");
+        } else {
+          if (i > 0) pdf.addPage("a5", "landscape");
+        }
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
 
         // Try to load image
         if (pg.imageUrl && isGeneratedImage(pg.imageUrl)) {
@@ -297,7 +301,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
           pdf.rect(0, 0, pageW, pageH, "F");
         }
 
-        // Overlay text
+        // Overlay text only for cover and back cover — spread images already have text baked in
         if (pg.type === "cover") {
           pdf.setFontSize(24);
           pdf.setTextColor(255, 255, 255);
@@ -314,18 +318,8 @@ export default function BookReader({ data, cast, styleName, onReset }) {
           }
           pdf.setFontSize(9);
           pdf.text(`Written by ${authorName}`, pageW / 2, pageH - 15, { align: "center" });
-        } else if (pg.text) {
-          // Story text at bottom with semi-transparent background
-          const textLines = pdf.splitTextToSize(pg.text, pageW - 20);
-          const textBlockH = textLines.length * 5 + 8;
-          pdf.setFillColor(0, 0, 0);
-          pdf.setGlobalAlpha?.(0.5);
-          pdf.rect(0, pageH - textBlockH - 4, pageW, textBlockH + 4, "F");
-          pdf.setGlobalAlpha?.(1);
-          pdf.setFontSize(10);
-          pdf.setTextColor(255, 255, 255);
-          pdf.text(textLines, pageW / 2, pageH - textBlockH + 2, { align: "center" });
         }
+        // No text overlay for spreads/pages — the AI-generated images already contain text boxes
       }
 
       const filename = `${(story.title || "Storytime").replace(/[^a-zA-Z0-9 ]/g, "").trim()}.pdf`;
@@ -418,18 +412,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         )}
 
         {current.type === "back-cover" && (
-          <div className="br-page-content br-page-back">
+          <div className="br-page-content br-page-back" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
             {current.imageUrl ? (
-              <>
-                <img src={current.imageUrl} className="br-page-image" alt="Back cover" />
-                <div className="br-back-overlay">
-                  {dedication && dedication.trim().length > 3 && (
-                    <p className="br-back-dedication">"{dedication}"</p>
-                  )}
-                  <p className="br-back-author">Written by {authorName}</p>
-                  <div className="br-back-brand">A Storytime Original</div>
-                </div>
-              </>
+              <img src={current.imageUrl} className="br-page-image" alt="Back cover" />
             ) : (
               <div className="br-back-fallback">
                 <h2 className="br-back-title">The End</h2>
@@ -441,7 +426,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                 <p className="br-back-sub">A Storytime Original</p>
               </div>
             )}
-            <div className="br-back-actions">
+            <div className="br-back-actions" style={{ position: "relative", marginTop: 12, zIndex: 1 }}>
               <button className="br-back-btn" onClick={handleShare}>🔗 Share</button>
               <button className="br-back-btn" onClick={handleDownloadPdf} disabled={downloadingPdf}>
                 {downloadingPdf ? "⏳ Saving..." : "📄 Download PDF"}

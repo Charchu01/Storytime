@@ -404,8 +404,15 @@ ${textLines}`
       );
 
       sections.push(
-`TEXT BOX DESIGN (identical on every page):
-${textBoxDesign || "Simple rectangular box, thin dark brown ornate border, small corner flourishes, warm cream fill, dark brown elegant serif text, centred. Same design every page."}`
+`TEXT BOX DESIGN — MUST BE IDENTICAL ON EVERY PAGE:
+- Shape: Soft cloud/speech-bubble shape with smooth rounded edges
+- Background: Semi-transparent white/cream (rgba(255,255,255,0.85))
+- Border: Thin warm border (1-2px)
+- Font: Hand-drawn/handwritten style, NOT cursive script, NOT serif
+- Size: Text boxes should be 25-35% of the image area, never larger
+- Position: One text box top-left area, one text box bottom-right area
+- CRITICAL: Every single spread MUST use the EXACT SAME text box style. If spread 1 has cloud boxes, ALL spreads must have identical cloud boxes.
+${textBoxDesign ? `Additional style notes: ${textBoxDesign}` : ""}`
       );
     }
   }
@@ -649,7 +656,7 @@ Return ONLY valid JSON with this structure:
       "CharName": "CharName — [hair], [skin tone], wearing [clothing]"
     }
   },
-  "textBoxDesign": "Simple rectangular box, thin dark brown ornate border, small corner flourishes, warm cream fill, dark brown elegant serif text, centred",
+  "textBoxDesign": "Soft cloud/speech-bubble shape, smooth rounded edges, semi-transparent white/cream fill, thin warm border, hand-drawn/handwritten font (not cursive, not serif), 25-35% of image area, top-left and bottom-right positioning, IDENTICAL on every page",
   "artStyle": "[full art style description matching the chosen style]",
   "cover": {
     "sceneDescription": "COVER SCENE: [80-150 words describing the cover composition]. The hero should be the focal point, positioned front and centre or in a dynamic pose. The scene shows the THRESHOLD of the adventure — the moment before it begins. Include: character position/pose/expression, environment that hints at the adventure, dramatic lighting (golden hour, magical glow, volumetric light rays), where the title text should flow in the upper portion, and overall mood. Make this the MOST BEAUTIFUL image in the entire book.",
@@ -783,7 +790,7 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
 
   // Ensure top-level fields for prompt assembly
   parsed.characterAppearances = parsed.characterAppearances || { hero: `${storyData.heroName || "the character"}`, supporting: {} };
-  parsed.textBoxDesign = parsed.textBoxDesign || "Simple rectangular box, thin dark brown ornate border, small corner flourishes, warm cream fill, dark brown elegant serif text, centred";
+  parsed.textBoxDesign = parsed.textBoxDesign || "Soft cloud/speech-bubble shape, smooth rounded edges, semi-transparent white/cream fill, thin warm border, hand-drawn/handwritten font (not cursive, not serif), 25-35% of image area, IDENTICAL on every page";
   parsed.artStyle = parsed.artStyle || getNanoStyle(styleName);
 
   return parsed;
