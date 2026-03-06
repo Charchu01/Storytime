@@ -10,7 +10,7 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const rl = rateLimit(req, { key: 'claude', limit: 10, windowMs: 60000 });
+    const rl = rateLimit(req, { key: 'claude', limit: 30, windowMs: 60000 });
     if (!rl.allowed) {
       res.setHeader('Retry-After', Math.ceil((rl.resetAt - Date.now()) / 1000));
       return res.status(429).json({

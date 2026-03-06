@@ -11,7 +11,7 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const rl = rateLimit(req, { key: 'generate-image', limit: 10, windowMs: 60000 });
+    const rl = rateLimit(req, { key: 'generate-image', limit: 60, windowMs: 60000 });
     if (!rl.allowed) {
       res.setHeader('Retry-After', Math.ceil((rl.resetAt - Date.now()) / 1000));
       return res.status(429).json({
@@ -84,18 +84,14 @@ export default async function handler(req, res) {
     if (!prediction) {
       try {
         modelUsed = "google/nano-banana-pro";
-        const input = {
-          prompt: prompt,
-          aspect_ratio: aspectRatio || "2:3",
-          output_format: "jpg",
-          allow_fallback_model: true,
-        };
-        if (imageInputs.length > 0) {
-          input.image_input = imageInputs;
-        }
         prediction = await replicate.predictions.create({
           model: modelUsed,
-          input,
+          input: {
+            prompt: prompt,
+            aspect_ratio: aspectRatio || "2:3",
+            output_format: "jpg",
+            allow_fallback_model: true,
+          },
         });
       } catch (err) {
         console.warn("Nano Banana Pro (no images) failed:", err.message);
