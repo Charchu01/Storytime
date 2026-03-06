@@ -157,18 +157,52 @@ export default async function handler(req, res) {
         // Get validations for this book
         const { data: validations } = await sb.from('admin_validations')
           .select('*')
-          .eq('book_id', bookId);
+          .eq('book_id', bookId)
+          .order('created_at');
 
         mapped.validations = (validations || []).map(v => ({
           page: v.page,
           attempt: v.attempt,
           textScore: v.text_score,
           faceScore: v.face_score,
+          sceneAccuracy: v.scene_accuracy,
+          formatOk: v.format_ok,
           pass: v.pass,
           issues: v.issues,
+          fixNotes: v.fix_notes,
+          createdAt: v.created_at,
         }));
 
-        return res.json({ book: mapped, postgame: mappedPostgame, feedback: mappedFeedback });
+        // Get API calls for this book (image generations, validations, etc.)
+        const { data: apiCalls } = await sb.from('admin_api_calls')
+          .select('*')
+          .eq('book_id', bookId)
+          .order('created_at');
+
+        const mappedApiCalls = (apiCalls || []).map(c => ({
+          service: c.service,
+          type: c.call_type,
+          status: c.status,
+          durationMs: c.duration_ms,
+          model: c.model,
+          cost: c.cost,
+          error: c.error,
+          createdAt: c.created_at,
+          details: c.details,
+        }));
+
+        // Calculate actual total cost from API calls
+        const actualImageCost = mappedApiCalls
+          .filter(c => c.service === 'replicate' && c.status === 200)
+          .reduce((sum, c) => sum + (parseFloat(c.cost) || 0), 0);
+
+        return res.json({
+          book: mapped,
+          postgame: mappedPostgame,
+          feedback: mappedFeedback,
+          apiCalls: mappedApiCalls,
+          actualImageCost: actualImageCost || null,
+        });
       }
 
       // ── Revenue Data ─────────────────────────────────────────
