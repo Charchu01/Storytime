@@ -196,29 +196,161 @@ function assembleImagePrompt({
   isCover,
   isBackCover,
   heroName,
+  authorName,
+  subtitleText,
   companionNames = [],
 }) {
   const sections = [];
 
-  // ── REFERENCE IMAGES (always first) ──────────────────
-  // Build companion reference lines
-  const companionRefLines = companionNames.map((name, i) => {
-    const imgNum = isCover ? i + 2 : isBackCover ? i + 3 : isFirstSpread ? i + 3 : i + 4;
-    return `- Image ${imgNum}: Photo of ${name} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`;
-  }).join("\n");
-
+  // ═══════════════════════════════════════════════════════════════
+  // COVER — completely different prompt structure
+  // ═══════════════════════════════════════════════════════════════
   if (isCover) {
+    const companionRefLines = companionNames.map((name, i) =>
+      `- Image ${i + 2}: Photo of ${name} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`
+    ).join("\n");
+
     sections.push(
 `REFERENCE IMAGES:
-- Image 1: Photograph of ${heroName}. Match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style — NOT photorealistic.${companionRefLines ? "\n" + companionRefLines : ""}`
+- Image 1: Photograph of ${heroName}. Match their EXACT facial features, head shape, hair, and skin tone. Transform into illustrated art style — NOT photorealistic.${companionRefLines ? "\n" + companionRefLines : ""}`
     );
-  } else if (isBackCover) {
+
+    sections.push(
+`CHARACTER:
+${characterAppearances.hero}
+${heroName}'s face MUST match Image 1. Transform into illustrated style.`
+    );
+
+    if (characterAppearances.supporting) {
+      const supportingText = Object.entries(characterAppearances.supporting)
+        .map(([name, desc]) => `- ${desc}`)
+        .join("\n");
+      if (supportingText) {
+        sections.push(`SUPPORTING CHARACTERS:\n${supportingText}`);
+      }
+    }
+
+    sections.push(`SCENE:\n${sceneDescription}`);
+
+    // ── COVER TITLE (hand-lettered into the art) ──
+    const titleText = pageTexts?.[0] || "Untitled";
+    sections.push(
+`TITLE TEXT:
+The title "${titleText}" must be rendered as LARGE, beautiful hand-lettered text that is PART OF the illustration — not a separate text box.
+
+Title requirements:
+- Takes up 30-50% of the cover area (upper portion)
+- Hand-lettered style that matches the art style
+- Letters can interact with the scene: glow, cast shadows, have characters lean against them, sit on them, or peek around them
+- Warm, readable, bold — visible even as a tiny thumbnail
+- Style-matched: if watercolor art, title looks hand-painted. If Pixar, title looks 3D rendered. If sketch, title looks hand-drawn
+- Color: contrasts with background. Light text on dark areas, dark text on light areas. Can have a subtle glow, shadow, or outline for readability
+- Position: upper third of the image, arcing or flowing naturally
+
+DO NOT put the title in a box, frame, banner, or rectangle. The title is PAINTED INTO the scene.`
+    );
+
+    if (authorName) {
+      sections.push(
+`AUTHOR NAME:
+Render "By ${authorName}" in small, elegant text near the bottom of the cover.
+- Much smaller than the title (about 1/6th the size)
+- Same style family as the title but thinner/lighter weight
+- Positioned at bottom centre or bottom right
+- Subtle and classy — not in a box, just floating text
+- Must be readable but not competing with the title`
+      );
+    }
+
+    if (subtitleText) {
+      sections.push(
+`SUBTITLE:
+Render "${subtitleText}" in small decorative text below the title or above the author name.
+- Smaller than the title, similar size to author name
+- Elegant, warm, integrated into the art
+- Not in a box — just floating text with subtle shadow for readability`
+      );
+    }
+
+    sections.push(
+`STYLE:
+${artStyle || "Classic children's storybook illustration"}
+This is the COVER — the most polished, beautiful image in the entire book. Gallery quality. Award-winning. The image that makes someone stop scrolling and say "I need this."`
+    );
+
+    sections.push(
+`COVER RULES:
+- Illustration fills ENTIRE image edge-to-edge, portrait 3:4
+- NO text boxes, NO frames, NO banners, NO borders
+- NO parchment, NO scroll, NO ribbon, NO badge around text
+- Title is HAND-LETTERED INTO the scene (not overlaid, not in a box)
+- Character is the HERO — front and centre, full body or 3/4
+- Character should be looking toward the viewer OR gazing toward the adventure
+- The scene suggests the BEGINNING of the adventure (threshold moment)
+- Lighting should be dramatic and cinematic — golden hour, volumetric rays, or magical glow
+- Keep 5% safe zone at edges
+- NOT photorealistic — illustrated children's book style
+- This must look like an AWARD-WINNING picture book cover`
+    );
+
+    return sections.join("\n\n");
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // BACK COVER — peaceful closing scene
+  // ═══════════════════════════════════════════════════════════════
+  if (isBackCover) {
+    const companionRefLines = companionNames.map((name, i) =>
+      `- Image ${i + 3}: Photo of ${name} — match their EXACT facial features.`
+    ).join("\n");
+
     sections.push(
 `REFERENCE IMAGES:
 - Image 1: Photo of ${heroName} — match face identity.
 - Image 2: The COVER of this book — match this EXACT art style, colour palette, and brush technique.${companionRefLines ? "\n" + companionRefLines : ""}`
     );
-  } else if (isFirstSpread) {
+
+    sections.push(
+`CHARACTER:
+${characterAppearances.hero}
+${heroName}'s face MUST match Image 1. Transform into illustrated style.`
+    );
+
+    sections.push(`SCENE:\n${sceneDescription}`);
+
+    sections.push(
+`STYLE:
+${artStyle || "Classic children's storybook illustration"}
+Match the COVER art style exactly. This is the closing image — warm, gentle, reflective.`
+    );
+
+    sections.push(
+`BACK COVER RULES:
+- Illustration fills ENTIRE image edge-to-edge, portrait 3:4
+- ABSOLUTELY NO TEXT, TITLES, LETTERS, OR WORDS anywhere in the image
+- The app overlays "The End", author, and dedication text separately
+- NO text boxes, NO frames, NO banners, NO borders
+- Quiet, peaceful, reflective scene
+- Character shown from behind or at rest — the adventure is over
+- Warm, soft lighting (sunset, lamplight, moonlight)
+- Simpler composition than the front cover
+- Leave the lower third slightly softer/darker for text overlay
+- Keep 5% safe zone at edges
+- NOT photorealistic — illustrated children's book style`
+    );
+
+    return sections.join("\n\n");
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // INTERIOR SPREADS — standard prompt structure
+  // ═══════════════════════════════════════════════════════════════
+  const companionRefLines = companionNames.map((name, i) => {
+    const imgNum = isFirstSpread ? i + 3 : i + 4;
+    return `- Image ${imgNum}: Photo of ${name} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`;
+  }).join("\n");
+
+  if (isFirstSpread) {
     sections.push(
 `REFERENCE IMAGES:
 - Image 1: Photo of ${heroName} — match EXACT facial features.
@@ -233,14 +365,12 @@ function assembleImagePrompt({
     );
   }
 
-  // ── CHARACTER ────────────────────────────────────────
   sections.push(
 `CHARACTER:
 ${characterAppearances.hero}
 ${heroName}'s face MUST match Image 1. When in doubt, match the photo. NOT photorealistic — illustrated style.`
   );
 
-  // Add supporting characters if present
   if (characterAppearances.supporting) {
     const supportingText = Object.entries(characterAppearances.supporting)
       .map(([name, desc]) => `- ${desc}`)
@@ -254,10 +384,8 @@ Must look identical to previous pages.`
     }
   }
 
-  // ── SCENE (from Claude's creative writing) ───────────
   sections.push(`SCENE:\n${sceneDescription}`);
 
-  // ── TEXT (if page has text boxes) ────────────────────
   if (pageTexts && pageTexts.length > 0) {
     const textLines = pageTexts
       .filter(t => t && t.trim())
@@ -282,19 +410,11 @@ ${textBoxDesign || "Simple rectangular box, thin dark brown ornate border, small
     }
   }
 
-  // ── STYLE ───────────────────────────────────────────
   sections.push(
 `STYLE:
 ${artStyle || "Classic children's storybook illustration, bold saturated colours, clean outlines, warm painterly backgrounds."}
 Must be IDENTICAL on every page. Match Image 2 exactly.`
   );
-
-  // ── RULES ───────────────────────────────────────────
-  const noTextRule = isCover
-    ? "- ABSOLUTELY NO TEXT, TITLES, LETTERS, OR WORDS anywhere in the image. The app adds the title overlay. Pure illustration only."
-    : isBackCover
-    ? "- ABSOLUTELY NO TEXT, TITLES, LETTERS, OR WORDS anywhere in the image. The app adds author/dedication overlay. Pure illustration only."
-    : "- NO text outside the text boxes";
 
   sections.push(
 `RULES:
@@ -302,8 +422,8 @@ Must be IDENTICAL on every page. Match Image 2 exactly.`
 - NO borders, frames, or parchment edges
 - NO page numbers
 - NO speech bubbles or word balloons
-${noTextRule}
-- Character IDENTICAL to Image 1${!isCover && !isFirstSpread ? " and Image 3" : ""}
+- NO text outside the text boxes
+- Character IDENTICAL to Image 1${!isFirstSpread ? " and Image 3" : ""}
 - Keep important content 5% from edges (safe zone)
 - NOT photorealistic — illustrated children's book style`
   );
@@ -425,6 +545,29 @@ Atmosphere: ${atmosphere}
 ${format === "rhyming" ? "Text boxes should feel whimsical and poetic." : ""}
 ${format === "funny" ? "Text boxes should feel playful and bouncy." : ""}
 
+═══ COVER DESIGN (CRITICAL) ═══
+The cover is the MOST IMPORTANT image. It must be stunning.
+
+COMPOSITION RULES:
+- Hero is the focal point: front-and-centre, 3/4 body or full body
+- Hero is FACING the viewer or looking toward the adventure with wonder/excitement/determination
+- Hero is at the THRESHOLD — the moment before the adventure begins. Standing at the edge of the forest. Looking up at the mountain. Reaching for the magic door.
+- Leave the UPPER 30-40% relatively open or with sky/soft background for the title text to flow naturally
+- Dramatic lighting: golden hour, sunset, sunrise, magical glow, volumetric light rays streaming through trees/clouds
+- Rich environment that HINTS at the adventure without spoiling it
+- Depth: foreground elements (grass, flowers, rocks) frame the character, background shows the world they're about to enter
+
+WHAT NOT TO DO ON THE COVER:
+- Character tiny in the distance
+- Character with back to the viewer
+- Flat, even lighting with no drama
+- Scene that shows the CLIMAX instead of the beginning
+- Cluttered scene with too many characters
+- Dark or muddy colours
+- Character floating in empty space with no environment
+
+The cover should make someone scrolling on their phone STOP and think: "I need to make this for my kid."
+
 ═══ ART DIRECTION NOTES ═══
 The app handles all technical prompt assembly (reference images, frozen blocks, rules). You focus ONLY on creative scene descriptions.
 
@@ -509,8 +652,9 @@ Return ONLY valid JSON with this structure:
   "textBoxDesign": "Simple rectangular box, thin dark brown ornate border, small corner flourishes, warm cream fill, dark brown elegant serif text, centred",
   "artStyle": "[full art style description matching the chosen style]",
   "cover": {
-    "sceneDescription": "Detailed description of the cover scene — composition, characters, environment, lighting, mood. Do NOT include any text or title — the app adds the title overlay separately. 80-150 words.",
+    "sceneDescription": "COVER SCENE: [80-150 words describing the cover composition]. The hero should be the focal point, positioned front and centre or in a dynamic pose. The scene shows the THRESHOLD of the adventure — the moment before it begins. Include: character position/pose/expression, environment that hints at the adventure, dramatic lighting (golden hour, magical glow, volumetric light rays), where the title text should flow in the upper portion, and overall mood. Make this the MOST BEAUTIFUL image in the entire book.",
     "titleText": "The Story Title",
+    "authorName": "By [Author Name]",
     "aspectRatio": "3:4"
   },
   "spreads": [
@@ -534,8 +678,8 @@ CRITICAL:
 - Include character appearance strings in each sceneDescription where that character appears
 - Include camera angle, lighting, character positions, expressions
 - Vary composition across spreads (wide shots, close-ups, etc.)
-- COVER: Do NOT describe any text, title, or lettering in the cover sceneDescription. The app overlays the title. Just describe the visual scene.
-- BACK COVER: Do NOT describe any text in the back cover sceneDescription. The app overlays author/dedication text. Leave the bottom third softer for text overlay.
+- COVER: The app will hand-letter the title INTO the image as part of the art. Your cover sceneDescription should describe WHERE the title text should flow (e.g. "the upper third has open sky for the title to arc across"). Do NOT write the title text in the sceneDescription — just describe the visual scene and composition. Make the cover BREATHTAKING.
+- BACK COVER: Do NOT describe any text in the back cover sceneDescription. The app overlays "The End", author, and dedication text separately. Leave the bottom third softer for text overlay. Scene should be peaceful and reflective — the adventure is over.
 
 ${format === "rhyming" ? "Write in strict AABB rhyme scheme. 8-10 syllables per line." : ""}
 ${format === "funny" ? "Make it genuinely funny with surprises and silly moments." : ""}
@@ -659,14 +803,16 @@ export async function generateAllImages(
   const companionNames = Object.keys(companionPhotoUrls);
   const companionUrls = Object.values(companionPhotoUrls);
 
-  // 1. Generate cover (assembled prompt)
+  // 1. Generate cover (assembled prompt — hand-lettered title, no text boxes)
   const coverPrompt = assembleImagePrompt({
     sceneDescription: storyPlan.cover.sceneDescription,
     characterAppearances,
-    textBoxDesign,
     artStyle,
+    pageTexts: storyPlan.cover.titleText ? [storyPlan.cover.titleText] : [storyPlan.title || "Untitled"],
     isCover: true,
     heroName,
+    authorName: storyPlan.cover.authorName || storyPlan.authorName || "A loving family",
+    subtitleText: storyPlan.subtitleText || null,
     companionNames,
   });
 
@@ -820,12 +966,11 @@ export async function generateAllImages(
     if (onImageReady) onImageReady(`spread_${i}`, images[`spread_${i}`] || null);
   }
 
-  // 3. Generate back cover (assembled prompt)
+  // 3. Generate back cover (assembled prompt — peaceful scene, no text)
   const backPrompt = assembleImagePrompt({
-    sceneDescription: storyPlan.backCover?.sceneDescription || "A peaceful closing scene with soft warm lighting. 'The End' in elegant hand-lettered text.",
+    sceneDescription: storyPlan.backCover?.sceneDescription || "A peaceful closing scene. The hero seen from behind, looking out at a beautiful vista that echoes the story's world. Warm golden-hour lighting, soft atmosphere. The adventure is over. Calm, reflective, warm.",
     characterAppearances,
     artStyle,
-    isCover: false,
     isBackCover: true,
     heroName,
     companionNames,
