@@ -93,6 +93,21 @@ export default function APIs() {
                 <Stat label="Response Time" value={h.responseMs ? `${h.responseMs}ms` : "-"} />
               </div>
 
+              {/* ElevenLabs usage */}
+              {svc.key === "elevenlabs" && h.usage && (
+                <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+                  <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 700, marginBottom: 4 }}>Character Usage</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                    <span>{(h.usage.characterCount || 0).toLocaleString()} / {(h.usage.characterLimit || 0).toLocaleString()}</span>
+                    <span style={{ fontWeight: 700 }}>{(h.usage.remainingCharacters || 0).toLocaleString()} left</span>
+                  </div>
+                  <div style={{ marginTop: 4, height: 6, borderRadius: 3, background: "#dcfce7", overflow: "hidden" }}>
+                    <div style={{ height: "100%", borderRadius: 3, background: h.usage.characterLimit && (h.usage.characterCount / h.usage.characterLimit) > 0.9 ? "#ef4444" : "#22c55e", width: `${Math.min(100, h.usage.characterLimit ? (h.usage.characterCount / h.usage.characterLimit) * 100 : 0)}%` }} />
+                  </div>
+                  {h.usage.tier && <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 4 }}>Tier: {h.usage.tier}{h.usage.nextReset ? ` | Resets: ${new Date(h.usage.nextReset).toLocaleDateString()}` : ""}</div>}
+                </div>
+              )}
+
               <div style={{ marginTop: 8, fontSize: 11, color: "#94a3b8" }}>
                 Model: {svc.model}
                 {svc.fallbacks && <span> | Fallbacks: {svc.fallbacks.join(", ")}</span>}
@@ -113,9 +128,19 @@ export default function APIs() {
               {health?.services?.stripe?.configured ? "Configured" : "Not Configured"}
             </span>
           </div>
-          <div style={{ fontSize: 12, color: "#64748b" }}>
-            Payment processing via Stripe. Webhook logs payments to admin KV.
-          </div>
+          {health?.services?.stripe?.balance ? (
+            <div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 12, marginBottom: 8 }}>
+                <Stat label="Available" value={`$${health.services.stripe.balance.available.toFixed(2)} ${health.services.stripe.balance.currency.toUpperCase()}`} />
+                <Stat label="Pending" value={`$${health.services.stripe.balance.pending.toFixed(2)} ${health.services.stripe.balance.currency.toUpperCase()}`} />
+              </div>
+              <div style={{ fontSize: 11, color: "#94a3b8" }}>Webhook logs payments to admin KV.</div>
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: "#64748b" }}>
+              Payment processing via Stripe. Webhook logs payments to admin KV.
+            </div>
+          )}
         </div>
 
         {/* Vercel KV card */}
