@@ -30,10 +30,12 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const [localPages, setLocalPages] = useState(pages);
   const [regeneratingImage, setRegeneratingImage] = useState(null);
   const [narrating, setNarrating] = useState(false);
-  const [narratorVoice, setNarratorVoice] = useState("mom");
+  const [autoNarrate, setAutoNarrate] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const narrationAudio = useRef(null);
   const narrationCache = useRef({});
   const touchStartX = useRef(null);
+  const autoNarateRef = useRef(false);
 
   // Build flat page array
   const flatPages = useMemo(() => {
@@ -160,25 +162,25 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     setActiveEdit(null);
   }
 
+  // Keep ref in sync with state
+  useEffect(() => { autoNarateRef.current = autoNarrate; }, [autoNarrate]);
+
   // ── Narration ──────────────────────────────────────────────────────────────
-  async function handleNarrate() {
-    const current = flatPages[currentIndex];
-    if (!current?.text) return;
-    if (narrating) {
-      narrationAudio.current?.pause();
-      setNarrating(false);
-      return;
-    }
-    const cacheKey = `page_${currentIndex}_${narratorVoice}`;
+  const VOICE_ID = "o5yhdpwO4YUK0MmUtJv5";
+
+  async function narratePage(pageIdx) {
+    const page = flatPages[pageIdx];
+    if (!page?.text) return;
+
+    const cacheKey = `page_${pageIdx}`;
     try {
       let audioUrl = narrationCache.current[cacheKey];
       if (!audioUrl) {
         setNarrating(true);
-        addToast("Preparing narration...", "info", 2000);
         const resp = await fetch("/api/narrate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: current.text, voiceId: narratorVoice }),
+          body: JSON.stringify({ text: page.text, voiceId: VOICE_ID }),
         });
         if (!resp.ok) throw new Error("Narration failed");
         const blob = await resp.blob();
@@ -190,7 +192,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       setNarrating(true);
       audio.addEventListener("ended", () => {
         setNarrating(false);
-        setTimeout(() => goNext(), 1500);
+        if (autoNarateRef.current) {
+          setTimeout(() => goNext(), 1200);
+        }
       });
       audio.play().catch(() => {
         setNarrating(false);
@@ -202,7 +206,30 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     }
   }
 
+  function toggleAutoNarrate() {
+    if (autoNarrate) {
+      // Turn off — stop current audio too
+      narrationAudio.current?.pause();
+      setNarrating(false);
+      setAutoNarrate(false);
+      addToast("Narration off", "info", 1500);
+    } else {
+      setAutoNarrate(true);
+      addToast("Narration on — pages will be read aloud", "magic", 2000);
+      // Start narrating current page immediately
+      const current = flatPages[currentIndex];
+      if (current?.text) narratePage(currentIndex);
+    }
+  }
+
+  // Auto-narrate on page change
   useEffect(() => {
+    if (autoNarateRef.current) {
+      const current = flatPages[currentIndex];
+      if (current?.text) {
+        narratePage(currentIndex);
+      }
+    }
     return () => {
       const audio = narrationAudio.current;
       if (audio) { audio.pause(); audio.removeAttribute("src"); audio.load(); narrationAudio.current = null; }
@@ -213,19 +240,105 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   // ── Share ──────────────────────────────────────────────────────────────────
   function handleShare() {
     try {
-      const shareData = { story: { title: story.title }, styleName, heroName, dedication };
+      const shareData = {
+        story: { title: story.title, spreads: localSpreads, pages: localPages },
+        images,
+        styleName,
+        heroName,
+        dedication,
+        authorName,
+      };
       const encoded = btoa(encodeURIComponent(JSON.stringify(shareData)));
       const url = `${window.location.origin}/shared?d=${encoded}`;
-      navigator.clipboard.writeText(url);
-      addToast("Link copied! Send it to grandma", "magic");
-    } catch { addToast("Failed to copy link", "error"); }
+      if (navigator.share) {
+        navigator.share({ title: `${heroName}'s Story`, text: `Check out this story made for ${heroName}!`, url });
+      } else {
+        navigator.clipboard.writeText(url);
+        addToast("Link copied! Send it to grandma", "magic");
+      }
+    } catch { addToast("Failed to share", "error"); }
+  }
+
+  // ── Download PDF ──────────────────────────────────────────────────────────
+  async function handleDownloadPdf() {
+    setDownloadingPdf(true);
+    addToast("Preparing your PDF...", "info", 3000);
+    try {
+      const { jsPDF } = await import("jspdf");
+      // A5 landscape-ish: 210 x 148mm
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a5" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+
+      for (let i = 0; i < flatPages.length; i++) {
+        const pg = flatPages[i];
+        if (i > 0) pdf.addPage();
+
+        // Try to load image
+        if (pg.imageUrl && isGeneratedImage(pg.imageUrl)) {
+          try {
+            const resp = await fetch(pg.imageUrl);
+            const blob = await resp.blob();
+            const dataUrl = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.readAsDataURL(blob);
+            });
+            pdf.addImage(dataUrl, "JPEG", 0, 0, pageW, pageH);
+          } catch {
+            pdf.setFillColor(254, 247, 237);
+            pdf.rect(0, 0, pageW, pageH, "F");
+          }
+        } else {
+          pdf.setFillColor(254, 247, 237);
+          pdf.rect(0, 0, pageW, pageH, "F");
+        }
+
+        // Overlay text
+        if (pg.type === "cover") {
+          pdf.setFontSize(24);
+          pdf.setTextColor(255, 255, 255);
+          pdf.text(story.title || "", pageW / 2, pageH - 30, { align: "center", maxWidth: pageW - 20 });
+          pdf.setFontSize(12);
+          pdf.text(`A story for ${heroName}`, pageW / 2, pageH - 18, { align: "center" });
+        } else if (pg.type === "back-cover") {
+          pdf.setFontSize(18);
+          pdf.setTextColor(255, 255, 255);
+          pdf.text("The End", pageW / 2, pageH / 2 - 10, { align: "center" });
+          if (dedication) {
+            pdf.setFontSize(10);
+            pdf.text(`"${dedication}"`, pageW / 2, pageH / 2 + 5, { align: "center", maxWidth: pageW - 30 });
+          }
+          pdf.setFontSize(9);
+          pdf.text(`Written by ${authorName}`, pageW / 2, pageH - 15, { align: "center" });
+        } else if (pg.text) {
+          // Story text at bottom with semi-transparent background
+          const textLines = pdf.splitTextToSize(pg.text, pageW - 20);
+          const textBlockH = textLines.length * 5 + 8;
+          pdf.setFillColor(0, 0, 0);
+          pdf.setGlobalAlpha?.(0.5);
+          pdf.rect(0, pageH - textBlockH - 4, pageW, textBlockH + 4, "F");
+          pdf.setGlobalAlpha?.(1);
+          pdf.setFontSize(10);
+          pdf.setTextColor(255, 255, 255);
+          pdf.text(textLines, pageW / 2, pageH - textBlockH + 2, { align: "center" });
+        }
+      }
+
+      const filename = `${(story.title || "Storytime").replace(/[^a-zA-Z0-9 ]/g, "").trim()}.pdf`;
+      pdf.save(filename);
+      addToast("PDF downloaded!", "magic");
+    } catch (err) {
+      console.error("PDF error:", err);
+      addToast("Failed to generate PDF", "error");
+    }
+    setDownloadingPdf(false);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER: Page-by-Page Viewer
   // ═══════════════════════════════════════════════════════════════════════════
   const current = flatPages[currentIndex] || flatPages[0];
-  const hasText = current?.text;
   const canEdit = current?.type === "spread" || current?.type === "page";
 
   return (
@@ -240,19 +353,18 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       <div className="br-toolbar">
         <button className="br-toolbar-btn" onClick={() => navigate("/library")}>&larr; Library</button>
         <div className="br-toolbar-right">
-          {hasText && (
-            <>
-              <div className="br-voice-picker">
-                <button className={`br-voice-btn${narratorVoice === "mom" ? " active" : ""}`} onClick={() => setNarratorVoice("mom")} title="Mom voice">👩</button>
-                <button className={`br-voice-btn${narratorVoice === "dad" ? " active" : ""}`} onClick={() => setNarratorVoice("dad")} title="Dad voice">👨</button>
-                <button className={`br-voice-btn${narratorVoice === "grandma" ? " active" : ""}`} onClick={() => setNarratorVoice("grandma")} title="Grandma voice">👵</button>
-              </div>
-              <button className="br-toolbar-btn" onClick={handleNarrate}>
-                {narrating ? "⏸ Pause" : "🔊 Read to me"}
-              </button>
-            </>
-          )}
+          <button
+            className={`br-narrate-toggle${autoNarrate ? " br-narrate-on" : ""}`}
+            onClick={toggleAutoNarrate}
+            title={autoNarrate ? "Turn off narration" : "Turn on narration"}
+          >
+            <span className="br-narrate-icon">{narrating ? "🔊" : autoNarrate ? "🔊" : "🔇"}</span>
+            <span className="br-narrate-label">{autoNarrate ? "Narration On" : "Narration Off"}</span>
+          </button>
           <button className="br-toolbar-btn" onClick={handleShare}>🔗 Share</button>
+          <button className="br-toolbar-btn" onClick={handleDownloadPdf} disabled={downloadingPdf}>
+            {downloadingPdf ? "⏳" : "📄"} PDF
+          </button>
           <button className="br-toolbar-btn" onClick={onReset}>✨ New</button>
         </div>
       </div>
@@ -334,6 +446,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
             )}
             <div className="br-back-actions">
               <button className="br-back-btn" onClick={handleShare}>🔗 Share</button>
+              <button className="br-back-btn" onClick={handleDownloadPdf} disabled={downloadingPdf}>
+                {downloadingPdf ? "⏳ Saving..." : "📄 Download PDF"}
+              </button>
               <button className="br-back-btn" onClick={onReset}>✨ New Story</button>
             </div>
           </div>

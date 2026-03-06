@@ -27,15 +27,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "text is required" });
   }
 
-  // Premium narration voices — warm, expressive storytelling
-  const VOICES = {
-    mom: "XrExE9yKIg1WjnnlVkGX",      // Matilda — warm, friendly, narration
-    dad: "N2lVS1w4EtoT3dr4eOWO",      // Callum — dramatic, character, storytelling
-    grandma: "pFZP5JQG7iQjIQuC4Bku",  // Lily — warm British narration
-    default: "XrExE9yKIg1WjnnlVkGX",  // Matilda
-  };
-
-  const voice = VOICES[voiceId] || VOICES.default;
+  // Accept ElevenLabs voice ID directly, with a sensible default
+  const DEFAULT_VOICE = "o5yhdpwO4YUK0MmUtJv5";
+  const voice = voiceId && voiceId.length > 10 ? voiceId : DEFAULT_VOICE;
   const narrationText = prepareNarrationText(text);
 
   try {
