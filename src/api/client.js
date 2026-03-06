@@ -326,7 +326,8 @@ export async function saveBookImage(imageUrl, bookId, pageType, pageIndex) {
 
 export async function validateImage(
   imageUrl, expectedTexts, heroName,
-  artStyle, pageType, sceneDescription, bookId
+  artStyle, pageType, sceneDescription, bookId,
+  referencePhotoUrl, characterDescriptions, previousPageStyle
 ) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -341,6 +342,9 @@ export async function validateImage(
           pageType,
           sceneDescription,
           bookId: bookId || null,
+          referencePhotoUrl: referencePhotoUrl || null,
+          characterDescriptions: characterDescriptions || null,
+          previousPageStyle: previousPageStyle || null,
         }),
       });
       const data = await response.json();
@@ -351,7 +355,6 @@ export async function validateImage(
         await new Promise(r => setTimeout(r, 2000));
         continue;
       }
-      // Final attempt — fail open but log
       return { pass: true, reason: "network_error", issues: ["Validation network error"] };
     }
   }

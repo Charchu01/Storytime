@@ -96,6 +96,53 @@ async function validateImageUrl(url) {
   }
 }
 
+// ── Image selection & quality tier ────────────────────────────────────────────
+function selectBestImage(attempts, hasReferencePhoto = false) {
+  if (attempts.length === 0) return null;
+  if (attempts.length === 1) return attempts[0];
+
+  // Step 1: Filter out hard gate failures
+  const viable = attempts.filter(a =>
+    a.validation.textScore >= 4 &&
+    a.validation.faceScore >= 4 &&
+    a.validation.formatOk === true
+  );
+
+  // Step 2: If nothing passed hard gates, pick least-bad by text then face
+  const pool = viable.length > 0 ? viable : attempts;
+
+  // Step 3: Calculate weighted composite score
+  pool.forEach(a => {
+    const v = a.validation;
+    if (hasReferencePhoto && v.likenessScore != null) {
+      a.composite = (v.textScore * 0.35) + (v.faceScore * 0.25) +
+                     ((v.textBoxScore || 7) * 0.15) + (v.sceneAccuracy * 0.15) +
+                     (v.likenessScore * 0.10);
+    } else {
+      a.composite = (v.textScore * 0.40) + (v.faceScore * 0.30) +
+                     ((v.textBoxScore || 7) * 0.15) + (v.sceneAccuracy * 0.15);
+    }
+  });
+
+  // Step 4: Return highest composite
+  pool.sort((a, b) => b.composite - a.composite);
+  return pool[0];
+}
+
+function getQualityTier(validation) {
+  const v = validation;
+  if (v.textScore >= 9 && v.faceScore >= 8 && (v.textBoxScore || 7) >= 7 && v.sceneAccuracy >= 7) {
+    return 'excellent';
+  }
+  if (v.textScore >= 7 && v.faceScore >= 7 && (v.textBoxScore || 6) >= 6 && v.sceneAccuracy >= 6) {
+    return 'good';
+  }
+  if (v.textScore >= 5 && v.faceScore >= 5) {
+    return 'acceptable';
+  }
+  return 'poor';
+}
+
 // ── Character description helpers ─────────────────────────────────────────────
 function buildCharacterDescription(cast) {
   return cast
@@ -808,13 +855,95 @@ export async function generateAllImages(
   const tempBookId = `book_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   let previousImageUrl = null;
   let totalImageGenerations = 0; // tracks all attempts including retries
+  let textBoxStyleReference = null; // captured from first spread validation
 
   const { characterAppearances, textBoxDesign, artStyle } = storyPlan;
   const heroName = characterAppearances?.hero?.split("—")[0]?.trim() || "the character";
   const companionNames = Object.keys(companionPhotoUrls);
   const companionUrls = Object.values(companionPhotoUrls);
 
-  // 1. Generate cover (assembled prompt — hand-lettered title, no text boxes)
+  // Build characterDescriptions for validation
+  const characterDescriptions = [
+    { name: heroName, relationship: 'hero', hasPhoto: !!heroPhotoUrl },
+    ...companionNames.map(name => ({
+      name,
+      relationship: 'supporting',
+      hasPhoto: !!companionPhotoUrls[name],
+    })),
+  ];
+
+  // ── Helper: run multi-attempt generation + validation loop ──
+  async function generateWithRetries({
+    pageType, originalPrompt, expectedTexts, sceneDescription,
+    maxAttempts, stopAtTier, generateArgs,
+  }) {
+    const allAttempts = [];
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        // Build prompt — first attempt uses original, retries append fixNotes
+        const bestSoFar = allAttempts.length > 0
+          ? selectBestImage(allAttempts, !!heroPhotoUrl)
+          : null;
+        const prompt = attempt === 0
+          ? originalPrompt
+          : `${originalPrompt}\n\nPREVIOUS ATTEMPT FAILED. FIX THESE ISSUES:\n${bestSoFar?.validation?.fixNotes || 'Improve overall quality.'}`;
+
+        if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
+
+        totalImageGenerations++;
+        const imageUrl = await generateImage(prompt, ...generateArgs);
+
+        if (!imageUrl || !(await validateImageUrl(imageUrl))) {
+          allAttempts.push({
+            imageUrl: null,
+            validation: { textScore: 0, faceScore: 0, textBoxScore: 0, sceneAccuracy: 0, formatOk: false, issues: ['Invalid image URL'] },
+            attempt,
+          });
+          continue;
+        }
+
+        // Validate
+        const valResult = await validateImage(
+          imageUrl, expectedTexts, heroName, artStyle, pageType,
+          sceneDescription, tempBookId, heroPhotoUrl,
+          characterDescriptions, textBoxStyleReference
+        );
+
+        // Capture text box style from first successful spread validation
+        if (!textBoxStyleReference && valResult.textBoxDescription && pageType !== 'cover' && pageType !== 'back_cover') {
+          textBoxStyleReference = valResult.textBoxDescription;
+        }
+
+        allAttempts.push({ imageUrl, validation: valResult, attempt });
+
+        // Check if we can stop early
+        const qualityTier = getQualityTier(valResult);
+        console.log(`VALIDATION: ${pageType} attempt ${attempt + 1}/${maxAttempts} — tier=${qualityTier}, text=${valResult.textScore}, face=${valResult.faceScore}, textBox=${valResult.textBoxScore || '?'}, scene=${valResult.sceneAccuracy}`);
+
+        if (qualityTier === 'excellent') break; // Always stop at excellent
+        if (qualityTier === stopAtTier) break;   // Stop at target tier for this page type
+      } catch (err) {
+        console.warn(`${pageType} attempt ${attempt + 1} failed:`, err.message);
+        allAttempts.push({
+          imageUrl: null,
+          validation: { textScore: 0, faceScore: 0, textBoxScore: 0, sceneAccuracy: 0, formatOk: false, issues: [err.message] },
+          attempt,
+        });
+      }
+    }
+
+    // Select the best image from all attempts
+    const validAttempts = allAttempts.filter(a => a.imageUrl);
+    if (validAttempts.length === 0) return null;
+
+    const best = selectBestImage(validAttempts, !!heroPhotoUrl);
+    return best;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 1. COVER — max 4 attempts, stop at excellent
+  // ═══════════════════════════════════════════════════════════════
   const coverPrompt = assembleImagePrompt({
     sceneDescription: storyPlan.cover.sceneDescription,
     characterAppearances,
@@ -827,59 +956,31 @@ export async function generateAllImages(
     companionNames,
   });
 
-  try {
-    totalImageGenerations++;
-    let coverUrl = await generateImage(
-      coverPrompt,
-      heroPhotoUrl,
-      tier,
-      null,
-      [...companionUrls],
-      storyPlan.cover.aspectRatio || "2:3",
-      true
+  const coverResult = await generateWithRetries({
+    pageType: 'cover',
+    originalPrompt: coverPrompt,
+    expectedTexts: storyPlan.cover.titleText ? [storyPlan.cover.titleText] : [],
+    sceneDescription: storyPlan.cover.sceneDescription,
+    maxAttempts: 4,
+    stopAtTier: 'excellent',
+    generateArgs: [heroPhotoUrl, tier, null, [...companionUrls], storyPlan.cover.aspectRatio || "2:3", true],
+  });
+
+  if (coverResult) {
+    images.cover = coverResult.imageUrl;
+    previousImageUrl = coverResult.imageUrl;
+    logCost("nano_banana", tier, true, 0, null);
+    savePromises.push(
+      saveBookImage(coverResult.imageUrl, tempBookId, 'cover', 0)
+        .then(permanentUrl => { if (permanentUrl && permanentUrl !== coverResult.imageUrl) permanentImages.cover = permanentUrl; })
+        .catch(() => {})
     );
-    if (coverUrl && await validateImageUrl(coverUrl)) {
-      // Validate cover with Claude Vision
-      const coverValidation = await validateImage(
-        coverUrl,
-        storyPlan.cover.titleText ? [storyPlan.cover.titleText] : [],
-        heroName,
-        artStyle,
-        "cover",
-        storyPlan.cover.sceneDescription
-      );
-      if (!coverValidation.pass) {
-        console.warn("Cover failed validation:", coverValidation.issues?.join(", "));
-        try {
-          const fixPrompt = coverPrompt +
-            `\n\nCRITICAL FIXES FOR THIS RETRY:\n${coverValidation.fixNotes || coverValidation.issues?.join(". ") || "Improve text accuracy and character quality."}`;
-          await new Promise(r => setTimeout(r, 2000));
-          totalImageGenerations++;
-          const retryCover = await generateImage(
-            fixPrompt, heroPhotoUrl, tier, null, [...companionUrls],
-            storyPlan.cover.aspectRatio || "2:3", true
-          );
-          if (retryCover && await validateImageUrl(retryCover)) {
-            coverUrl = retryCover;
-          }
-        } catch { /* use original */ }
-      }
-      images.cover = coverUrl;
-      previousImageUrl = coverUrl;
-      logCost("nano_banana", tier, true, 0, null);
-      // Save cover to permanent storage (fire and forget)
-      savePromises.push(
-        saveBookImage(coverUrl, tempBookId, 'cover', 0)
-          .then(permanentUrl => { if (permanentUrl && permanentUrl !== coverUrl) permanentImages.cover = permanentUrl; })
-          .catch(() => {})
-      );
-    }
-  } catch (err) {
-    console.warn("Cover generation failed:", err.message);
   }
   if (onImageReady) onImageReady("cover", images.cover || null);
 
-  // 2. Generate spreads sequentially (chained, assembled prompts)
+  // ═══════════════════════════════════════════════════════════════
+  // 2. SPREADS — first spread: 3 attempts, rest: 2 attempts, stop at good
+  // ═══════════════════════════════════════════════════════════════
   for (let i = 0; i < storyPlan.spreads.length; i++) {
     const spread = storyPlan.spreads[i];
     const isFirst = (i === 0);
@@ -903,106 +1004,36 @@ export async function generateAllImages(
     }
     refImages.push(...companionUrls);
 
-    try {
-      totalImageGenerations++;
-      let url = await generateImage(
-        spreadPrompt,
-        heroPhotoUrl,
-        tier,
-        null,
-        refImages,
-        spread.aspectRatio || "4:3",
-        false
+    const maxAttempts = isFirst ? 3 : 2;
+    const spreadResult = await generateWithRetries({
+      pageType: 'spread',
+      originalPrompt: spreadPrompt,
+      expectedTexts: [spread.leftPageText, spread.rightPageText],
+      sceneDescription: spread.sceneDescription,
+      maxAttempts,
+      stopAtTier: 'good',
+      generateArgs: [heroPhotoUrl, tier, null, refImages, spread.aspectRatio || "4:3", false],
+    });
+
+    if (spreadResult) {
+      images[`spread_${i}`] = spreadResult.imageUrl;
+      previousImageUrl = spreadResult.imageUrl;
+      logCost("nano_banana", tier, true, 0, null);
+      savePromises.push(
+        saveBookImage(spreadResult.imageUrl, tempBookId, 'spread', i)
+          .then(permanentUrl => { if (permanentUrl && permanentUrl !== spreadResult.imageUrl) permanentImages[`spread_${i}`] = permanentUrl; })
+          .catch(() => {})
       );
-
-      if (url && await validateImageUrl(url)) {
-        // Validate every spread
-        const validation = await validateImage(
-          url,
-          [spread.leftPageText, spread.rightPageText],
-          heroName,
-          artStyle,
-          "spread",
-          spread.sceneDescription
-        );
-        if (!validation.pass) {
-          console.warn(`Spread ${i + 1} failed validation:`, validation.issues?.join(", "));
-          // Retry with specific fix instructions
-          try {
-            const fixPrompt = spreadPrompt +
-              `\n\nCRITICAL FIXES FOR THIS RETRY:\n${validation.fixNotes || validation.issues?.join(". ") || "Improve text accuracy and character quality."}`;
-            await new Promise(r => setTimeout(r, 2000));
-            totalImageGenerations++;
-            const retryUrl = await generateImage(
-              fixPrompt, heroPhotoUrl, tier, null,
-              refImages, spread.aspectRatio || "4:3", false
-            );
-            if (retryUrl && await validateImageUrl(retryUrl)) {
-              // Validate the retry too
-              const retryValidation = await validateImage(
-                retryUrl,
-                [spread.leftPageText, spread.rightPageText],
-                heroName, artStyle, "spread", spread.sceneDescription
-              );
-              if (retryValidation.pass ||
-                  (retryValidation.textScore || 0) > (validation.textScore || 0) ||
-                  (retryValidation.faceScore || 0) >= (validation.faceScore || 0)) {
-                url = retryUrl;
-                logCost("nano_banana", tier, true, 0, "retry_after_validation");
-              }
-            }
-          } catch { /* use original */ }
-        }
-        images[`spread_${i}`] = url;
-        previousImageUrl = url;
-        logCost("nano_banana", tier, true, 0, null);
-        // Save spread to permanent storage (fire and forget)
-        savePromises.push(
-          saveBookImage(url, tempBookId, 'spread', i)
-            .then(permanentUrl => { if (permanentUrl && permanentUrl !== url) permanentImages[`spread_${i}`] = permanentUrl; })
-            .catch(() => {})
-        );
-      } else {
-        throw new Error("Invalid image URL");
-      }
-    } catch (err) {
-      console.warn(`Spread ${i + 1} failed:`, err.message);
-
-      // Retry once with 3s delay
-      try {
-        await new Promise(r => setTimeout(r, 3000));
-        const retryRefs = [];
-        if (images.cover) retryRefs.push(images.cover);
-        if (!isFirst && previousImageUrl && previousImageUrl !== images.cover) {
-          retryRefs.push(previousImageUrl);
-        }
-        totalImageGenerations++;
-        const retryUrl = await generateImage(
-          spreadPrompt, heroPhotoUrl, tier, null,
-          retryRefs, spread.aspectRatio || "4:3", false
-        );
-        if (retryUrl && await validateImageUrl(retryUrl)) {
-          images[`spread_${i}`] = retryUrl;
-          previousImageUrl = retryUrl;
-          // Save retry spread to permanent storage (fire and forget)
-          savePromises.push(
-            saveBookImage(retryUrl, tempBookId, 'spread', i)
-              .then(permanentUrl => { if (permanentUrl && permanentUrl !== retryUrl) permanentImages[`spread_${i}`] = permanentUrl; })
-              .catch(() => {})
-          );
-        } else {
-          images[`spread_${i}`] = null;
-        }
-      } catch (retryErr) {
-        console.warn(`Spread ${i + 1} retry failed:`, retryErr.message);
-        images[`spread_${i}`] = null;
-      }
+    } else {
+      images[`spread_${i}`] = null;
     }
 
     if (onImageReady) onImageReady(`spread_${i}`, images[`spread_${i}`] || null);
   }
 
-  // 3. Generate back cover (assembled prompt — peaceful scene, no text)
+  // ═══════════════════════════════════════════════════════════════
+  // 3. BACK COVER — 2 attempts, stop at good
+  // ═══════════════════════════════════════════════════════════════
   const backPrompt = assembleImagePrompt({
     sceneDescription: storyPlan.backCover?.sceneDescription || "A peaceful closing scene. The hero seen from behind, looking out at a beautiful vista that echoes the story's world. Warm golden-hour lighting, soft atmosphere. The adventure is over. Calm, reflective, warm.",
     characterAppearances,
@@ -1019,58 +1050,25 @@ export async function generateAllImages(
   }
   backRefs.push(...companionUrls);
 
-  try {
-    totalImageGenerations++;
-    const backUrl = await generateImage(
-      backPrompt,
-      heroPhotoUrl,
-      tier,
-      null,
-      backRefs,
-      storyPlan.backCover?.aspectRatio || "2:3",
-      false
+  const backResult = await generateWithRetries({
+    pageType: 'back_cover',
+    originalPrompt: backPrompt,
+    expectedTexts: [],
+    sceneDescription: storyPlan.backCover?.sceneDescription || "",
+    maxAttempts: 2,
+    stopAtTier: 'good',
+    generateArgs: [heroPhotoUrl, tier, null, backRefs, storyPlan.backCover?.aspectRatio || "2:3", false],
+  });
+
+  if (backResult) {
+    images.backCover = backResult.imageUrl;
+    logCost("nano_banana", tier, true, 0, null);
+    savePromises.push(
+      saveBookImage(backResult.imageUrl, tempBookId, 'back_cover', 0)
+        .then(permanentUrl => { if (permanentUrl && permanentUrl !== backResult.imageUrl) permanentImages.backCover = permanentUrl; })
+        .catch(() => {})
     );
-    if (backUrl && await validateImageUrl(backUrl)) {
-      // Validate back cover
-      const backValidation = await validateImage(
-        backUrl, [], heroName, artStyle, "back_cover",
-        storyPlan.backCover?.sceneDescription || ""
-      );
-      if (!backValidation.pass) {
-        console.warn("Back cover failed validation:", backValidation.issues?.join(", "));
-        try {
-          const fixPrompt = backPrompt +
-            `\n\nCRITICAL FIXES:\n${backValidation.fixNotes || backValidation.issues?.join(". ")}`;
-          await new Promise(r => setTimeout(r, 2000));
-          totalImageGenerations++;
-          const retryBack = await generateImage(
-            fixPrompt, heroPhotoUrl, tier, null,
-            backRefs, storyPlan.backCover?.aspectRatio || "2:3", false
-          );
-          if (retryBack && await validateImageUrl(retryBack)) {
-            images.backCover = retryBack;
-          } else {
-            images.backCover = backUrl;
-          }
-        } catch {
-          images.backCover = backUrl;
-        }
-      } else {
-        images.backCover = backUrl;
-      }
-      logCost("nano_banana", tier, true, 0, null);
-      // Save back cover to permanent storage (fire and forget)
-      if (images.backCover) {
-        const backCoverUrl = images.backCover;
-        savePromises.push(
-          saveBookImage(backCoverUrl, tempBookId, 'back_cover', 0)
-            .then(permanentUrl => { if (permanentUrl && permanentUrl !== backCoverUrl) permanentImages.backCover = permanentUrl; })
-            .catch(() => {})
-        );
-      }
-    }
-  } catch (err) {
-    console.warn("Back cover generation failed:", err.message);
+  } else {
     images.backCover = null;
   }
   if (onImageReady) onImageReady("backCover", images.backCover || null);
