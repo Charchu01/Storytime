@@ -110,7 +110,7 @@ export async function uploadPhoto(photoDataUri) {
 
 export async function generateImage(
   prompt,
-  referencePhotoUrl = null,
+  characterPhotoUrls = [],
   tier = "standard",
   style = null,
   referenceImageUrls = [],
@@ -119,6 +119,9 @@ export async function generateImage(
   bookId = null,
   clientAttempt = 1
 ) {
+  // Support both new array form and legacy single-URL form
+  const charPhotos = Array.isArray(characterPhotoUrls) ? characterPhotoUrls : (characterPhotoUrls ? [characterPhotoUrls] : []);
+
   let response;
   try {
     response = await fetchWithRetry("/api/generate-image", {
@@ -126,7 +129,9 @@ export async function generateImage(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
-        referencePhotoUrl,
+        characterPhotoUrls: charPhotos,
+        // Backward compat: also send referencePhotoUrl for older API versions
+        referencePhotoUrl: charPhotos[0] || null,
         referenceImageUrls,
         tier,
         style,

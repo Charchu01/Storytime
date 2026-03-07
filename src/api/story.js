@@ -367,6 +367,8 @@ function assembleImagePrompt({
   companionNames = [],
   frozenCharacterDescription,
   heroType,
+  allFrozenDescriptions = {},
+  ledgerBlock = null,
 }) {
   const sections = [];
 
@@ -374,14 +376,17 @@ function assembleImagePrompt({
   // COVER — completely different prompt structure
   // ═══════════════════════════════════════════════════════════════
   if (isCover) {
-    const companionRefLines = companionNames.map((name, i) =>
-      `- Image ${i + 2}: Photo of ${sanitizeForPrompt(name)} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`
-    ).join("\n");
+    // Build reference image labels: character photos first, then style refs
+    let imgIdx = 1;
+    const refLines = [];
+    refLines.push(`- Image ${imgIdx}: Photograph of ${sanitizeForPrompt(heroName)}. Match their EXACT facial features, head shape, hair, and skin tone. Transform into illustrated art style — NOT photorealistic.`);
+    imgIdx++;
+    companionNames.forEach(name => {
+      refLines.push(`- Image ${imgIdx}: Photo of ${sanitizeForPrompt(name)} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`);
+      imgIdx++;
+    });
 
-    sections.push(
-`REFERENCE IMAGES:
-- Image 1: Photograph of ${sanitizeForPrompt(heroName)}. Match their EXACT facial features, head shape, hair, and skin tone. Transform into illustrated art style — NOT photorealistic.${companionRefLines ? "\n" + companionRefLines : ""}`
-    );
+    sections.push(`REFERENCE IMAGES:\n${refLines.join("\n")}`);
 
     sections.push(
 `CHARACTER:
@@ -396,11 +401,18 @@ CRITICAL CONSISTENCY RULES:
 
     if (characterAppearances.supporting) {
       const supportingText = Object.entries(characterAppearances.supporting)
-        .map(([name, desc]) => `- ${desc}`)
+        .map(([name, desc]) => {
+          const frozen = allFrozenDescriptions[name];
+          return frozen ? `- ${frozen}` : `- ${desc}`;
+        })
         .join("\n");
       if (supportingText) {
         sections.push(`SUPPORTING CHARACTERS:\n${supportingText}`);
       }
+    }
+
+    if (ledgerBlock) {
+      sections.push(ledgerBlock);
     }
 
     sections.push(`SCENE:\n${sceneDescription}`);
@@ -473,21 +485,27 @@ This is the COVER — the most polished, beautiful image in the entire book. Gal
   // BACK COVER — peaceful closing scene
   // ═══════════════════════════════════════════════════════════════
   if (isBackCover) {
-    const companionRefLines = companionNames.map((name, i) =>
-      `- Image ${i + 4}: Photo of ${sanitizeForPrompt(name)} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`
-    ).join("\n");
+    // Build reference image labels: character photos first, then style refs
+    let imgIdx = 1;
+    const refLines = [];
+    refLines.push(`- Image ${imgIdx}: Photograph of ${sanitizeForPrompt(heroName)}. Match their EXACT facial features, head shape, hair, skin tone, and ethnicity. Transform into illustrated art style — NOT photorealistic.`);
+    imgIdx++;
+    companionNames.forEach(name => {
+      refLines.push(`- Image ${imgIdx}: Photo of ${sanitizeForPrompt(name)} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`);
+      imgIdx++;
+    });
+    const backCoverImgIdx = imgIdx;
+    refLines.push(`- Image ${imgIdx}: The COVER of this book — your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and character rendering.`);
+    imgIdx++;
+    const backPrevImgIdx = imgIdx;
+    refLines.push(`- Image ${imgIdx}: The PREVIOUS SPREAD from this book. ${sanitizeForPrompt(heroName)} must look IDENTICAL to how they appear in this image. Same skin tone, same hair, same clothing style, same illustrated rendering.`);
 
-    sections.push(
-`REFERENCE IMAGES:
-- Image 1: Photograph of ${sanitizeForPrompt(heroName)}. Match their EXACT facial features, head shape, hair, skin tone, and ethnicity. Transform into illustrated art style — NOT photorealistic.
-- Image 2: The COVER of this book — your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and character rendering.
-- Image 3: The PREVIOUS SPREAD from this book. ${sanitizeForPrompt(heroName)} must look IDENTICAL to how they appear in this image. Same skin tone, same hair, same clothing style, same illustrated rendering.${companionRefLines ? "\n" + companionRefLines : ""}`
-    );
+    sections.push(`REFERENCE IMAGES:\n${refLines.join("\n")}`);
 
     sections.push(
 `CHARACTER:
 ${frozenCharacterDescription || characterAppearances.hero || buildFallbackDescription(heroName, heroType)}
-${sanitizeForPrompt(heroName)}'s face MUST match Image 1 (the photo). Their illustrated style MUST match Image 2 and Image 3 (previous pages).
+${sanitizeForPrompt(heroName)}'s face MUST match Image 1 (the photo). Their illustrated style MUST match Image ${backCoverImgIdx} and Image ${backPrevImgIdx} (previous pages).
 
 CRITICAL CONSISTENCY RULES:
 - ${sanitizeForPrompt(heroName)} MUST look identical on every page — same face, same coloring, same outfit/markings
@@ -501,7 +519,7 @@ CRITICAL CONSISTENCY RULES:
 `STYLE:
 ${artStyle || "Classic children's storybook illustration"}
 Match the COVER art style exactly. This is the closing image — warm, gentle, reflective.
-The character must be rendered in the SAME illustrated style as Image 2 and Image 3.`
+The character must be rendered in the SAME illustrated style as Image ${backCoverImgIdx} and Image ${backPrevImgIdx}.`
     );
 
     sections.push(
@@ -526,31 +544,33 @@ The character must be rendered in the SAME illustrated style as Image 2 and Imag
   // ═══════════════════════════════════════════════════════════════
   // INTERIOR SPREADS — standard prompt structure
   // ═══════════════════════════════════════════════════════════════
-  const companionRefLines = companionNames.map((name, i) => {
-    const imgNum = isFirstSpread ? i + 3 : i + 4;
-    return `- Image ${imgNum}: Photo of ${sanitizeForPrompt(name)} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`;
-  }).join("\n");
+  // Build reference image labels: character photos first, then style refs
+  let imgIdx = 1;
+  const refLines = [];
+  refLines.push(`- Image ${imgIdx}: Photo of ${sanitizeForPrompt(heroName)} — match EXACT facial features.`);
+  imgIdx++;
+  companionNames.forEach(name => {
+    refLines.push(`- Image ${imgIdx}: Photo of ${sanitizeForPrompt(name)} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`);
+    imgIdx++;
+  });
 
+  const coverImgIdx = imgIdx;
+  let prevSpreadImgIdx = null;
   if (isFirstSpread) {
-    sections.push(
-`REFERENCE IMAGES:
-- Image 1: Photo of ${sanitizeForPrompt(heroName)} — match EXACT facial features.
-- Image 2: The COVER of this book — your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and text box design on this page.${companionRefLines ? "\n" + companionRefLines : ""}`
-    );
+    refLines.push(`- Image ${imgIdx}: The COVER of this book — your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and text box design on this page.`);
   } else {
-    sections.push(
-`REFERENCE IMAGES:
-- Image 1: Photo of ${sanitizeForPrompt(heroName)} — match EXACT facial features.
-- Image 2: The COVER of this book — your STYLE BIBLE. Match this exact art style.
-- Image 3: The PREVIOUS SPREAD. Maintain visual continuity. ${sanitizeForPrompt(heroName)} must look IDENTICAL to this image. Same style, same colour temperature.${companionRefLines ? "\n" + companionRefLines : ""}`
-    );
+    refLines.push(`- Image ${imgIdx}: The COVER of this book — your STYLE BIBLE. Match this exact art style.`);
+    imgIdx++;
+    prevSpreadImgIdx = imgIdx;
+    refLines.push(`- Image ${imgIdx}: The PREVIOUS SPREAD. Maintain visual continuity. ${sanitizeForPrompt(heroName)} must look IDENTICAL to this image. Same style, same colour temperature.`);
   }
+  sections.push(`REFERENCE IMAGES:\n${refLines.join("\n")}`);
 
   sections.push(
 `CHARACTER:
 ${frozenCharacterDescription || characterAppearances.hero || buildFallbackDescription(heroName, heroType)}
 ${sanitizeForPrompt(heroName)}'s face MUST match Image 1 (the photo). Match their EXACT skin tone, ethnicity, hair colour, and facial features. Do NOT change the character's race or skin colour.
-When in doubt, match the photo. NOT photorealistic — illustrated style.${!isFirstSpread ? `\n${sanitizeForPrompt(heroName)} must look IDENTICAL to how they appear in Image 3 (previous spread). Same skin tone, same features, same clothing.` : ""}
+When in doubt, match the photo. NOT photorealistic — illustrated style.${prevSpreadImgIdx ? `\n${sanitizeForPrompt(heroName)} must look IDENTICAL to how they appear in Image ${prevSpreadImgIdx} (previous spread). Same skin tone, same features, same clothing.` : ""}
 
 CRITICAL CONSISTENCY RULES:
 - ${sanitizeForPrompt(heroName)} MUST look identical on every page — same face, same coloring, same outfit/markings
@@ -560,7 +580,10 @@ CRITICAL CONSISTENCY RULES:
 
   if (characterAppearances.supporting) {
     const supportingText = Object.entries(characterAppearances.supporting)
-      .map(([name, desc]) => `- ${desc}`)
+      .map(([name, desc]) => {
+        const frozen = allFrozenDescriptions[name];
+        return frozen ? `- ${frozen}` : `- ${desc}`;
+      })
       .join("\n");
     if (supportingText) {
       sections.push(
@@ -569,6 +592,10 @@ ${supportingText}
 Must look identical to previous pages. Same skin tone, same features.`
       );
     }
+  }
+
+  if (ledgerBlock) {
+    sections.push(ledgerBlock);
   }
 
   sections.push(`SCENE:\n${sceneDescription}`);
@@ -617,7 +644,7 @@ Must be IDENTICAL on every page. Match Image 2 exactly.`
 - NO page numbers
 - NO speech bubbles or word balloons
 - NO text outside the text boxes
-- Character IDENTICAL to Image 1${!isFirstSpread ? " and Image 3" : ""} — same skin tone, ethnicity, hair, and features throughout the ENTIRE book
+- Character IDENTICAL to Image 1${prevSpreadImgIdx ? ` and Image ${prevSpreadImgIdx}` : ""} — same skin tone, ethnicity, hair, and features throughout the ENTIRE book
 - Keep important content 5% from edges (safe zone)
 - NOT photorealistic — illustrated children's book style`
   );
@@ -995,12 +1022,62 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
   return parsed;
 }
 
+// ── Character Ledger — self-improving corrections across pages ───────────────
+function updateCharacterLedger(ledger, valResult) {
+  if (!valResult || valResult.skipped) return;
+
+  // Extract character-specific corrections from validation fixNotes and issues
+  const fixNotes = valResult.fixNotes || '';
+  const issues = valResult.issues || [];
+  const allFeedback = [fixNotes, ...issues].filter(Boolean).join(' ');
+
+  if (!allFeedback) return;
+
+  // Look for face/skin/hair/appearance-related corrections
+  const facePatterns = [
+    /skin\s*(?:tone|color|colour)\s*(?:is|should|must|needs?\s*to\s*be)\s*([^.]+)/gi,
+    /hair\s*(?:is|should|must|needs?\s*to\s*be)\s*([^.]+)/gi,
+    /(?:face|facial)\s*(?:features?|structure)?\s*(?:is|should|must|needs?\s*to\s*be|looks?)\s*([^.]+)/gi,
+    /(?:character|hero|child)\s*(?:looks?|appears?|should)\s*(?:more|less|too)\s*([^.]+)/gi,
+    /(?:wrong|incorrect|different)\s*(?:skin|hair|face|ethnicity|race)\s*([^.]*)/gi,
+  ];
+
+  const corrections = [];
+  for (const pattern of facePatterns) {
+    let match;
+    while ((match = pattern.exec(allFeedback)) !== null) {
+      corrections.push(match[0].trim());
+    }
+  }
+
+  // Also capture general consistency notes
+  if (/(?:doesn't match|does not match|inconsistent|different from)/i.test(allFeedback)) {
+    corrections.push(allFeedback.substring(0, 200));
+  }
+
+  if (corrections.length > 0) {
+    if (!ledger.corrections) ledger.corrections = [];
+    ledger.corrections.push(...corrections);
+    // Keep only the most recent 10 corrections to avoid prompt bloat
+    ledger.corrections = ledger.corrections.slice(-10);
+  }
+}
+
+function buildLedgerBlock(ledger) {
+  if (!ledger || !ledger.corrections || ledger.corrections.length === 0) return null;
+
+  // Deduplicate and build the correction block
+  const unique = [...new Set(ledger.corrections)];
+  return `CHARACTER CORRECTIONS FROM PREVIOUS PAGES (apply these fixes):
+${unique.map(c => `- ${c}`).join('\n')}`;
+}
+
 // ── Generate ALL images using code-assembled prompts ──────────────────────────
 // Sequential chained flow: cover → spread1 → spread2 → ... → back cover
 // Each image references the hero photo + cover (style anchor) + previous image
 export async function generateAllImages(
   storyPlan, heroPhotoUrl, onImageReady, tier, companionPhotoUrls = {},
-  { frozenCharacterDescription = null, heroType = 'child' } = {}
+  { frozenCharacterDescription = null, heroType = 'child', allFrozenDescriptions = {} } = {}
 ) {
   const bookStartTime = Date.now();
   const images = {};
@@ -1010,11 +1087,23 @@ export async function generateAllImages(
   let previousImageUrl = null;
   let totalImageGenerations = 0; // tracks all attempts including retries
   let textBoxStyleReference = null; // captured from first spread validation
+  const characterLedger = {}; // accumulates character corrections across pages
 
   const { characterAppearances, textBoxDesign, artStyle } = storyPlan;
   const heroName = characterAppearances?.hero?.split("—")[0]?.trim() || "the character";
   const companionNames = Object.keys(companionPhotoUrls);
   const companionUrls = Object.values(companionPhotoUrls);
+
+  // Build complete character photo array: hero first, then companions
+  // This order must match the REFERENCE IMAGES section in assembleImagePrompt
+  const allCharacterPhotoUrls = [heroPhotoUrl, ...companionUrls].filter(Boolean);
+
+  console.log("CAST_PHOTOS:", JSON.stringify({
+    heroPhotoUrl: heroPhotoUrl?.substring(0, 60) || null,
+    companionCount: companionUrls.length,
+    totalCharacterPhotos: allCharacterPhotoUrls.length,
+    companionNames,
+  }));
 
   // Build characterDescriptions for validation
   const characterDescriptions = [
@@ -1119,6 +1208,9 @@ export async function generateAllImages(
           textBoxStyleReference = valResult.textBoxDescription;
         }
 
+        // Update character ledger with corrections from this validation
+        updateCharacterLedger(characterLedger, valResult);
+
         allAttempts.push({ imageUrl, validation: valResult, attempt });
         console.log(`TIMING_VAL: ${pageType} attempt ${attempt + 1} — ${Date.now() - attemptStartTime}ms total`);
 
@@ -1171,6 +1263,7 @@ export async function generateAllImages(
     companionNames,
     frozenCharacterDescription,
     heroType,
+    allFrozenDescriptions,
   });
 
   const coverResult = await generateWithRetries({
@@ -1180,7 +1273,7 @@ export async function generateAllImages(
     sceneDescription: storyPlan.cover.sceneDescription,
     maxAttempts: 2,
     stopAtTier: 'excellent',
-    generateArgs: [heroPhotoUrl, tier, null, [...companionUrls], storyPlan.cover.aspectRatio || "2:3", true],
+    generateArgs: [allCharacterPhotoUrls, tier, null, [], storyPlan.cover.aspectRatio || "2:3", true],
     onProgress: (url) => { if (onImageReady) onImageReady("cover", url); },
   });
 
@@ -1214,15 +1307,16 @@ export async function generateAllImages(
       companionNames,
       frozenCharacterDescription,
       heroType,
+      allFrozenDescriptions,
+      ledgerBlock: buildLedgerBlock(characterLedger),
     });
 
-    // Reference images: cover (style anchor) + previous spread (continuity) + companion photos
-    const refImages = [];
-    if (images.cover) refImages.push(images.cover);
+    // Style references: cover (style anchor) + previous spread (continuity)
+    const styleRefs = [];
+    if (images.cover) styleRefs.push(images.cover);
     if (!isFirst && previousImageUrl && previousImageUrl !== images.cover) {
-      refImages.push(previousImageUrl);
+      styleRefs.push(previousImageUrl);
     }
-    refImages.push(...companionUrls);
 
     const maxAttempts = 2; // Same for all pages
     const spreadIdx = i;
@@ -1233,7 +1327,7 @@ export async function generateAllImages(
       sceneDescription: spread.sceneDescription,
       maxAttempts,
       stopAtTier: 'good',
-      generateArgs: [heroPhotoUrl, tier, null, refImages, spread.aspectRatio || "4:3", false],
+      generateArgs: [allCharacterPhotoUrls, tier, null, styleRefs, spread.aspectRatio || "4:3", false],
       onProgress: (url) => { if (onImageReady) onImageReady(`spread_${spreadIdx}`, url); },
     });
 
@@ -1265,17 +1359,18 @@ export async function generateAllImages(
     companionNames,
     frozenCharacterDescription,
     heroType,
+    allFrozenDescriptions,
+    ledgerBlock: buildLedgerBlock(characterLedger),
   });
 
-  const backRefs = [];
-  if (images.cover) backRefs.push(images.cover);
+  const backStyleRefs = [];
+  if (images.cover) backStyleRefs.push(images.cover);
   // Add the last successful spread for visual continuity (prefer the most recent one)
   const lastSpreadUrl = previousImageUrl
     || [...storyPlan.spreads].reverse().map((_, i) => images[`spread_${storyPlan.spreads.length - 1 - i}`]).find(Boolean);
   if (lastSpreadUrl && lastSpreadUrl !== images.cover) {
-    backRefs.push(lastSpreadUrl);
+    backStyleRefs.push(lastSpreadUrl);
   }
-  backRefs.push(...companionUrls);
 
   const backResult = await generateWithRetries({
     pageType: 'back_cover',
@@ -1284,7 +1379,7 @@ export async function generateAllImages(
     sceneDescription: storyPlan.backCover?.sceneDescription || "",
     maxAttempts: 2,
     stopAtTier: 'good',
-    generateArgs: [heroPhotoUrl, tier, null, backRefs, storyPlan.backCover?.aspectRatio || "2:3", false],
+    generateArgs: [allCharacterPhotoUrls, tier, null, backStyleRefs, storyPlan.backCover?.aspectRatio || "2:3", false],
     onProgress: (url) => { if (onImageReady) onImageReady("backCover", url); },
   });
 
