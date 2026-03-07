@@ -454,6 +454,10 @@ export default async function handler(req, res) {
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
         const { key, value } = req.body;
         if (!key) return res.status(400).json({ error: 'key required' });
+        const validConfigKeys = ['validation_enabled', 'validation_strictness', 'max_retries',
+                                  'validate_all_pages', 'primary_image_model', 'max_generation_time',
+                                  'enable_narration'];
+        if (!validConfigKeys.includes(key)) return res.status(400).json({ error: 'Invalid config key' });
 
         await sb.from('admin_config').upsert({
           key: `config:${key}`,
@@ -484,6 +488,8 @@ export default async function handler(req, res) {
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
         const { section, text } = req.body;
         if (!section) return res.status(400).json({ error: 'section required' });
+        const validSections = ['cover', 'spread', 'backCover', 'systemPrompt', 'textBoxDesign', 'characterDesc'];
+        if (!validSections.includes(section)) return res.status(400).json({ error: 'Invalid prompt section' });
 
         if (text === null || text === '') {
           await sb.from('admin_config').delete().eq('key', `prompt:${section}`);

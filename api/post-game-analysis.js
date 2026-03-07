@@ -1,4 +1,6 @@
 import { logPostGameAnalysis, logEvent, logApiCall } from './lib/admin-logger.js';
+import { checkAdminAuth } from './lib/admin-auth-check.js';
+import { rateLimit } from './lib/rate-limiter.js';
 
 export const config = { maxDuration: 60 };
 
@@ -105,6 +107,18 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // This endpoint is expensive (multi-image Claude call) — require admin auth
+  const auth = checkAdminAuth(req);
+  if (!auth.authorized) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const rl = rateLimit(req, { key: 'post-game', limit: 10, windowMs: 60000 });
+  if (!rl.allowed) {
+    res.setHeader('Retry-After', Math.ceil((rl.resetAt - Date.now()) / 1000));
+    return res.status(429).json({ error: 'Too many requests. Please try again in a moment.' });
+  }
+
   const apiKey = process.env.ANTHROPIC_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'ANTHROPIC_KEY not configured' });
@@ -140,16 +154,30 @@ Review the following images from this book:`,
 
     for (const key of imageKeys) {
       const url = images?.[key];
-      if (url && typeof url === 'string' && url.startsWith('http')) {
+      if (url && typeof url === 'string' && url.startsWith('https')) {
+        // Basic SSRF protection: only allow known image CDN hosts
+        let urlHost;
+        try { urlHost = new URL(url).hostname; } catch { continue; }
+        const allowedHosts = ['replicate.delivery', 'replicate.com', 'pbxt.replicate.delivery'];
+        const isSupabase = urlHost.endsWith('.supabase.co');
+        if (!allowedHosts.some(h => urlHost === h || urlHost.endsWith('.' + h)) && !isSupabase) {
+          console.warn(`SSRF blocked in post-game: ${urlHost}`);
+          continue;
+        }
+
         content.push({
           type: 'text',
           text: `\n--- ${key.toUpperCase()} ---`,
         });
         // Download and convert to base64 — Claude API rejects URL source type with HTTP 400
         try {
-          const imgResp = await fetch(url);
+          const imgController = new AbortController();
+          const imgTimeout = setTimeout(() => imgController.abort(), 15000);
+          const imgResp = await fetch(url, { signal: imgController.signal });
+          clearTimeout(imgTimeout);
           if (!imgResp.ok) continue;
           const buffer = await imgResp.arrayBuffer();
+          if (buffer.byteLength > 20 * 1024 * 1024) continue; // skip images > 20MB
           const header = new Uint8Array(buffer.slice(0, 4));
           let mediaType = 'image/jpeg';
           if (header[0] === 0x89 && header[1] === 0x50) mediaType = 'image/png';
@@ -217,8 +245,8 @@ Review the following images from this book:`,
       } catch (logErr) {
         console.warn('logApiCall failed:', logErr.message);
       }
-      return res.status(response.status).json({
-        error: data.error?.message || 'Analysis API error',
+      return res.status(502).json({
+        error: 'Analysis service temporarily unavailable.',
       });
     }
 

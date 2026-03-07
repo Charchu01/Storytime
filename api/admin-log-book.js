@@ -56,9 +56,11 @@ export default async function handler(req, res) {
       const origin = /^https:\/\/[\w-]+\.vercel\.app$/.test(rawOrigin) || /^https?:\/\/localhost(:\d+)?$/.test(rawOrigin)
         ? rawOrigin : vercelUrl;
       try {
+        const pgHeaders = { 'Content-Type': 'application/json' };
+        if (process.env.ADMIN_PASSWORD) pgHeaders['Authorization'] = `Bearer ${process.env.ADMIN_PASSWORD}`;
         await fetch(`${origin}/api/post-game-analysis`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: pgHeaders,
           body: JSON.stringify({
             bookId,
             images: bookData.images,
