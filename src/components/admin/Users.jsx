@@ -14,11 +14,8 @@ export default function Users() {
         adminFetch(`/api/admin?action=users&page=${page}&limit=20`),
         adminFetch("/api/admin?action=daily_stats&days=7"),
       ]);
-      const u = await usersRes.json();
-      const s = await statsRes.json();
-      setUsers(u.users || []);
-      setTotal(u.total || 0);
-      setDailyStats(s.stats || []);
+      if (usersRes.ok) { const u = await usersRes.json(); setUsers(u.users || []); setTotal(u.total || 0); }
+      if (statsRes.ok) { const s = await statsRes.json(); setDailyStats(s.stats || []); }
     } catch (err) {
       console.error("Failed to fetch users:", err);
     }

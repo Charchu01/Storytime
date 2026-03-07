@@ -15,11 +15,8 @@ export default function Quality() {
         adminFetch("/api/admin?action=quality&limit=200"),
         adminFetch("/api/admin?action=insights"),
       ]);
-      const q = await qualRes.json();
-      const ins = await insightsRes.json();
-      setValidations(q.validations || []);
-      setTrends(q.trends || []);
-      setInsights(ins.insights);
+      if (qualRes.ok) { const q = await qualRes.json(); setValidations(q.validations || []); setTrends(q.trends || []); }
+      if (insightsRes.ok) { const ins = await insightsRes.json(); setInsights(ins.insights); }
     } catch (err) {
       console.error("Failed to fetch quality:", err);
     }
