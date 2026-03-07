@@ -62,7 +62,7 @@ export function logCost(type, model, success, durationMs, error) {
       error: error || null,
     });
     localStorage.setItem("st_costs", JSON.stringify(log.slice(-200)));
-  } catch {}
+  } catch (err) { console.warn("Cost logging failed:", err.message); }
 }
 
 // ── Image URL passthrough ────────────────────────────────────────────────────
@@ -797,13 +797,21 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
         // Retry once
         const retryRaw = await claudeCall(systemPrompt, userPrompt, maxTokens);
         const retryCleaned = retryRaw.replace(/```json\s*|```\s*/g, "").trim();
-        parsed = JSON.parse(retryCleaned);
+        try {
+          parsed = JSON.parse(retryCleaned);
+        } catch (retryErr) {
+          throw new Error(`Story JSON parse failed after retry: ${retryErr.message}`);
+        }
       }
     } else {
       // Retry once
       const retryRaw = await claudeCall(systemPrompt, userPrompt, maxTokens);
       const retryCleaned = retryRaw.replace(/```json\s*|```\s*/g, "").trim();
-      parsed = JSON.parse(retryCleaned);
+      try {
+        parsed = JSON.parse(retryCleaned);
+      } catch (retryErr) {
+        throw new Error(`Story JSON parse failed after retry: ${retryErr.message}`);
+      }
     }
   }
 

@@ -16,7 +16,7 @@ export default function StatusPage() {
         setAuthorized(true);
         return;
       }
-    } catch {}
+    } catch (err) { console.warn("Auth check failed:", err.message); }
     // If not authorized via Clerk, remain unauthorized
   }, []);
 
@@ -41,7 +41,7 @@ export default function StatusPage() {
     try {
       const log = JSON.parse(localStorage.getItem("st_costs") || "[]");
       setCosts(log);
-    } catch {}
+    } catch (err) { console.warn("Failed to load cost data:", err.message); }
   }, []);
 
   if (!authorized) {

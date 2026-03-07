@@ -28,8 +28,8 @@ function transformSupabaseBook(data) {
   const spreads = pages
     .filter(p => p.page_type === "spread")
     .map(p => ({
-      leftPageText: p.left_page_text || "",
-      rightPageText: p.right_page_text || "",
+      leftPageText: p.left_page_text ?? "",
+      rightPageText: p.right_page_text ?? "",
       scene: p.scene_description || "",
       layout: p.layout_type || "full",
       mood: "wonder",
@@ -98,7 +98,7 @@ export default function BookReaderPage() {
         if (cancelled) return;
 
         if (error || !data) {
-          setNotFound(true);
+          if (!cancelled) setNotFound(true);
           return;
         }
         setResolvedStory(transformSupabaseBook(data));

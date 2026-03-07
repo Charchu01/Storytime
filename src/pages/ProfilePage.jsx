@@ -59,8 +59,8 @@ export default function ProfilePage() {
           </div>
         ) : (
           <div className="prof-fam-grid">
-            {familyMembers.map((m, i) => (
-              <div key={i} className="prof-fam-card">
+            {familyMembers.map((m) => (
+              <div key={m.name} className="prof-fam-card">
                 <div className="prof-fam-av">
                   {m.photo && m.photo !== "has_photo" ? (
                     <img src={m.photo} alt={m.name} />

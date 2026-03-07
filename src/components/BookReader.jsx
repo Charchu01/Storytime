@@ -40,6 +40,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const narrationCache = useRef({});
   const touchStartX = useRef(null);
   const autoNarrateRef = useRef(false);
+  const goNextRef = useRef(null);
 
   // Build flat page array
   const flatPages = useMemo(() => {
@@ -91,6 +92,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
 
   const goNext = useCallback(() => goTo(currentIndex + 1), [currentIndex, goTo]);
   const goPrev = useCallback(() => goTo(currentIndex - 1), [currentIndex, goTo]);
+
+  // Keep ref in sync so async callbacks (narration) always call the latest goNext
+  useEffect(() => { goNextRef.current = goNext; }, [goNext]);
 
   // Keyboard nav
   useEffect(() => {
@@ -200,7 +204,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         audio.removeEventListener("ended", onEnded);
         setNarrating(false);
         if (autoNarrateRef.current) {
-          setTimeout(() => goNext(), 1200);
+          setTimeout(() => goNextRef.current?.(), 1200);
         }
       };
       audio.addEventListener("ended", onEnded);
