@@ -62,6 +62,7 @@ export default async function handler(req, res) {
     characterDescriptions,
     previousPageStyle,
     generationPrompt,
+    clientAttempt,
   } = req.body || {};
 
   if (!imageUrl) {
@@ -84,7 +85,7 @@ export default async function handler(req, res) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       console.log("VALIDATE_PRE_CALL:", JSON.stringify({
-        attempt: attempt + 1,
+        attempt: clientAttempt || (attempt + 1),
         hasApiKey: !!apiKey,
         apiKeyStart: apiKey?.substring(0, 10),
         imageUrl: imageUrl?.substring(0, 80),
@@ -217,7 +218,7 @@ export default async function handler(req, res) {
         }).catch(() => {});
         updateDailyApiStats('anthropic', errDuration, 0, true).catch(() => {});
         logValidation({
-          bookId: bookId || null, page: pageType, attempt: attempt + 1,
+          bookId: bookId || null, page: pageType, attempt: clientAttempt || (attempt + 1),
           textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
           formatOk: false, pass: false, issues: apiErrorResult.issues,
           fixNotes: `API error HTTP ${response.status}`,
@@ -289,7 +290,7 @@ export default async function handler(req, res) {
 
         console.log("IMG_VALIDATION:", JSON.stringify({
           pageType,
-          attempt: attempt + 1,
+          attempt: clientAttempt || (attempt + 1),
           pass: normalized.pass,
           textScore: normalized.textScore,
           faceScore: normalized.faceScore,
@@ -322,7 +323,7 @@ export default async function handler(req, res) {
         logValidation({
           bookId: bookId || null,
           page: pageType,
-          attempt: attempt + 1,
+          attempt: clientAttempt || (attempt + 1),
           textScore: normalized.textScore,
           faceScore: normalized.faceScore,
           textBoxScore: normalized.textBoxScore,
@@ -338,7 +339,7 @@ export default async function handler(req, res) {
           compositeScore: normalized.compositeScore,
           prompt: generationPrompt || null,
           imageUrl: imageUrl || null,
-        }).catch(e => console.warn('logValidation failed:', e.message));
+        }).catch(e => console.error('LOGVALIDATION_FAILED:', pageType, bookId, e.message));
 
         return res.json(normalized);
       } catch (parseErr) {
@@ -367,7 +368,7 @@ export default async function handler(req, res) {
         }).catch(() => {});
         updateDailyApiStats('anthropic', parseDuration, 0, true).catch(() => {});
         logValidation({
-          bookId: bookId || null, page: pageType, attempt: attempt + 1,
+          bookId: bookId || null, page: pageType, attempt: clientAttempt || (attempt + 1),
           textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
           formatOk: false, pass: false, issues: parseErrorResult.issues,
           fixNotes: 'Parse error', qualityTier: 'poor', compositeScore: 0,
@@ -377,7 +378,7 @@ export default async function handler(req, res) {
       }
     } catch (err) {
       console.error("VALIDATE_CATCH_ERROR:", JSON.stringify({
-        attempt: attempt + 1,
+        attempt: clientAttempt || (attempt + 1),
         message: err.message,
         name: err.name,
         status: err.status || null,
@@ -414,7 +415,7 @@ export default async function handler(req, res) {
       }).catch(() => {});
       updateDailyApiStats('anthropic', netDuration, 0, true).catch(() => {});
       logValidation({
-        bookId: bookId || null, page: pageType, attempt: attempt + 1,
+        bookId: bookId || null, page: pageType, attempt: clientAttempt || (attempt + 1),
         textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
         formatOk: false, pass: false, issues: networkErrorResult.issues,
         fixNotes: `Network error: ${err.message}`, qualityTier: 'poor', compositeScore: 0,

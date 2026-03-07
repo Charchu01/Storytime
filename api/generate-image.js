@@ -34,6 +34,7 @@ export default async function handler(req, res) {
       aspectRatio,
       isCover,
       bookId,
+      clientAttempt,
     } = req.body || {};
 
     if (!prompt) {
@@ -171,8 +172,8 @@ export default async function handler(req, res) {
       durationMs,
       model: modelUsed,
       cost: 0.045,
-      details: `${modelUsed} | ${imageInputs.length} refs`,
-    }).catch(e => console.warn('logApiCall failed:', e.message));
+      details: { summary: `${modelUsed} | ${imageInputs.length} refs`, attempt: clientAttempt || 1 },
+    }).catch(e => console.error('LOGAPICALL_FAILED:', bookId, e.message));
     updateDailyApiStats('replicate', durationMs, 0.045, false).catch(() => {});
 
     res.json({

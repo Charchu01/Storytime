@@ -25,9 +25,18 @@ export default async function handler(req, res) {
     const bookId = bookData.supabaseBookId || bookData.bookId || `book_${Date.now()}`;
 
     // Relink admin records (validations, api_calls) from temp bookId to real UUID
+    // MUST await — if this fails, the book detail stats will all show 0
     if (bookData.supabaseBookId && bookData.tempBookId && bookData.supabaseBookId !== bookData.tempBookId) {
-      relinkBookId(bookData.tempBookId, bookData.supabaseBookId)
-        .catch(err => console.warn('relinkBookId failed:', err.message));
+      for (let retryAttempt = 0; retryAttempt < 3; retryAttempt++) {
+        try {
+          const relinked = await relinkBookId(bookData.tempBookId, bookData.supabaseBookId);
+          if (relinked) break;
+          console.warn(`relinkBookId attempt ${retryAttempt + 1} returned false`);
+        } catch (err) {
+          console.error(`relinkBookId attempt ${retryAttempt + 1} failed:`, err.message);
+        }
+        if (retryAttempt < 2) await new Promise(r => setTimeout(r, 1000));
+      }
     }
 
     // Log event to activity_log

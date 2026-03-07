@@ -900,7 +900,7 @@ export async function generateAllImages(
         if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
 
         totalImageGenerations++;
-        const imageUrl = await generateImage(prompt, ...generateArgs, tempBookId);
+        const imageUrl = await generateImage(prompt, ...generateArgs, tempBookId, attempt + 1);
 
         if (!imageUrl || !(await validateImageUrl(imageUrl))) {
           allAttempts.push({
@@ -921,7 +921,7 @@ export async function generateAllImages(
             imageUrl, expectedTexts, heroName, artStyle, pageType,
             sceneDescription, tempBookId, heroPhotoUrl,
             characterDescriptions, textBoxStyleReference,
-            prompt
+            prompt, attempt + 1
           );
         } catch (valErr) {
           console.warn(`Validation call failed for ${pageType}:`, valErr.message);
