@@ -13,10 +13,10 @@ export default function Books() {
   const fetchBooks = useCallback(async () => {
     try {
       const res = await adminFetch(`/api/admin?action=books&page=${page}&limit=20`);
-      const data = await res.json();
       if (!res.ok) {
-        console.error("Books API error:", data.error || res.status);
+        console.error("Books API error:", res.status);
       } else {
+        const data = await res.json();
         setBooks(data.books || []);
         setTotal(data.total || 0);
       }
@@ -32,8 +32,8 @@ export default function Books() {
     setSelectedBook(bookId);
     try {
       const res = await adminFetch(`/api/admin?action=book&bookId=${bookId}`);
-      const data = await res.json();
-      setDetail(data);
+      if (!res.ok) { setDetail(null); return; }
+      setDetail(await res.json());
     } catch {
       setDetail(null);
     }

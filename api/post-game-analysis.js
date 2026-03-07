@@ -264,6 +264,6 @@ Review the following images from this book:`,
     return res.json({ success: true, analysis });
   } catch (err) {
     console.error('Post-game analysis error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Analysis unavailable. Please try again.' });
   }
 }

@@ -12,10 +12,8 @@ export default function Revenue() {
         adminFetch("/api/admin?action=revenue&days=30"),
         adminFetch("/api/admin?action=daily_stats&days=30"),
       ]);
-      const rev = await revRes.json();
-      const stats = await statsRes.json();
-      setRevenueData(rev.revenue || []);
-      setDailyStats(stats.stats || []);
+      if (revRes.ok) { const rev = await revRes.json(); setRevenueData(rev.revenue || []); }
+      if (statsRes.ok) { const stats = await statsRes.json(); setDailyStats(stats.stats || []); }
     } catch (err) {
       console.error("Failed to fetch revenue:", err);
     }

@@ -72,7 +72,7 @@ export default function AccountPage() {
         <div className="acct-plan-right">
           <div className="acct-price">$7.99<span>/month</span></div>
           <p className="acct-plan-desc">Get unlimited stories, PDF downloads, full AI narration, and 20% off printed books.</p>
-          <button className="acct-upgrade-btn" onClick={() => document.getElementById("upgrade-modal").showModal()}>
+          <button className="acct-upgrade-btn" onClick={() => document.getElementById("upgrade-modal")?.showModal()}>
             Upgrade Now →
           </button>
         </div>
@@ -86,7 +86,7 @@ export default function AccountPage() {
               <div style={{ fontSize: 48, textAlign: "center" }}>✓</div>
               <h3 className="acct-modal-h">You're on the list!</h3>
               <p className="acct-modal-p">We'll email you soon. 🎉</p>
-              <button className="acct-modal-close" onClick={() => document.getElementById("upgrade-modal").close()}>Close</button>
+              <button className="acct-modal-close" onClick={() => document.getElementById("upgrade-modal")?.close()}>Close</button>
             </>
           ) : (
             <>
@@ -95,7 +95,7 @@ export default function AccountPage() {
               <p className="acct-modal-p">We're putting the finishing touches on Pro. Join the waitlist for a special launch discount.</p>
               <input className="acct-modal-input" type="email" placeholder="your@email.com" value={waitlistEmail} onChange={(e) => setWaitlistEmail(e.target.value)} />
               <button className="acct-modal-btn" onClick={handleWaitlist}>Join the Waitlist</button>
-              <button className="acct-modal-cancel" onClick={() => document.getElementById("upgrade-modal").close()}>Cancel</button>
+              <button className="acct-modal-cancel" onClick={() => document.getElementById("upgrade-modal")?.close()}>Cancel</button>
             </>
           )}
         </div>

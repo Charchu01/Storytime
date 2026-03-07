@@ -1,4 +1,5 @@
 export default async function handler(_req, res) {
+  if (_req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   const result = {
     status: "ok",
     hasAnthropic: !!process.env.ANTHROPIC_KEY,

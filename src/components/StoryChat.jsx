@@ -173,7 +173,7 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
             <div className="sc-spark-grid">
               {suggestions.map((s, i) => (
                 <button
-                  key={i}
+                  key={s}
                   className={`sc-spark-card${s.includes('my own idea') ? ' sc-spark-card--custom' : ''}`}
                   onClick={() => handleSuggestionClick(s)}
                   style={{ animationDelay: `${i * 80}ms` }}
@@ -208,7 +208,7 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
               <div className="sc-suggestions">
                 {suggestions.map((s, i) => (
                   <button
-                    key={i}
+                    key={s}
                     className="sc-suggestion-chip"
                     onClick={() => handleSuggestionClick(s)}
                     style={{ animationDelay: `${i * 50}ms` }}

@@ -32,7 +32,7 @@ export default function APIs() {
       setFetchError(null);
     } catch (err) {
       console.error("Failed to fetch API data:", err);
-      setFetchError(`Failed to connect: ${err.message}`);
+      setFetchError('Failed to connect to admin API. Please try again.');
     }
     setLoading(false);
   }, []);

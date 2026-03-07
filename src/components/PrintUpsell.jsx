@@ -17,13 +17,13 @@ export default function PrintUpsell({ onDismiss }) {
 
   function handleEmailSubmit(e) {
     e.preventDefault();
-    if (email.trim()) {
+    if (email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setSubmitted(true);
       try {
         const waitlist = JSON.parse(localStorage.getItem("sk_print_waitlist") || "[]");
         waitlist.push({ email, date: new Date().toISOString() });
         localStorage.setItem("sk_print_waitlist", JSON.stringify(waitlist));
-      } catch {}
+      } catch (err) { console.warn('Failed to save print waitlist:', err.message); }
     }
   }
 

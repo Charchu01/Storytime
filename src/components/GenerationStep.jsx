@@ -340,12 +340,12 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on mount and when started is reset for retry
   useEffect(() => {
-    if (!started) {
+    if (!started && !loading) {
       setStarted(true);
       handleGenerate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [started]);
 
   async function handleGenerate() {
     setLoading(true);
@@ -370,7 +370,6 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
             "We couldn't upload the photo. Please check your connection and try again."
           );
         }
-        console.log("Hero photo uploaded:", heroPhotoUrl.substring(0, 60));
         companionPhotoUrls = await uploadCompanionPhotos(enrichedCast);
       }
 
@@ -500,7 +499,6 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
               if (updatedPages.some((p, i) => p.image_url !== bookPages[i].image_url)) {
                 saveBookToSupabase({ ...bookMeta }, updatedPages, clerkId, supabaseBookId)
                   .catch(err => console.warn('PERMANENT_URL_SAVE_FAILED:', err.message));
-                console.log('PERMANENT_URL_UPDATE: Updated book pages with permanent Supabase URLs');
               }
             }).catch(err => console.warn('PERMANENT_URL_UPDATE_FAILED:', err.message));
           }

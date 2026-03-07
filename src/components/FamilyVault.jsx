@@ -38,7 +38,7 @@ export default function FamilyVault({ userId = "anonymous" }) {
 
   function handleUseCharacter(character) {
     // Store in sessionStorage for CreatePage to pick up
-    sessionStorage.setItem("sk_vault_char", JSON.stringify(character));
+    try { sessionStorage.setItem("sk_vault_char", JSON.stringify(character)); } catch { /* storage unavailable */ }
     navigate("/create?vaultChar=1");
   }
 

@@ -188,6 +188,9 @@ export default async function handler(req, res) {
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: "messages array is required" });
     }
+    if (messages.length > 50) {
+      return res.status(400).json({ error: "Too many messages. Please start a new conversation." });
+    }
 
     // Build the system prompt with all pre-collected context
     const system = buildSystemPrompt({
@@ -260,8 +263,8 @@ export default async function handler(req, res) {
       } catch (logErr) {
         console.warn('logApiCall failed:', logErr.message);
       }
-      return res.status(response.status).json({
-        error: data.error?.message || "Anthropic API error",
+      return res.status(response.status >= 500 ? 502 : response.status).json({
+        error: "Story assistant is temporarily unavailable. Please try again.",
       });
     }
 
@@ -315,6 +318,6 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error("Chat assistant error:", err);
-    return res.status(500).json({ error: `Chat assistant failed: ${err.message}` });
+    return res.status(500).json({ error: 'Chat assistant unavailable. Please try again.' });
   }
 }

@@ -245,6 +245,6 @@ Return JSON:
     return res.json({ success: true, insights: insightsRecord });
   } catch (err) {
     console.error('Insights engine error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Insights engine unavailable. Please try again.' });
   }
 }

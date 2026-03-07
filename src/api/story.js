@@ -1,6 +1,19 @@
 import { claudeCall, generateImage, uploadPhoto, validateImage, saveBookImage } from "./client";
 import { ROLES, STYLES, WORLDS, OCCASIONS, THEMES } from "../constants/data";
 
+// ── Prompt injection sanitization ─────────────────────────────────────────────
+// Strip characters that could be used for prompt injection in user-supplied text
+function sanitizeForPrompt(text) {
+  if (!text) return text;
+  return String(text)
+    .replace(/["""]/g, "'")       // normalize quotes to single
+    .replace(/[`]/g, "'")         // backticks to single quotes
+    .replace(/[\r\n]+/g, " ")     // collapse newlines (prevent instruction injection)
+    .replace(/[^\p{L}\p{N}\p{P}\p{Zs}\p{Emoji}]/gu, "") // keep letters, numbers, punctuation, spaces, emoji
+    .trim()
+    .slice(0, 200);               // hard length limit
+}
+
 // ── Face-ref-lost tracking ───────────────────────────────────────────────────
 export const imageGenFlags = { faceRefLostCount: 0 };
 
@@ -142,7 +155,7 @@ function buildCharacterDescription(cast) {
       const role = ROLES.find((r) => r.id === character.role)?.label || character.role;
       const age = character.age ? `, age ${character.age}` : "";
       const photoNote = character.photo ? " (photo provided)" : "";
-      return `${character.name} (${role}${age})${photoNote}`;
+      return `${sanitizeForPrompt(character.name)} (${role}${age})${photoNote}`;
     })
     .join(", ");
 }
@@ -169,7 +182,7 @@ Write an EXTREMELY specific and vivid visual description (4-6 sentences):
 
 Format as a single flowing paragraph. Do NOT mention clothing. Do NOT use vague terms. Write in third person.
 ${isAdult ? "\nIMPORTANT: This person is an ADULT. Do NOT describe them as a child. Use adult body proportions and features." : ""}`,
-      `This is ${character.name}, a ${role}${ageNote}. Look at the photo carefully and describe EXACTLY what you see — their real physical appearance.`,
+      `This is ${sanitizeForPrompt(character.name)}, a ${role}${ageNote}. Look at the photo carefully and describe EXACTLY what you see — their real physical appearance.`,
       400,
       photoDataUri
     );
@@ -246,18 +259,18 @@ function assembleImagePrompt({
   // ═══════════════════════════════════════════════════════════════
   if (isCover) {
     const companionRefLines = companionNames.map((name, i) =>
-      `- Image ${i + 2}: Photo of ${name} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`
+      `- Image ${i + 2}: Photo of ${sanitizeForPrompt(name)} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`
     ).join("\n");
 
     sections.push(
 `REFERENCE IMAGES:
-- Image 1: Photograph of ${heroName}. Match their EXACT facial features, head shape, hair, and skin tone. Transform into illustrated art style — NOT photorealistic.${companionRefLines ? "\n" + companionRefLines : ""}`
+- Image 1: Photograph of ${sanitizeForPrompt(heroName)}. Match their EXACT facial features, head shape, hair, and skin tone. Transform into illustrated art style — NOT photorealistic.${companionRefLines ? "\n" + companionRefLines : ""}`
     );
 
     sections.push(
 `CHARACTER:
 ${characterAppearances.hero}
-${heroName}'s face MUST match Image 1. Transform into illustrated style.`
+${sanitizeForPrompt(heroName)}'s face MUST match Image 1. Transform into illustrated style.`
     );
 
     if (characterAppearances.supporting) {
@@ -275,7 +288,7 @@ ${heroName}'s face MUST match Image 1. Transform into illustrated style.`
     const titleText = pageTexts?.[0] || "Untitled";
     sections.push(
 `TITLE TEXT:
-The title "${titleText}" must be rendered as LARGE, beautiful hand-lettered text that is PART OF the illustration — not a separate text box.
+The title "${sanitizeForPrompt(titleText)}" must be rendered as LARGE, beautiful hand-lettered text that is PART OF the illustration — not a separate text box.
 
 Title requirements:
 - Takes up 30-50% of the cover area (upper portion)
@@ -292,7 +305,7 @@ DO NOT put the title in a box, frame, banner, or rectangle. The title is PAINTED
     if (authorName) {
       sections.push(
 `AUTHOR NAME:
-Render "By ${authorName}" in small, elegant text near the bottom of the cover.
+Render "By ${sanitizeForPrompt(authorName)}" in small, elegant text near the bottom of the cover.
 - Much smaller than the title (about 1/6th the size)
 - Same style family as the title but thinner/lighter weight
 - Positioned at bottom centre or bottom right
@@ -304,7 +317,7 @@ Render "By ${authorName}" in small, elegant text near the bottom of the cover.
     if (subtitleText) {
       sections.push(
 `SUBTITLE:
-Render "${subtitleText}" in small decorative text below the title or above the author name.
+Render "${sanitizeForPrompt(subtitleText)}" in small decorative text below the title or above the author name.
 - Smaller than the title, similar size to author name
 - Elegant, warm, integrated into the art
 - Not in a box — just floating text with subtle shadow for readability`
@@ -340,20 +353,20 @@ This is the COVER — the most polished, beautiful image in the entire book. Gal
   // ═══════════════════════════════════════════════════════════════
   if (isBackCover) {
     const companionRefLines = companionNames.map((name, i) =>
-      `- Image ${i + 4}: Photo of ${name} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`
+      `- Image ${i + 4}: Photo of ${sanitizeForPrompt(name)} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`
     ).join("\n");
 
     sections.push(
 `REFERENCE IMAGES:
-- Image 1: Photograph of ${heroName}. Match their EXACT facial features, head shape, hair, skin tone, and ethnicity. Transform into illustrated art style — NOT photorealistic.
+- Image 1: Photograph of ${sanitizeForPrompt(heroName)}. Match their EXACT facial features, head shape, hair, skin tone, and ethnicity. Transform into illustrated art style — NOT photorealistic.
 - Image 2: The COVER of this book — your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and character rendering.
-- Image 3: The PREVIOUS SPREAD from this book. ${heroName} must look IDENTICAL to how they appear in this image. Same skin tone, same hair, same clothing style, same illustrated rendering.${companionRefLines ? "\n" + companionRefLines : ""}`
+- Image 3: The PREVIOUS SPREAD from this book. ${sanitizeForPrompt(heroName)} must look IDENTICAL to how they appear in this image. Same skin tone, same hair, same clothing style, same illustrated rendering.${companionRefLines ? "\n" + companionRefLines : ""}`
     );
 
     sections.push(
 `CHARACTER:
 ${characterAppearances.hero}
-${heroName}'s face MUST match Image 1 (the photo). Their illustrated style MUST match Image 2 and Image 3 (previous pages).
+${sanitizeForPrompt(heroName)}'s face MUST match Image 1 (the photo). Their illustrated style MUST match Image 2 and Image 3 (previous pages).
 CRITICAL: Match the EXACT skin tone, ethnicity, and hair from the photo. Do NOT change the character's race or appearance.`
     );
 
@@ -390,29 +403,29 @@ The character must be rendered in the SAME illustrated style as Image 2 and Imag
   // ═══════════════════════════════════════════════════════════════
   const companionRefLines = companionNames.map((name, i) => {
     const imgNum = isFirstSpread ? i + 3 : i + 4;
-    return `- Image ${imgNum}: Photo of ${name} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`;
+    return `- Image ${imgNum}: Photo of ${sanitizeForPrompt(name)} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`;
   }).join("\n");
 
   if (isFirstSpread) {
     sections.push(
 `REFERENCE IMAGES:
-- Image 1: Photo of ${heroName} — match EXACT facial features.
+- Image 1: Photo of ${sanitizeForPrompt(heroName)} — match EXACT facial features.
 - Image 2: The COVER of this book — your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and text box design on this page.${companionRefLines ? "\n" + companionRefLines : ""}`
     );
   } else {
     sections.push(
 `REFERENCE IMAGES:
-- Image 1: Photo of ${heroName} — match EXACT facial features.
+- Image 1: Photo of ${sanitizeForPrompt(heroName)} — match EXACT facial features.
 - Image 2: The COVER of this book — your STYLE BIBLE. Match this exact art style.
-- Image 3: The PREVIOUS SPREAD. Maintain visual continuity. ${heroName} must look IDENTICAL to this image. Same style, same colour temperature.${companionRefLines ? "\n" + companionRefLines : ""}`
+- Image 3: The PREVIOUS SPREAD. Maintain visual continuity. ${sanitizeForPrompt(heroName)} must look IDENTICAL to this image. Same style, same colour temperature.${companionRefLines ? "\n" + companionRefLines : ""}`
     );
   }
 
   sections.push(
 `CHARACTER:
 ${characterAppearances.hero}
-${heroName}'s face MUST match Image 1 (the photo). Match their EXACT skin tone, ethnicity, hair colour, and facial features. Do NOT change the character's race or skin colour.
-When in doubt, match the photo. NOT photorealistic — illustrated style.${!isFirstSpread ? `\n${heroName} must look IDENTICAL to how they appear in Image 3 (previous spread). Same skin tone, same features, same clothing.` : ""}`
+${sanitizeForPrompt(heroName)}'s face MUST match Image 1 (the photo). Match their EXACT skin tone, ethnicity, hair colour, and facial features. Do NOT change the character's race or skin colour.
+When in doubt, match the photo. NOT photorealistic — illustrated style.${!isFirstSpread ? `\n${sanitizeForPrompt(heroName)} must look IDENTICAL to how they appear in Image 3 (previous spread). Same skin tone, same features, same clothing.` : ""}`
   );
 
   if (characterAppearances.supporting) {
@@ -509,7 +522,7 @@ function buildMasterSystemPrompt(cast, heroName, heroAge, styleName, tone, forma
   const heroRole = heroChar?.role || "child";
   const isAdultHero = heroRole === "adult" || (heroAge && parseInt(heroAge, 10) >= 16);
 
-  let castDesc = `MAIN CHARACTER: ${heroName}`;
+  let castDesc = `MAIN CHARACTER: ${sanitizeForPrompt(heroName)}`;
   if (isAdultHero) {
     castDesc += heroAge ? `, ${heroAge} years old (ADULT — adult proportions, adult face, adult body)` : ` (ADULT — adult proportions, adult face, adult body)`;
   } else if (heroAge) {
@@ -531,7 +544,7 @@ function buildMasterSystemPrompt(cast, heroName, heroAge, styleName, tone, forma
       child: 'Child', baby: 'Baby', partner: 'Partner', other: 'Companion',
     };
     const role = roleMap[c.role] || c.role;
-    castDesc += `\n${c.name}: ${role}`;
+    castDesc += `\n${sanitizeForPrompt(c.name)}: ${role}`;
     if (c.appearanceDescription) {
       castDesc += ` — ${c.appearanceDescription}`;
     }
@@ -574,7 +587,7 @@ ${bookTypePrompt}
 ═══ YOUR CHARACTERS ═══
 ${castDesc}
 
-${personalIngredient ? `EMOTIONAL CORE: "${personalIngredient}" — weave this into the story's heart.` : ""}
+${personalIngredient ? `EMOTIONAL CORE: "${sanitizeForPrompt(personalIngredient)}" — weave this into the story's heart.` : ""}
 ${occasionPrompt ? `OCCASION: ${occasionPrompt}` : ""}
 ${themeLabel ? `THEME/LESSON: The story should explore the theme of "${themeLabel}".` : ""}
 ${worldVocab ? `SETTING: Use this visual vocabulary for the world: ${worldVocab}` : ""}
@@ -755,11 +768,11 @@ function buildMasterUserPrompt(wizardData) {
 
   return `Create a personalized children's ${bookTypeLabel}.
 
-Hero: ${wizardData.heroName}${wizardData.heroAge ? ` (age ${wizardData.heroAge})` : ""}
-Story idea: ${wizardData.storyIdea || wizardData.sparkText || wizardData.spark || "A magical adventure"}
-${wizardData.personalIngredient ? `Personal detail: "${wizardData.personalIngredient}"` : ""}
+Hero: ${sanitizeForPrompt(wizardData.heroName)}${wizardData.heroAge ? ` (age ${wizardData.heroAge})` : ""}
+Story idea: ${sanitizeForPrompt(wizardData.storyIdea || wizardData.sparkText || wizardData.spark || "A magical adventure")}
+${wizardData.personalIngredient ? `Personal detail: "${sanitizeForPrompt(wizardData.personalIngredient)}"` : ""}
 ${wizardData.tone ? `Mood: ${wizardData.tone}` : ""}
-${wizardData.details ? `Extra details: ${wizardData.details}` : ""}
+${wizardData.details ? `Extra details: ${sanitizeForPrompt(wizardData.details)}` : ""}
 
 Write the story, then design every spread with complete image prompts. Make it magical, personal, and visually stunning.`;
 }
@@ -821,12 +834,12 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
   }
 
   // Ensure each spread has required fields
-  parsed.spreads = parsed.spreads.map((spread, i) => ({
-    spreadNumber: spread.spreadNumber || i + 1,
-    leftPageText: spread.leftPageText || "",
-    rightPageText: spread.rightPageText || "",
-    sceneDescription: spread.sceneDescription || spread.imagePrompt || "",
-    aspectRatio: spread.aspectRatio || "4:3",
+  parsed.spreads = parsed.spreads.filter(Boolean).map((spread, i) => ({
+    spreadNumber: spread?.spreadNumber || i + 1,
+    leftPageText: spread?.leftPageText || "",
+    rightPageText: spread?.rightPageText || "",
+    sceneDescription: spread?.sceneDescription || spread?.imagePrompt || "",
+    aspectRatio: spread?.aspectRatio || "4:3",
   }));
 
   // Ensure cover and back cover
@@ -845,7 +858,7 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
   }
 
   // Ensure top-level fields for prompt assembly
-  parsed.characterAppearances = parsed.characterAppearances || { hero: `${storyData.heroName || "the character"}`, supporting: {} };
+  parsed.characterAppearances = parsed.characterAppearances || { hero: `${sanitizeForPrompt(storyData.heroName) || "the character"}`, supporting: {} };
   parsed.textBoxDesign = parsed.textBoxDesign || "Soft cloud/speech-bubble shape, smooth rounded edges, semi-transparent white/cream fill, thin warm border, hand-drawn/handwritten font (not cursive, not serif), 25-35% of image area, IDENTICAL on every page";
   parsed.artStyle = parsed.artStyle || getNanoStyle(styleName);
 
@@ -1029,7 +1042,7 @@ export async function generateAllImages(
   if (coverResult) {
     images.cover = coverResult.imageUrl;
     previousImageUrl = coverResult.imageUrl;
-    logCost("nano_banana", tier, true, 0, null);
+    logCost("nano_banana", "nano-banana-pro", true, 0, null);
     savePromises.push(
       saveBookImage(coverResult.imageUrl, tempBookId, 'cover', 0)
         .then(permanentUrl => { if (permanentUrl && permanentUrl !== coverResult.imageUrl) permanentImages.cover = permanentUrl; })
@@ -1080,7 +1093,7 @@ export async function generateAllImages(
     if (spreadResult) {
       images[`spread_${i}`] = spreadResult.imageUrl;
       previousImageUrl = spreadResult.imageUrl;
-      logCost("nano_banana", tier, true, 0, null);
+      logCost("nano_banana", "nano-banana-pro", true, 0, null);
       savePromises.push(
         saveBookImage(spreadResult.imageUrl, tempBookId, 'spread', i)
           .then(permanentUrl => { if (permanentUrl && permanentUrl !== spreadResult.imageUrl) permanentImages[`spread_${i}`] = permanentUrl; })
@@ -1128,7 +1141,7 @@ export async function generateAllImages(
 
   if (backResult) {
     images.backCover = backResult.imageUrl;
-    logCost("nano_banana", tier, true, 0, null);
+    logCost("nano_banana", "nano-banana-pro", true, 0, null);
     savePromises.push(
       saveBookImage(backResult.imageUrl, tempBookId, 'back_cover', 0)
         .then(permanentUrl => { if (permanentUrl && permanentUrl !== backResult.imageUrl) permanentImages.backCover = permanentUrl; })
@@ -1250,7 +1263,7 @@ export async function editPageText(currentText, instruction, cast) {
   const characterNames = cast.map((c) => c.name).join(", ");
   return claudeCall(
     "Edit a single children's book page. Return ONLY the new text — exactly 2-3 sentences, warm picture-book voice. No quotes or extra formatting.",
-    `Current text: "${currentText}"\nInstruction: "${instruction}"\nCharacters: ${characterNames}`,
+    `Current text: "${sanitizeForPrompt(currentText)}"\nInstruction: "${sanitizeForPrompt(instruction)}"\nCharacters: ${sanitizeForPrompt(characterNames)}`,
     200
   );
 }

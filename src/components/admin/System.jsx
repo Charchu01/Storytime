@@ -20,13 +20,10 @@ export default function System() {
         adminFetch("/api/admin?action=get_prompts"),
         adminFetch("/api/admin?action=experiments"),
       ]);
-      setHealth(await healthRes.json());
-      const cfg = await configRes.json();
-      setConfig(cfg.config || {});
-      const prm = await promptsRes.json();
-      setPrompts(prm.prompts || {});
-      const exp = await expRes.json();
-      setExperiments(exp.experiments || []);
+      if (healthRes.ok) setHealth(await healthRes.json());
+      if (configRes.ok) { const cfg = await configRes.json(); setConfig(cfg.config || {}); }
+      if (promptsRes.ok) { const prm = await promptsRes.json(); setPrompts(prm.prompts || {}); }
+      if (expRes.ok) { const exp = await expRes.json(); setExperiments(exp.experiments || []); }
     } catch (err) {
       console.error("Failed to fetch system data:", err);
     }

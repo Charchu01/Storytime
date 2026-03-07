@@ -25,6 +25,6 @@ export default async function handler(req, res) {
     res.json({ paid: !!data?.paid, tier: data?.tier || null });
   } catch (err) {
     console.error('check-payment error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Payment verification failed. Please try again.' });
   }
 }

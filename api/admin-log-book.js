@@ -76,6 +76,6 @@ export default async function handler(req, res) {
     return res.json({ success: true, bookId });
   } catch (err) {
     console.error('Admin log book error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Failed to log book. Please try again.' });
   }
 }
