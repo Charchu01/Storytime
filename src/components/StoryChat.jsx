@@ -199,7 +199,7 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
         ) : (
           <>
             {visibleMessages.map((msg, i) => (
-              <ChatBubble key={i} message={msg} />
+              <ChatBubble key={msg.timestamp || i} message={msg} />
             ))}
 
             {/* Suggestion chips for follow-up questions */}

@@ -104,7 +104,7 @@ export default function Navbar() {
             <AuthSection />
           </div>
 
-          <button className="gn-burger" onClick={() => setDrawerOpen(true)} aria-label="Menu">
+          <button className="gn-burger" onClick={() => setDrawerOpen(true)} aria-label="Menu" aria-expanded={drawerOpen}>
             <span /><span /><span />
           </button>
         </div>

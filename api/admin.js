@@ -90,8 +90,8 @@ export default async function handler(req, res) {
 
       // ── Books List ───────────────────────────────────────────
       case 'books': {
-        const page = parseInt(req.query.page) || 0;
-        const limit = parseInt(req.query.limit) || 20;
+        const page = Math.max(parseInt(req.query.page) || 0, 0);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
         const offset = page * limit;
 
         const { data: books, count } = await sb.from('books')
@@ -313,8 +313,8 @@ export default async function handler(req, res) {
 
       // ── Users ────────────────────────────────────────────────
       case 'users': {
-        const page = parseInt(req.query.page) || 0;
-        const limit = parseInt(req.query.limit) || 20;
+        const page = Math.max(parseInt(req.query.page) || 0, 0);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
         const offset = page * limit;
 
         const { data: users, count } = await sb.from('users')

@@ -19,10 +19,12 @@ export default function InstallPrompt() {
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
 
     // Show prompt 30s after first story is created
+    let showTimer = null;
     function checkStories() {
       const stories = JSON.parse(localStorage.getItem("sk_stories") || "[]");
-      if (stories.length > 0 && deferredPrompt.current) {
-        setTimeout(() => setShow(true), 30000);
+      if (stories.length > 0 && deferredPrompt.current && !showTimer) {
+        showTimer = setTimeout(() => setShow(true), 30000);
+        clearInterval(interval);
       }
     }
 
@@ -31,6 +33,7 @@ export default function InstallPrompt() {
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
       clearInterval(interval);
+      if (showTimer) clearTimeout(showTimer);
     };
   }, []);
 

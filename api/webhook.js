@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     if (storySessionId) {
       // Record payment in Supabase (replaces Vercel KV)
       if (supabaseAdmin) {
-        await supabaseAdmin.from('payment_records').upsert({
+        const { error: upsertErr } = await supabaseAdmin.from('payment_records').upsert({
           session_id: storySessionId,
           paid: true,
           tier,
@@ -37,6 +37,9 @@ export default async function handler(req, res) {
           paid_at: new Date().toISOString(),
           expires_at: new Date(Date.now() + 86400 * 1000).toISOString(),
         }, { onConflict: 'session_id' });
+        if (upsertErr) {
+          console.error('PAYMENT_RECORD_UPSERT_FAILED:', pi.id, upsertErr.message);
+        }
       }
 
       // Admin logging: revenue — await before response

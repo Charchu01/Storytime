@@ -22,9 +22,11 @@ export default function Overview() {
       }
 
       const overview = await overviewRes.json();
-      const healthData = await healthRes.json();
       setData(overview);
-      setHealth(healthData);
+      if (healthRes.ok) {
+        const healthData = await healthRes.json();
+        setHealth(healthData);
+      }
       setError(null);
     } catch (err) {
       console.error("Failed to fetch overview:", err);

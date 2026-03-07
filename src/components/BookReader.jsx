@@ -347,7 +347,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER: Page-by-Page Viewer
   // ═══════════════════════════════════════════════════════════════════════════
-  const current = flatPages[currentIndex] || flatPages[0];
+  const current = flatPages[currentIndex] || flatPages[0] || { type: "cover", imageUrl: null };
   const canEdit = current?.type === "spread" || current?.type === "page";
 
   return (
