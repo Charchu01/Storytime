@@ -20,7 +20,7 @@ function loadDraft() {
   catch { return null; }
 }
 
-function clearDraft() { localStorage.removeItem(DRAFT_KEY); }
+function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch { /* storage unavailable */ } }
 
 // ── Wizard context shared across all /create/* routes ──────────────────────
 const CreateWizardContext = createContext();

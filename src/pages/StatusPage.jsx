@@ -23,6 +23,7 @@ export default function StatusPage() {
   const fetchHealth = useCallback(async () => {
     try {
       const res = await fetch("/api/health");
+      if (!res.ok) throw new Error(`Health check returned ${res.status}`);
       const data = await res.json();
       setHealth(data);
     } catch (err) {

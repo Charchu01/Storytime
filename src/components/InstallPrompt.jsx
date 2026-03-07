@@ -10,9 +10,11 @@ export default function InstallPrompt() {
 
   useEffect(() => {
     // Don't show if already dismissed, already installed, or cookie banner still visible
-    if (localStorage.getItem("sk_install_dismissed")) return;
-    if (window.matchMedia("(display-mode: standalone)").matches) return;
-    if (!localStorage.getItem("sk_cookies_accepted")) return;
+    try {
+      if (localStorage.getItem("sk_install_dismissed")) return;
+      if (window.matchMedia("(display-mode: standalone)").matches) return;
+      if (!localStorage.getItem("sk_cookies_accepted")) return;
+    } catch { return; /* storage unavailable — don't show prompt */ }
 
     function handleBeforeInstall(e) {
       e.preventDefault();
@@ -38,7 +40,7 @@ export default function InstallPrompt() {
   }
 
   function dismiss() {
-    localStorage.setItem("sk_install_dismissed", "1");
+    try { localStorage.setItem("sk_install_dismissed", "1"); } catch {}
     setShow(false);
   }
 

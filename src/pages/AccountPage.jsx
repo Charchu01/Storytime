@@ -20,7 +20,8 @@ export default function AccountPage() {
       addToast("Please enter a valid email address", "error");
       return;
     }
-    localStorage.setItem("sk_waitlist_email", waitlistEmail);
+    try { localStorage.setItem("sk_waitlist_email", waitlistEmail); }
+    catch { /* storage unavailable */ }
     setWaitlistDone(true);
     addToast("You're on the list! 🎉", "success");
   }

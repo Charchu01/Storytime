@@ -155,16 +155,19 @@ export default function BookReaderPage() {
 
   useEffect(() => {
     if (!story || id === "demo") return;
-    const dismissed = localStorage.getItem(`sk_print_dismissed_${id}`);
-    if (!dismissed) {
-      const timer = setTimeout(() => setShowPrint(true), 2000);
-      return () => clearTimeout(timer);
-    }
+    try {
+      const dismissed = localStorage.getItem(`sk_print_dismissed_${id}`);
+      if (!dismissed) {
+        const timer = setTimeout(() => setShowPrint(true), 2000);
+        return () => clearTimeout(timer);
+      }
+    } catch { /* storage unavailable */ }
   }, [story, id]);
 
   function handleDismissPrint() {
     setShowPrint(false);
-    localStorage.setItem(`sk_print_dismissed_${id}`, "1");
+    try { localStorage.setItem(`sk_print_dismissed_${id}`, "1"); }
+    catch { /* storage unavailable */ }
   }
 
   if (id === "demo" && !demoData) {

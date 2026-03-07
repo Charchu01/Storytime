@@ -32,13 +32,15 @@ export default function ProfilePage() {
     return Array.from(seen.values());
   }, [stories]);
 
-  const [defaultLength, setDefaultLength] = useState(
-    () => localStorage.getItem("sk_pref_length") || "6"
-  );
+  const [defaultLength, setDefaultLength] = useState(() => {
+    try { return localStorage.getItem("sk_pref_length") || "6"; }
+    catch { return "6"; }
+  });
 
   function handleLengthChange(val) {
     setDefaultLength(val);
-    localStorage.setItem("sk_pref_length", val);
+    try { localStorage.setItem("sk_pref_length", val); }
+    catch { /* storage unavailable */ }
   }
 
   return (

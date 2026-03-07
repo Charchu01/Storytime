@@ -5,14 +5,16 @@ export default function CookieBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!localStorage.getItem("sk_cookies_accepted")) {
-      const timer = setTimeout(() => setVisible(true), 500);
-      return () => clearTimeout(timer);
-    }
+    try {
+      if (!localStorage.getItem("sk_cookies_accepted")) {
+        const timer = setTimeout(() => setVisible(true), 500);
+        return () => clearTimeout(timer);
+      }
+    } catch { /* storage unavailable — don't show banner */ }
   }, []);
 
   function accept() {
-    localStorage.setItem("sk_cookies_accepted", "1");
+    try { localStorage.setItem("sk_cookies_accepted", "1"); } catch {}
     setVisible(false);
   }
 
