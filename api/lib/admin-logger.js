@@ -221,24 +221,33 @@ export async function logValidation(validationData) {
 
 export async function relinkBookId(tempBookId, realBookId) {
   const sb = getSb();
-  if (!sb || !tempBookId || !realBookId) return;
+  if (!sb || !tempBookId || !realBookId) {
+    console.error('RELINK_SKIP: missing params', { hasSb: !!sb, tempBookId, realBookId });
+    return false;
+  }
   try {
     // Update admin_validations
     const { error: valErr, count: valCount } = await sb.from('admin_validations')
       .update({ book_id: realBookId })
       .eq('book_id', tempBookId);
-    if (valErr) console.warn('relinkBookId validations error:', valErr.message);
+    if (valErr) console.error('RELINK_VALIDATIONS_ERROR:', valErr.message, valErr.details, valErr.hint);
 
     // Update admin_api_calls
     const { error: apiErr, count: apiCount } = await sb.from('admin_api_calls')
       .update({ book_id: realBookId })
       .eq('book_id', tempBookId);
-    if (apiErr) console.warn('relinkBookId api_calls error:', apiErr.message);
+    if (apiErr) console.error('RELINK_API_CALLS_ERROR:', apiErr.message, apiErr.details, apiErr.hint);
 
-    console.log(`RELINK_BOOK_ID: ${tempBookId} → ${realBookId} (validations: ${valCount || '?'}, api_calls: ${apiCount || '?'})`);
-    return true;
+    // Update activity_log
+    const { error: logErr } = await sb.from('activity_log')
+      .update({ book_id: realBookId })
+      .eq('book_id', tempBookId);
+    if (logErr) console.warn('RELINK_ACTIVITY_LOG_ERROR:', logErr.message);
+
+    console.log(`RELINK_BOOK_ID: ${tempBookId} → ${realBookId} (validations: ${valCount || 0}, api_calls: ${apiCount || 0})`);
+    return !valErr && !apiErr;
   } catch (err) {
-    console.error('relinkBookId error:', err.message);
+    console.error('RELINK_BOOK_ID_FATAL:', err.message, err.stack);
     return false;
   }
 }

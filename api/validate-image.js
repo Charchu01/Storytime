@@ -62,6 +62,7 @@ export default async function handler(req, res) {
     characterDescriptions,
     previousPageStyle,
     generationPrompt,
+    clientAttempt,
   } = req.body || {};
 
   if (!imageUrl) {
@@ -84,7 +85,7 @@ export default async function handler(req, res) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       console.log("VALIDATE_PRE_CALL:", JSON.stringify({
-        attempt: attempt + 1,
+        attempt: clientAttempt || (attempt + 1),
         hasApiKey: !!apiKey,
         apiKeyStart: apiKey?.substring(0, 10),
         imageUrl: imageUrl?.substring(0, 80),
@@ -208,22 +209,24 @@ export default async function handler(req, res) {
         };
         console.error("VALIDATION_API_ERROR:", JSON.stringify({ pageType, status: response.status, error: data.error?.message }));
         const errDuration = Date.now() - (req._adminStartTime || Date.now());
-        logApiCall({
-          service: 'anthropic', type: 'validation', bookId: bookId || null,
-          status: response.status, durationMs: errDuration,
-          model: 'claude-sonnet-4-20250514', cost: 0,
-          error: data.error?.message || `HTTP ${response.status}`,
-          details: { summary: `${pageType}: API_ERROR ${response.status}` },
-        }).catch(() => {});
-        updateDailyApiStats('anthropic', errDuration, 0, true).catch(() => {});
-        logValidation({
-          bookId: bookId || null, page: pageType, attempt: attempt + 1,
-          textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
-          formatOk: false, pass: false, issues: apiErrorResult.issues,
-          fixNotes: `API error HTTP ${response.status}`,
-          qualityTier: 'poor', compositeScore: 0,
-          prompt: generationPrompt || null, imageUrl: imageUrl || null,
-        }).catch(() => {});
+        await Promise.allSettled([
+          logApiCall({
+            service: 'anthropic', type: 'validation', bookId: bookId || null,
+            status: response.status, durationMs: errDuration,
+            model: 'claude-sonnet-4-20250514', cost: 0,
+            error: data.error?.message || `HTTP ${response.status}`,
+            details: { summary: `${pageType}: API_ERROR ${response.status}` },
+          }),
+          logValidation({
+            bookId: bookId || null, page: pageType, attempt: clientAttempt || (attempt + 1),
+            textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
+            formatOk: false, pass: false, issues: apiErrorResult.issues,
+            fixNotes: `API error HTTP ${response.status}`,
+            qualityTier: 'poor', compositeScore: 0,
+            prompt: generationPrompt || null, imageUrl: imageUrl || null,
+          }),
+          updateDailyApiStats('anthropic', errDuration, 0, true),
+        ]);
         return res.json(apiErrorResult);
       }
 
@@ -289,7 +292,7 @@ export default async function handler(req, res) {
 
         console.log("IMG_VALIDATION:", JSON.stringify({
           pageType,
-          attempt: attempt + 1,
+          attempt: clientAttempt || (attempt + 1),
           pass: normalized.pass,
           textScore: normalized.textScore,
           faceScore: normalized.faceScore,
@@ -303,42 +306,50 @@ export default async function handler(req, res) {
           issues: normalized.issues,
         }));
 
-        // Admin logging — calculate actual cost from token usage
+        // Admin logging — MUST await before res.json() or Vercel kills the function
         const valDuration = Date.now() - (req._adminStartTime || Date.now());
         const inputTokens = data.usage?.input_tokens || 0;
         const outputTokens = data.usage?.output_tokens || 0;
         const cost = (inputTokens * 3 + outputTokens * 15) / 1_000_000;
-        logApiCall({
-          service: 'anthropic',
-          type: 'validation',
-          bookId: bookId || null,
-          status: 200,
-          durationMs: valDuration,
-          model: 'claude-sonnet-4-20250514',
-          cost,
-          details: { inputTokens, outputTokens, summary: `${pageType}: text=${normalized.textScore} face=${normalized.faceScore} textBox=${normalized.textBoxScore} scene=${normalized.sceneAccuracy} ${normalized.pass ? 'PASS' : 'FAIL'}` },
-        }).catch(e => console.warn('logApiCall failed:', e.message));
-        updateDailyApiStats('anthropic', valDuration, cost, false).catch(() => {});
-        logValidation({
-          bookId: bookId || null,
-          page: pageType,
-          attempt: attempt + 1,
-          textScore: normalized.textScore,
-          faceScore: normalized.faceScore,
-          textBoxScore: normalized.textBoxScore,
-          sceneAccuracy: normalized.sceneAccuracy,
-          formatOk: normalized.formatOk,
-          pass: normalized.pass,
-          issues: normalized.issues,
-          fixNotes: normalized.fixNotes,
-          likenessScore: normalized.likenessScore,
-          fingersOk: normalized.fingersOk,
-          characterCount: normalized.characterCount,
-          qualityTier: normalized.qualityTier,
-          compositeScore: normalized.compositeScore,
-          prompt: generationPrompt || null,
-          imageUrl: imageUrl || null,
-        }).catch(e => console.warn('logValidation failed:', e.message));
+        await Promise.allSettled([
+          logApiCall({
+            service: 'anthropic',
+            type: 'validation',
+            bookId: bookId || null,
+            status: 200,
+            durationMs: valDuration,
+            model: 'claude-sonnet-4-20250514',
+            cost,
+            details: { inputTokens, outputTokens, summary: `${pageType}: text=${normalized.textScore} face=${normalized.faceScore} textBox=${normalized.textBoxScore} scene=${normalized.sceneAccuracy} ${normalized.pass ? 'PASS' : 'FAIL'}` },
+          }),
+          logValidation({
+            bookId: bookId || null,
+            page: pageType,
+            attempt: clientAttempt || (attempt + 1),
+            textScore: normalized.textScore,
+            faceScore: normalized.faceScore,
+            textBoxScore: normalized.textBoxScore,
+            sceneAccuracy: normalized.sceneAccuracy,
+            formatOk: normalized.formatOk,
+            pass: normalized.pass,
+            issues: normalized.issues,
+            fixNotes: normalized.fixNotes,
+            likenessScore: normalized.likenessScore,
+            fingersOk: normalized.fingersOk,
+            characterCount: normalized.characterCount,
+            qualityTier: normalized.qualityTier,
+            compositeScore: normalized.compositeScore,
+            prompt: generationPrompt || null,
+            imageUrl: imageUrl || null,
+          }),
+          updateDailyApiStats('anthropic', valDuration, cost, false),
+        ]).then(results => {
+          results.forEach((r, i) => {
+            if (r.status === 'rejected') {
+              console.error(`ADMIN_LOG_FAILED[${i}]:`, pageType, bookId, r.reason?.message);
+            }
+          });
+        });
 
         return res.json(normalized);
       } catch (parseErr) {
@@ -358,26 +369,28 @@ export default async function handler(req, res) {
           compositeScore: 0,
         };
         const parseDuration = Date.now() - (req._adminStartTime || Date.now());
-        logApiCall({
-          service: 'anthropic', type: 'validation', bookId: bookId || null,
-          status: 200, durationMs: parseDuration,
-          model: 'claude-sonnet-4-20250514', cost: 0,
-          error: 'JSON parse error',
-          details: { summary: `${pageType}: PARSE_ERROR` },
-        }).catch(() => {});
-        updateDailyApiStats('anthropic', parseDuration, 0, true).catch(() => {});
-        logValidation({
-          bookId: bookId || null, page: pageType, attempt: attempt + 1,
-          textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
-          formatOk: false, pass: false, issues: parseErrorResult.issues,
-          fixNotes: 'Parse error', qualityTier: 'poor', compositeScore: 0,
-          prompt: generationPrompt || null, imageUrl: imageUrl || null,
-        }).catch(() => {});
+        await Promise.allSettled([
+          logApiCall({
+            service: 'anthropic', type: 'validation', bookId: bookId || null,
+            status: 200, durationMs: parseDuration,
+            model: 'claude-sonnet-4-20250514', cost: 0,
+            error: 'JSON parse error',
+            details: { summary: `${pageType}: PARSE_ERROR` },
+          }),
+          logValidation({
+            bookId: bookId || null, page: pageType, attempt: clientAttempt || (attempt + 1),
+            textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
+            formatOk: false, pass: false, issues: parseErrorResult.issues,
+            fixNotes: 'Parse error', qualityTier: 'poor', compositeScore: 0,
+            prompt: generationPrompt || null, imageUrl: imageUrl || null,
+          }),
+          updateDailyApiStats('anthropic', parseDuration, 0, true),
+        ]);
         return res.json(parseErrorResult);
       }
     } catch (err) {
       console.error("VALIDATE_CATCH_ERROR:", JSON.stringify({
-        attempt: attempt + 1,
+        attempt: clientAttempt || (attempt + 1),
         message: err.message,
         name: err.name,
         status: err.status || null,
@@ -405,21 +418,23 @@ export default async function handler(req, res) {
       };
       console.error("VALIDATION_NETWORK_ERROR:", JSON.stringify({ pageType, error: err.message }));
       const netDuration = Date.now() - (req._adminStartTime || Date.now());
-      logApiCall({
-        service: 'anthropic', type: 'validation', bookId: bookId || null,
-        status: 0, durationMs: netDuration,
-        model: 'claude-sonnet-4-20250514', cost: 0,
-        error: err.message,
-        details: { summary: `${pageType}: NETWORK_ERROR ${err.message}` },
-      }).catch(() => {});
-      updateDailyApiStats('anthropic', netDuration, 0, true).catch(() => {});
-      logValidation({
-        bookId: bookId || null, page: pageType, attempt: attempt + 1,
-        textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
-        formatOk: false, pass: false, issues: networkErrorResult.issues,
-        fixNotes: `Network error: ${err.message}`, qualityTier: 'poor', compositeScore: 0,
-        prompt: generationPrompt || null, imageUrl: imageUrl || null,
-      }).catch(() => {});
+      await Promise.allSettled([
+        logApiCall({
+          service: 'anthropic', type: 'validation', bookId: bookId || null,
+          status: 0, durationMs: netDuration,
+          model: 'claude-sonnet-4-20250514', cost: 0,
+          error: err.message,
+          details: { summary: `${pageType}: NETWORK_ERROR ${err.message}` },
+        }),
+        logValidation({
+          bookId: bookId || null, page: pageType, attempt: clientAttempt || (attempt + 1),
+          textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
+          formatOk: false, pass: false, issues: networkErrorResult.issues,
+          fixNotes: `Network error: ${err.message}`, qualityTier: 'poor', compositeScore: 0,
+          prompt: generationPrompt || null, imageUrl: imageUrl || null,
+        }),
+        updateDailyApiStats('anthropic', netDuration, 0, true),
+      ]);
       return res.json(networkErrorResult);
     }
   }

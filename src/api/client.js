@@ -116,7 +116,8 @@ export async function generateImage(
   referenceImageUrls = [],
   aspectRatio = "2:3",
   isCover = false,
-  bookId = null
+  bookId = null,
+  clientAttempt = 1
 ) {
   let response;
   try {
@@ -132,6 +133,7 @@ export async function generateImage(
         aspectRatio,
         isCover,
         bookId: bookId || null,
+        clientAttempt: clientAttempt || 1,
       }),
     });
   } catch (err) {
@@ -333,7 +335,7 @@ export async function validateImage(
   imageUrl, expectedTexts, heroName,
   artStyle, pageType, sceneDescription, bookId,
   referencePhotoUrl, characterDescriptions, previousPageStyle,
-  generationPrompt
+  generationPrompt, clientAttempt
 ) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -352,6 +354,7 @@ export async function validateImage(
           characterDescriptions: characterDescriptions || null,
           previousPageStyle: previousPageStyle || null,
           generationPrompt: generationPrompt || null,
+          clientAttempt: clientAttempt ?? 1,
         }),
       });
       const data = await response.json();
