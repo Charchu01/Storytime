@@ -197,18 +197,28 @@ export async function generateImage(
 // ── Payment helpers ─────────────────────────────────────────────────────────
 
 export async function createPaymentIntent(tier, storySessionId) {
+  let response;
   try {
-    const response = await fetchWithRetry("/api/create-payment-intent", {
+    response = await fetchWithRetry("/api/create-payment-intent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tier, storySessionId }),
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
-    return data.clientSecret;
   } catch (err) {
-    throw new Error(err.message || "Something went wrong setting up payment. Please try again.");
+    throw new Error("Something went wrong setting up payment. Please try again.");
   }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(friendlyError(response.status, "Payment service returned an invalid response."));
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || friendlyError(response.status));
+  }
+  return data.clientSecret;
 }
 
 export async function checkPayment(sessionId) {

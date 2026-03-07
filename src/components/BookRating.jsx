@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { submitBookFeedback } from "../api/client";
 
 export default function BookRating({ bookId, onClose }) {
@@ -8,6 +8,11 @@ export default function BookRating({ bookId, onClose }) {
   const [comment, setComment] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const closeTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); };
+  }, []);
 
   const reactions = [
     { id: "love", emoji: "\u{1F60D}", label: "Love it" },
@@ -22,7 +27,7 @@ export default function BookRating({ bookId, onClose }) {
     try {
       await submitBookFeedback(bookId, { stars, reaction, comment: comment.trim() || null });
       setSubmitted(true);
-      setTimeout(() => onClose?.(), 2000);
+      closeTimerRef.current = setTimeout(() => onClose?.(), 2000);
     } catch (err) {
       console.warn("Feedback submit failed:", err.message);
     } finally {

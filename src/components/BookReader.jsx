@@ -40,6 +40,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const narrationCache = useRef({});
   const touchStartX = useRef(null);
   const autoNarrateRef = useRef(false);
+  const goNextRef = useRef(null);
 
   // Build flat page array
   const flatPages = useMemo(() => {
@@ -92,6 +93,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const goNext = useCallback(() => goTo(currentIndex + 1), [currentIndex, goTo]);
   const goPrev = useCallback(() => goTo(currentIndex - 1), [currentIndex, goTo]);
 
+  // Keep ref in sync so async callbacks (narration) always call the latest goNext
+  useEffect(() => { goNextRef.current = goNext; }, [goNext]);
+
   // Keyboard nav
   useEffect(() => {
     function handleKey(e) {
@@ -125,23 +129,25 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   async function handleEditSave(contentIndex, instruction, type) {
     const current = flatPages[contentIndex];
     if (type === "story") {
-      if (current.type === "spread") {
-        const spread = localSpreads[current.spreadIndex];
-        const fullText = `${spread.leftPageText} ${spread.rightPageText}`;
-        const newText = await editPageText(fullText, instruction, cast);
-        const sentences = newText.match(/[^.!?]+[.!?]+/g) || [newText];
-        const mid = Math.ceil(sentences.length / 2);
-        const leftText = sentences.slice(0, mid).join("").trim();
-        const rightText = sentences.slice(mid).join("").trim() || leftText;
-        setLocalSpreads((prev) => prev.map((s, i) =>
-          i === current.spreadIndex ? { ...s, leftPageText: leftText, rightPageText: rightText } : s
-        ));
-      } else if (current.type === "page") {
-        const newText = await editPageText(current.text, instruction, cast);
-        setLocalPages((prev) => prev.map((p, i) =>
-          i === current.pageIndex ? { ...p, text: newText } : p
-        ));
-      }
+      try {
+        if (current.type === "spread") {
+          const spread = localSpreads[current.spreadIndex];
+          const fullText = `${spread.leftPageText} ${spread.rightPageText}`;
+          const newText = await editPageText(fullText, instruction, cast);
+          const sentences = newText.match(/[^.!?]+[.!?]+/g) || [newText];
+          const mid = Math.ceil(sentences.length / 2);
+          const leftText = sentences.slice(0, mid).join("").trim();
+          const rightText = sentences.slice(mid).join("").trim() || leftText;
+          setLocalSpreads((prev) => prev.map((s, i) =>
+            i === current.spreadIndex ? { ...s, leftPageText: leftText, rightPageText: rightText } : s
+          ));
+        } else if (current.type === "page") {
+          const newText = await editPageText(current.text, instruction, cast);
+          setLocalPages((prev) => prev.map((p, i) =>
+            i === current.pageIndex ? { ...p, text: newText } : p
+          ));
+        }
+      } catch { addToast("Failed to edit text", "error"); }
     } else {
       const idx = current.spreadIndex ?? current.pageIndex;
       setRegeneratingImage(idx);
@@ -194,12 +200,14 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       const audio = new Audio(audioUrl);
       narrationAudio.current = audio;
       setNarrating(true);
-      audio.addEventListener("ended", () => {
+      const onEnded = () => {
+        audio.removeEventListener("ended", onEnded);
         setNarrating(false);
         if (autoNarrateRef.current) {
-          setTimeout(() => goNext(), 1200);
+          setTimeout(() => goNextRef.current?.(), 1200);
         }
-      });
+      };
+      audio.addEventListener("ended", onEnded);
       audio.play().catch(() => {
         setNarrating(false);
         addToast("Audio unavailable — try again later", "info");
@@ -227,10 +235,11 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   }
 
   // Auto-narrate on page change
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- narratePage uses refs and stable state; only re-run on page index change
   useEffect(() => {
     if (autoNarrateRef.current) {
-      const current = flatPages[currentIndex];
-      if (current?.text) {
+      const page = flatPages[currentIndex];
+      if (page?.text) {
         narratePage(currentIndex);
       }
     }
@@ -262,7 +271,11 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         dedication,
         authorName,
       };
-      const encoded = btoa(encodeURIComponent(JSON.stringify(shareData)));
+      const jsonStr = JSON.stringify(shareData);
+      // Use TextEncoder to safely handle non-ASCII characters (accented names, etc.)
+      const bytes = new TextEncoder().encode(jsonStr);
+      const binStr = Array.from(bytes, (b) => String.fromCharCode(b)).join("");
+      const encoded = btoa(binStr);
       const url = `${window.location.origin}/shared?d=${encoded}`;
       if (navigator.share) {
         navigator.share({ title: `${heroName}'s Story`, text: `Check out this story made for ${heroName}!`, url });
@@ -360,9 +373,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
 
       {/* Premium floating toolbar */}
       <div className="br-toolbar">
-        <a className="br-toolbar-back" onClick={() => navigate("/library")}>
+        <button className="br-toolbar-back" onClick={() => navigate("/library")}>
           &larr; Library
-        </a>
+        </button>
         <div className="br-toolbar-actions">
           <button
             className={`br-toolbar-icon${autoNarrate ? " br-toolbar-icon--narrate-on" : ""}`}

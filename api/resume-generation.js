@@ -46,13 +46,14 @@ export default async function handler(req, res) {
     // Determine which pages exist and which are missing
     const tier = book.tier || 'standard';
     const expectedPages = EXPECTED_PAGES[tier] || EXPECTED_PAGES.standard;
-    const completedPageTypes = new Set((pages || []).map(p => {
-      // Build composite key matching EXPECTED_PAGES format (e.g. 'spread_0', 'spread_1')
+    // Build a set of completed page identifiers: "cover", "spread_0", "spread_1", ..., "back_cover"
+    // DB stores page_type="spread" with page_index, so we need to reconstruct the identifier
+    const completedPageIds = new Set((pages || []).map(p => {
       if (p.page_type === 'spread') return `spread_${p.page_index - 1}`;
       return p.page_type;
     }));
 
-    const missingPages = expectedPages.filter(pt => !completedPageTypes.has(pt));
+    const missingPages = expectedPages.filter(pt => !completedPageIds.has(pt));
 
     res.json({
       book: {

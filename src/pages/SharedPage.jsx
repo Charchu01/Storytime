@@ -11,7 +11,16 @@ export default function SharedPage() {
     try {
       const encoded = searchParams.get("d");
       if (!encoded) return null;
-      return JSON.parse(decodeURIComponent(atob(encoded)));
+      const binStr = atob(encoded);
+      // Try TextEncoder-compatible decoding first (handles non-ASCII characters)
+      try {
+        const bytes = new Uint8Array(binStr.length);
+        for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+        return JSON.parse(new TextDecoder().decode(bytes));
+      } catch {
+        // Fallback: legacy format used encodeURIComponent before btoa
+        return JSON.parse(decodeURIComponent(binStr));
+      }
     } catch { return null; }
   }, [searchParams]);
 

@@ -204,7 +204,7 @@ export default function HeroSetup({ onComplete, onBack }) {
         : mainChar.characterType === "teen" ? "child"
         : mainChar.characterType === "baby" ? "child"
         : mainChar.characterType,
-      heroAge: mainChar.age ? parseInt(mainChar.age) || mainChar.age : "",
+      heroAge: mainChar.age ? parseInt(mainChar.age, 10) || mainChar.age : "",
       heroPhoto: mainChar.photo,
       companions,
     });
@@ -232,7 +232,7 @@ export default function HeroSetup({ onComplete, onBack }) {
         <div className={`cast-lineup${isEmpty ? " cast-lineup--empty" : ""}`} ref={lineupRef}>
           {characters.map((char, i) => (
             <div
-              key={i}
+              key={`${char.name}-${char.characterType}-${i}`}
               className={`cast-card${editingIndex === i ? " cast-card--selected" : ""}${i === characters.length - 1 && editingIndex !== i ? " cast-card--new-entry" : ""}`}
               onClick={() => handleCardClick(i)}
             >

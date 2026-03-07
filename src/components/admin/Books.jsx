@@ -414,7 +414,7 @@ function BookDetailModal({ detail, onClose }) {
           <Section title="Story Text">
             {book.storyTexts.map((t, i) => (
               <p key={i} style={{ fontSize: 13, color: "#475569", marginBottom: 6 }}>
-                <strong>Page {i + 1}:</strong> {typeof t === "string" ? t : `"${t.left}" | "${t.right}"`}
+                <strong>Page {i + 1}:</strong> {typeof t === "string" ? t : `"${t?.left ?? ""}" | "${t?.right ?? ""}"`}
               </p>
             ))}
           </Section>

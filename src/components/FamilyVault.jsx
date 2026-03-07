@@ -9,16 +9,21 @@ export default function FamilyVault({ userId = "anonymous" }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
     getVaultCharacters(userId)
       .then((chars) => {
-        setCharacters(chars || []);
-        setLoading(false);
+        if (!cancelled) {
+          setCharacters(chars || []);
+          setLoading(false);
+        }
       })
       .catch((err) => {
-        // Vault load failed
-        setError(err.message);
-        setLoading(false);
+        if (!cancelled) {
+          setError(err.message);
+          setLoading(false);
+        }
       });
+    return () => { cancelled = true; };
   }, [userId]);
 
   async function handleDelete(charId, name) {

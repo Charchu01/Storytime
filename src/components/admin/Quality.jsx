@@ -399,7 +399,7 @@ export default function Quality() {
 }
 
 function scoreColor(score) {
-  if (score == null) return "#94a3b8";
+  if (score === null || score === undefined) return "#94a3b8";
   if (score >= 8) return "#16a34a";
   if (score >= 6) return "#f59e0b";
   return "#dc2626";

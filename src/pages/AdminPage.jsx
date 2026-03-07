@@ -37,13 +37,16 @@ export default function AdminPage() {
     document.title = "Admin Dashboard \u2014 Storytime";
   }, []);
 
-  // Check auth — sessionStorage first (synchronous), then server checks
+  // Check auth — sessionStorage for current session only, then server checks
   useEffect(() => {
-    if (sessionStorage.getItem("admin_auth") === "true") {
-      setAuthorized(true);
-      return;
-    }
+    try {
+      if (sessionStorage.getItem("admin_auth") === "true") {
+        setAuthorized(true);
+        return;
+      }
+    } catch { /* storage unavailable */ }
     checkAuth();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkAuth = useCallback(async () => {
@@ -57,14 +60,16 @@ export default function AdminPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
         });
-        const data = await res.json();
-        if (data.authorized) {
-          setAuthorized(true);
-          sessionStorage.setItem("admin_auth", "true");
-          return;
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authorized) {
+            setAuthorized(true);
+            try { sessionStorage.setItem("admin_auth", "true"); } catch {}
+            return;
+          }
         }
       }
-    } catch {}
+    } catch (err) { console.warn("Clerk auth check failed:", err.message); }
 
     // Check if no auth is configured (dev mode)
     try {
@@ -73,12 +78,14 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
-      const data = await res.json();
-      if (data.authorized && data.method === "none") {
-        setAuthorized(true);
-        return;
+      if (res.ok) {
+        const data = await res.json();
+        if (data.authorized && data.method === "none") {
+          setAuthorized(true);
+          return;
+        }
       }
-    } catch {}
+    } catch (err) { console.warn("Dev auth check failed:", err.message); }
 
     // Need password login
     setLoginMode("password");
@@ -94,11 +101,11 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
+      if (!res.ok) throw new Error(`Auth returned ${res.status}`);
       const data = await res.json();
       if (data.authorized) {
         setAuthorized(true);
-        sessionStorage.setItem("admin_auth", "true");
-        sessionStorage.setItem("admin_password", password);
+        try { sessionStorage.setItem("admin_auth", "true"); } catch {}
       } else {
         setLoginError("Invalid password");
       }

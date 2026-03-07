@@ -46,17 +46,6 @@ function getNanoStyle(styleName) {
   return "classic children's storybook illustration with bold saturated colours, clean outlines, and warm painterly backgrounds";
 }
 
-// Legacy compat
-const NANO_STYLES = {
-  "Classic Storybook": "classic children's storybook illustration with bold saturated colours, clean outlines, and warm painterly backgrounds",
-  "Soft Watercolor": "soft watercolour children's book illustration with visible brushstrokes, dreamy washes, and gentle colour bleeds",
-  "Bold & Bright": "modern vibrant children's book illustration with thick bold outlines, flat graphic colours, and playful energy",
-  "Cozy & Soft": "gentle pastel children's bedtime book illustration with rounded shapes, soft muted tones, and cozy warmth",
-  "Sketch & Color": "whimsical hand-drawn children's book illustration with visible pencil lines, loose ink outlines, and watercolour wash fills",
-  Storybook: "classic children's storybook illustration with bold saturated colours, clean outlines, and warm painterly backgrounds",
-  Watercolor: "soft watercolour children's book illustration with visible brushstrokes, dreamy washes, and gentle colour bleeds",
-};
-
 // ── Cost tracking ─────────────────────────────────────────────────────────────
 export function logCost(type, model, success, durationMs, error) {
   try {
@@ -73,7 +62,7 @@ export function logCost(type, model, success, durationMs, error) {
       error: error || null,
     });
     localStorage.setItem("st_costs", JSON.stringify(log.slice(-200)));
-  } catch {}
+  } catch (err) { console.warn("Cost logging failed:", err.message); }
 }
 
 // ── Image URL passthrough ────────────────────────────────────────────────────
@@ -162,7 +151,7 @@ function buildCharacterDescription(cast) {
 async function analyzeCharacterPhotos_single(character, photoDataUri) {
   const role = ROLES.find((r) => r.id === character.role)?.label || character.role;
   const ageNote = character.age ? `, approximately ${character.age} years old` : "";
-  const isAdult = character.role === "adult" || (character.age && parseInt(character.age) >= 16);
+  const isAdult = character.role === "adult" || (character.age && parseInt(character.age, 10) >= 16);
 
   try {
     const description = await claudeCall(
@@ -518,7 +507,7 @@ function buildMasterSystemPrompt(cast, heroName, heroAge, styleName, tone, forma
   // Build character descriptions
   const heroChar = cast.find(c => c.isHero) || cast[0];
   const heroRole = heroChar?.role || "child";
-  const isAdultHero = heroRole === "adult" || (heroAge && parseInt(heroAge) >= 16);
+  const isAdultHero = heroRole === "adult" || (heroAge && parseInt(heroAge, 10) >= 16);
 
   let castDesc = `MAIN CHARACTER: ${heroName}`;
   if (isAdultHero) {
@@ -536,9 +525,12 @@ function buildMasterSystemPrompt(cast, heroName, heroAge, styleName, tone, forma
   }
 
   supporting.forEach(c => {
-    const role = c.role === 'mom' ? 'Mother' : c.role === 'dad' ? 'Father' :
-      c.role === 'sibling' ? 'Sibling' : c.role === 'pet' ? 'Family pet' :
-      c.role === 'grandparent' ? 'Grandparent' : c.role === 'friend' ? 'Best friend' : c.role;
+    const roleMap = {
+      mom: 'Mother', dad: 'Father', sibling: 'Sibling', pet: 'Family pet',
+      grandma: 'Grandmother', grandpa: 'Grandfather', friend: 'Best friend',
+      child: 'Child', baby: 'Baby', partner: 'Partner', other: 'Companion',
+    };
+    const role = roleMap[c.role] || c.role;
     castDesc += `\n${c.name}: ${role}`;
     if (c.appearanceDescription) {
       castDesc += ` — ${c.appearanceDescription}`;
@@ -805,13 +797,21 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
         // Retry once
         const retryRaw = await claudeCall(systemPrompt, userPrompt, maxTokens);
         const retryCleaned = retryRaw.replace(/```json\s*|```\s*/g, "").trim();
-        parsed = JSON.parse(retryCleaned);
+        try {
+          parsed = JSON.parse(retryCleaned);
+        } catch (retryErr) {
+          throw new Error(`Story JSON parse failed after retry: ${retryErr.message}`);
+        }
       }
     } else {
       // Retry once
       const retryRaw = await claudeCall(systemPrompt, userPrompt, maxTokens);
       const retryCleaned = retryRaw.replace(/```json\s*|```\s*/g, "").trim();
-      parsed = JSON.parse(retryCleaned);
+      try {
+        parsed = JSON.parse(retryCleaned);
+      } catch (retryErr) {
+        throw new Error(`Story JSON parse failed after retry: ${retryErr.message}`);
+      }
     }
   }
 

@@ -32,13 +32,15 @@ export default function ProfilePage() {
     return Array.from(seen.values());
   }, [stories]);
 
-  const [defaultLength, setDefaultLength] = useState(
-    () => localStorage.getItem("sk_pref_length") || "6"
-  );
+  const [defaultLength, setDefaultLength] = useState(() => {
+    try { return localStorage.getItem("sk_pref_length") || "6"; }
+    catch { return "6"; }
+  });
 
   function handleLengthChange(val) {
     setDefaultLength(val);
-    localStorage.setItem("sk_pref_length", val);
+    try { localStorage.setItem("sk_pref_length", val); }
+    catch { /* storage unavailable */ }
   }
 
   return (
@@ -59,8 +61,8 @@ export default function ProfilePage() {
           </div>
         ) : (
           <div className="prof-fam-grid">
-            {familyMembers.map((m, i) => (
-              <div key={i} className="prof-fam-card">
+            {familyMembers.map((m) => (
+              <div key={m.name} className="prof-fam-card">
                 <div className="prof-fam-av">
                   {m.photo && m.photo !== "has_photo" ? (
                     <img src={m.photo} alt={m.name} />

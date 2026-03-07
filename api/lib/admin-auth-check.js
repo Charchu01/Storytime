@@ -42,7 +42,7 @@ export function checkAdminAuth(req) {
   }
 
   // Check x-admin-email header (set by client after login) against ADMIN_EMAILS
-  // Requires BOTH a valid email AND the correct password to prevent header spoofing
+  // SECURITY: Requires BOTH a valid email AND the correct password to prevent header spoofing
   if (adminEmails.length && adminPassword) {
     const emailHeader = (req.headers?.['x-admin-email'] || '').trim().toLowerCase();
     const passwordHeader = req.headers?.['x-admin-password'] || '';
@@ -51,13 +51,17 @@ export function checkAdminAuth(req) {
     }
   }
 
-  // Check request body for email+password (used by the login endpoint)
+  // Check request body for email + password combination (used by the login endpoint)
+  // SECURITY: email alone is NOT sufficient — must be paired with a valid password
   const body = req.body || {};
-  if (adminEmails.length && adminPassword && body.email && body.password
-    && adminEmails.includes(body.email.toLowerCase().trim())
-    && safeCompare(body.password, adminPassword)) {
-    return { authorized: true, method: 'email' };
+  if (adminPassword && adminEmails.length && body.email && body.password) {
+    const emailMatch = adminEmails.includes(body.email.toLowerCase().trim());
+    const passwordMatch = safeCompare(body.password, adminPassword);
+    if (emailMatch && passwordMatch) {
+      return { authorized: true, method: 'email_password' };
+    }
   }
+  // Password-only auth (for endpoints that don't need email)
   if (adminPassword && body.password && safeCompare(body.password, adminPassword)) {
     return { authorized: true, method: 'password' };
   }

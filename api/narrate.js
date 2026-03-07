@@ -10,8 +10,6 @@ function prepareNarrationText(text) {
   prepared = prepared.replace(/\. /g, "... ");
   // Add slight pause after commas for more natural breath
   prepared = prepared.replace(/, /g, ",... ");
-  // Add emphasis on exclamations
-  prepared = prepared.replace(/!/g, "!... ");
   return prepared.trim();
 }
 

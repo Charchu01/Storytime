@@ -322,13 +322,27 @@ export default async function handler(req, res) {
           .order('updated_at', { ascending: false })
           .range(offset, offset + limit - 1);
 
+        // Get actual revenue per user from books table
+        const userIds = (users || []).map(u => u.id).filter(Boolean);
+        let userBookTiers = {};
+        if (userIds.length > 0) {
+          const { data: userBooks } = await sb.from('books')
+            .select('user_id, tier')
+            .in('user_id', userIds);
+          (userBooks || []).forEach(b => {
+            const uid = b.user_id;
+            if (!userBookTiers[uid]) userBookTiers[uid] = 0;
+            userBookTiers[uid] += TIER_PRICES[b.tier] || 0;
+          });
+        }
+
         const mapped = (users || []).map(u => ({
           userId: u.clerk_id || u.id,
           email: u.email || null,
           firstSeen: u.created_at,
           lastActive: u.updated_at,
           bookCount: u.book_count || 0,
-          totalSpent: (u.book_count || 0) * 9.99, // approximate — could be mixed tiers
+          totalSpent: userBookTiers[u.id] || 0,
           vaultCharacters: u.vault_characters || 0,
         }));
 

@@ -14,13 +14,16 @@ export default function StatusPage() {
       const email = clerkUser?.primaryEmailAddress?.emailAddress;
       if (email === "dom@ready.cards") {
         setAuthorized(true);
+        return;
       }
-    } catch {}
+    } catch (err) { console.warn("Auth check failed:", err.message); }
+    // If not authorized via Clerk, remain unauthorized
   }, []);
 
   const fetchHealth = useCallback(async () => {
     try {
       const res = await fetch("/api/health");
+      if (!res.ok) throw new Error(`Health check returned ${res.status}`);
       const data = await res.json();
       setHealth(data);
     } catch (err) {
@@ -39,7 +42,7 @@ export default function StatusPage() {
     try {
       const log = JSON.parse(localStorage.getItem("st_costs") || "[]");
       setCosts(log);
-    } catch {}
+    } catch (err) { console.warn("Failed to load cost data:", err.message); }
   }, []);
 
   if (!authorized) {

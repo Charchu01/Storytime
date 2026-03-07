@@ -70,20 +70,31 @@ export default function App() {
   const addToast = useCallback((message, type = "info", duration = 4000) => {
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, message, type }]);
-    if (duration > 0) setTimeout(() => removeToast(id), duration);
+    if (duration > 0) {
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, duration);
+    }
     return id;
   }, [removeToast]);
 
   const deleteStory = useCallback(async (id) => {
-    // Optimistic removal from local state
-    setStories((prev) => prev.filter((s) => s.id !== id));
+    // Optimistic removal — save previous state for rollback
+    let previousStories;
+    setStories((prev) => {
+      previousStories = prev;
+      return prev.filter((s) => s.id !== id);
+    });
     try {
-      await supabase
+      const { error } = await supabase
         .from('books')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id);
+      if (error) throw error;
     } catch (err) {
       console.warn('Failed to delete from Supabase:', err.message);
+      // Rollback: restore the story in the UI
+      if (previousStories) setStories(previousStories);
     }
   }, []);
 
@@ -92,7 +103,9 @@ export default function App() {
       const history = JSON.parse(localStorage.getItem("sk_activity") || "[]");
       history.unshift({ date: new Date().toISOString(), title: storyTitle, action, status: "Complete" });
       localStorage.setItem("sk_activity", JSON.stringify(history.slice(0, 50)));
-    } catch {}
+    } catch (err) {
+      console.warn('addActivity failed:', err.message);
+    }
   }
 
   const appValue = { stories, storiesLoading, deleteStory, addActivity, refreshBooks: fetchBooks };

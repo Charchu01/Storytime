@@ -26,10 +26,29 @@ export function detectMediaType(buffer) {
   return 'image/jpeg'; // safe fallback — Claude will reject if truly wrong
 }
 
+function isAllowedImageUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    const hostname = parsed.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0') return false;
+    if (hostname.startsWith('169.254.') || hostname.startsWith('10.') || hostname.startsWith('192.168.')) return false;
+    if (hostname === '[::1]') return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return false;
+    if (hostname.endsWith('.internal') || hostname.endsWith('.local')) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Download image URL and convert to base64 for Claude API
 // We detect format from actual bytes, not content-type header,
 // because CDNs often return application/octet-stream or wrong types
 async function fetchImageAsBase64(url) {
+  if (!isAllowedImageUrl(url)) {
+    throw new Error(`SSRF blocked: URL not allowed: ${url?.substring(0, 80)}`);
+  }
   const imgController = new AbortController();
   const imgTimeout = setTimeout(() => imgController.abort(), 15000);
   let resp;
@@ -101,7 +120,6 @@ export default async function handler(req, res) {
       console.log("VALIDATE_PRE_CALL:", JSON.stringify({
         attempt: clientAttempt || (attempt + 1),
         hasApiKey: !!apiKey,
-        apiKeyStart: apiKey?.substring(0, 10),
         imageUrl: imageUrl?.substring(0, 80),
         imageUrlType: typeof imageUrl,
         hasRefPhoto: !!referencePhotoUrl,

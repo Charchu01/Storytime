@@ -12,6 +12,10 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too many requests. Please try again in a moment.' });
   }
 
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(500).json({ error: 'STRIPE_SECRET_KEY not configured' });
+  }
+
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const { tier, storySessionId } = req.body;
 

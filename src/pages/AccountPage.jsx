@@ -20,7 +20,8 @@ export default function AccountPage() {
       addToast("Please enter a valid email address", "error");
       return;
     }
-    localStorage.setItem("sk_waitlist_email", waitlistEmail);
+    try { localStorage.setItem("sk_waitlist_email", waitlistEmail); }
+    catch { /* storage unavailable */ }
     setWaitlistDone(true);
     addToast("You're on the list! 🎉", "success");
   }
@@ -124,7 +125,7 @@ export default function AccountPage() {
         ) : (
           <div className="acct-table">
             {activity.map((a, i) => (
-              <div key={i} className={`acct-row${i % 2 === 0 ? "" : " acct-row-alt"}`}>
+              <div key={`${a.date}-${a.action}-${i}`} className={`acct-row${i % 2 === 0 ? "" : " acct-row-alt"}`}>
                 <span className="acct-row-date">{new Date(a.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
                 <span className="acct-row-title">{a.title}</span>
                 <span className="acct-row-action">{a.action}</span>

@@ -3,7 +3,9 @@
  * Uses the admin password stored in sessionStorage after login.
  */
 export default function adminFetch(url, options = {}) {
-  const password = sessionStorage.getItem('admin_password');
+  let password = null;
+  try { password = sessionStorage.getItem('admin_password'); }
+  catch { /* storage unavailable */ }
   const headers = { ...(options.headers || {}) };
 
   if (password) {
