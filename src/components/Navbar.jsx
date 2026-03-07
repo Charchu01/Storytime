@@ -5,11 +5,11 @@ import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/clerk-re
 const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 function AuthSection() {
+  const { isSignedIn, isLoaded } = useUser();
+
   if (!CLERK_ENABLED) {
     return <Link to="/create" className="gn-cta">Start Free →</Link>;
   }
-
-  const { isSignedIn, isLoaded } = useUser();
 
   if (!isLoaded) return null;
 
@@ -40,9 +40,9 @@ function AuthSection() {
 }
 
 function MobileAuthSection() {
-  if (!CLERK_ENABLED) return null;
-
   const { isSignedIn, isLoaded } = useUser();
+
+  if (!CLERK_ENABLED) return null;
 
   if (!isLoaded || isSignedIn) return null;
 
