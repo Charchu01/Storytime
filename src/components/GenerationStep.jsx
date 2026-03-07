@@ -423,7 +423,9 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
             photoUrl: heroPhotoUrl,
             thumbnailUrl: images.cover || images[`spread_0`],
           });
-        } catch {}
+        } catch (err) {
+          console.warn('VAULT_SAVE_FAILED:', err.message);
+        }
       }
 
       if (imageGenFlags.faceRefLostCount > 0) {
@@ -494,10 +496,11 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
               });
               // Only re-save if we actually got new permanent URLs
               if (updatedPages.some((p, i) => p.image_url !== bookPages[i].image_url)) {
-                saveBookToSupabase({ ...bookMeta }, updatedPages, clerkId, supabaseBookId).catch(() => {});
+                saveBookToSupabase({ ...bookMeta }, updatedPages, clerkId, supabaseBookId)
+                  .catch(err => console.warn('PERMANENT_URL_SAVE_FAILED:', err.message));
                 console.log('PERMANENT_URL_UPDATE: Updated book pages with permanent Supabase URLs');
               }
-            }).catch(() => {});
+            }).catch(err => console.warn('PERMANENT_URL_UPDATE_FAILED:', err.message));
           }
         }
       } catch (e) {

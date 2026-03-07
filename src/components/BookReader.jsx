@@ -286,6 +286,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         if (pg.imageUrl && isGeneratedImage(pg.imageUrl)) {
           try {
             const resp = await fetch(pg.imageUrl);
+            if (!resp.ok) throw new Error(`Image fetch failed: ${resp.status}`);
             const blob = await resp.blob();
             const dataUrl = await new Promise((resolve) => {
               const reader = new FileReader();
