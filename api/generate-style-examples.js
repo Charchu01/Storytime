@@ -52,9 +52,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "POST only" });
   }
 
-  const replicateToken = process.env.REPLICATE_API_TOKEN;
+  const replicateToken = process.env.REPLICATE_KEY || process.env.REPLICATE_API_TOKEN;
   if (!replicateToken) {
-    return res.status(500).json({ error: "Missing REPLICATE_API_TOKEN" });
+    return res.status(500).json({ error: "Missing REPLICATE_KEY" });
   }
 
   const results = {};

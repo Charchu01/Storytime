@@ -8,7 +8,9 @@ export default async function handler(req, res) {
   }
 
   // Use a simple device-based key (or Clerk userId if available via header)
-  const userId = req.headers['x-user-id'] || req.query.userId || 'anonymous';
+  // Sanitize to prevent injection — only allow alphanumeric, underscores, hyphens, and dots
+  const rawUserId = req.headers['x-user-id'] || req.query.userId || 'anonymous';
+  const userId = typeof rawUserId === 'string' && /^[\w.@-]{1,128}$/.test(rawUserId) ? rawUserId : 'anonymous';
 
   try {
     if (req.method === 'GET') {

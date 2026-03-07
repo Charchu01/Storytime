@@ -24,10 +24,12 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "ANTHROPIC_KEY not configured" });
     }
 
-    const { system, userMsg, maxTokens = 1400, imageDataUrl } = req.body || {};
+    const { system, userMsg, maxTokens: rawMaxTokens = 1400, imageDataUrl } = req.body || {};
     if (!system || !userMsg) {
       return res.status(400).json({ error: "system and userMsg are required" });
     }
+    // Cap maxTokens to prevent abuse — highest legitimate use is 6000 for premium stories
+    const maxTokens = Math.min(Math.max(parseInt(rawMaxTokens) || 1400, 100), 8000);
 
     // Build message content - support text + optional image
     let content;
@@ -55,6 +57,8 @@ export default async function handler(req, res) {
       content = userMsg;
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 55000);
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -68,7 +72,9 @@ export default async function handler(req, res) {
         system,
         messages: [{ role: "user", content }],
       }),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     const data = await response.json();
     const durationMs = Date.now() - startTime;

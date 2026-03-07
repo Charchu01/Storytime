@@ -93,13 +93,6 @@ export const BOOK_TYPES = [
   },
 ];
 
-export const BOOK_TYPE_CATEGORIES = [
-  { id: "all", label: "All" },
-  { id: "story", label: "Story" },
-  { id: "educational", label: "Educational" },
-  { id: "occasion", label: "Occasion" },
-];
-
 // ── Art Styles ──────────────────────────────────────────────────────────────
 export const STYLES = [
   {
@@ -236,45 +229,6 @@ export const OCCASIONS = [
   { id: "tooth_fairy", emoji: "🦷", label: "Lost a tooth", prompt: "The hero lost a tooth! Celebrate this milestone with magic and wonder." },
 ];
 
-// ── Age Ranges ───────────────────────────────────────────────────────────────
-export const AGE_RANGES = [
-  {
-    id: "baby",
-    label: "0-2 (Baby)",
-    emoji: "👶",
-    claudeReading: "Board book style. 1-2 words per page max. Simple nouns and sounds. 'Peek-a-boo!' Repetitive patterns. Sensory words.",
-    maxWordsPerPage: 5,
-  },
-  {
-    id: "toddler",
-    label: "2-4 (Toddler)",
-    emoji: "🧒",
-    claudeReading: "Simple sentences, 5-10 words per page. Repetition and rhythm. Name familiar objects. Cause-and-effect. 'Then... and then...'",
-    maxWordsPerPage: 15,
-  },
-  {
-    id: "preschool",
-    label: "4-6 (Preschool)",
-    emoji: "👧",
-    claudeReading: "2-3 sentences per page, 15-25 words. Rich vocabulary but simple syntax. Questions to the reader. Emotional moments. Beginning-middle-end structure.",
-    maxWordsPerPage: 30,
-  },
-  {
-    id: "early_reader",
-    label: "6-8 (Early Reader)",
-    emoji: "📖",
-    claudeReading: "Full paragraphs, 25-40 words per page. More complex plots with subplots. Character development. Richer vocabulary. Dialogue between characters.",
-    maxWordsPerPage: 45,
-  },
-  {
-    id: "chapter",
-    label: "8-10 (Confident Reader)",
-    emoji: "📚",
-    claudeReading: "Longer text, 35-50 words per page. Complex narrative with twists. Internal monologue. Sophisticated vocabulary. Themes of friendship, courage, identity.",
-    maxWordsPerPage: 55,
-  },
-];
-
 // ── Themes / Lessons ─────────────────────────────────────────────────────────
 export const THEMES = [
   { id: "bravery", emoji: "🦁", label: "Being brave" },
@@ -308,50 +262,3 @@ export const WORLDS = [
   { id: "custom", emoji: "💭", label: "Custom — you describe it", vocab: "" },
 ];
 
-// ── Languages ────────────────────────────────────────────────────────────────
-export const LANGUAGES = [
-  { id: "en", label: "English", flag: "🇬🇧" },
-  { id: "es", label: "Spanish", flag: "🇪🇸" },
-  { id: "fr", label: "French", flag: "🇫🇷" },
-  { id: "de", label: "German", flag: "🇩🇪" },
-  { id: "it", label: "Italian", flag: "🇮🇹" },
-  { id: "pt", label: "Portuguese", flag: "🇵🇹" },
-  { id: "nl", label: "Dutch", flag: "🇳🇱" },
-  { id: "ja", label: "Japanese", flag: "🇯🇵" },
-  { id: "ko", label: "Korean", flag: "🇰🇷" },
-  { id: "zh", label: "Chinese (Simplified)", flag: "🇨🇳" },
-  { id: "ar", label: "Arabic", flag: "🇸🇦" },
-  { id: "hi", label: "Hindi", flag: "🇮🇳" },
-];
-
-// ── Legacy exports (keep for backwards compat with existing components) ─────
-export const SPARKS = [
-  { id: "adventure", emoji: "🗺️", title: "Big Adventure", subtitle: "They discover something amazing" },
-  { id: "magic", emoji: "✨", title: "Magic Kingdom", subtitle: "Where anything is possible" },
-  { id: "bedtime", emoji: "🌙", title: "Bedtime Journey", subtitle: "A cozy dream adventure" },
-  { id: "superhero", emoji: "🦸", title: "Superhero Day", subtitle: "They save the day!" },
-  { id: "nature", emoji: "🌿", title: "Into the Wild", subtitle: "Forest, ocean & jungle" },
-  { id: "space", emoji: "🚀", title: "Space Explorer", subtitle: "Stars & galaxies await" },
-  { id: "friendship", emoji: "🤝", title: "New Friend", subtitle: "A heartwarming bond" },
-  { id: "sports", emoji: "⚽", title: "The Big Game", subtitle: "Dream big, play bigger" },
-  { id: "custom", emoji: "💭", title: "My Own Idea", subtitle: "Type anything..." },
-];
-
-export const STORY_FORMATS = [
-  { id: "rhyming", emoji: "🎵", label: "Rhyming", example: "One rainy day, Emma found a key / That opened a door to the Whispering Sea..." },
-  { id: "classic", emoji: "📖", label: "Classic Story", example: "Emma had never seen a door quite like that one..." },
-  { id: "funny", emoji: "😂", label: "Funny & Silly", example: "Emma's dragon sneezed and turned the castle into a bouncy castle." },
-];
-
-export const STORY_TONES = [
-  { id: "cozy", label: "Cozy & Calming", lighting: "warm golden hour lighting, soft shadows, sunset palette" },
-  { id: "exciting", label: "Exciting & Dramatic", lighting: "dynamic lighting, high contrast, dramatic sky" },
-  { id: "heartfelt", label: "Warm & Heartfelt", lighting: "soft warm light, gentle tones, tender atmosphere" },
-  { id: "chaotic", label: "Funny & Chaotic", lighting: "bright saturated colours, playful energy, exaggerated expressions" },
-];
-
-export const BOOK_LENGTHS = [
-  { id: 4, label: "Quick Read", emoji: "📖", desc: "4 pages" },
-  { id: 6, label: "Classic", emoji: "⭐", desc: "6 pages", default: true },
-  { id: 10, label: "Epic Adventure", emoji: "🚀", desc: "10 pages", premium: true },
-];

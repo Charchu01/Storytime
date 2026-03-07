@@ -225,6 +225,8 @@ export default async function handler(req, res) {
       return { role: m.role, content: m.content };
     });
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -238,7 +240,9 @@ export default async function handler(req, res) {
         system,
         messages: apiMessages,
       }),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     const data = await response.json();
     const durationMs = Date.now() - startTime;

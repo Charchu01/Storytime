@@ -50,9 +50,11 @@ export default async function handler(req, res) {
 
     // Trigger post-game analysis — await to prevent Vercel from killing the request
     if (bookId && bookData.images && Object.keys(bookData.images).length > 0) {
-      const origin = req.headers.origin
-        || (req.headers['x-forwarded-host'] ? `https://${req.headers['x-forwarded-host']}` : null)
-        || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://storytime-eight.vercel.app');
+      // Build origin for internal API call — only trust known sources to prevent SSRF
+      const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://storytime-eight.vercel.app';
+      const rawOrigin = req.headers.origin || vercelUrl;
+      const origin = /^https:\/\/[\w-]+\.vercel\.app$/.test(rawOrigin) || /^https?:\/\/localhost(:\d+)?$/.test(rawOrigin)
+        ? rawOrigin : vercelUrl;
       try {
         await fetch(`${origin}/api/post-game-analysis`, {
           method: 'POST',

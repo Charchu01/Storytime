@@ -10,6 +10,18 @@ export default async function handler(req, res) {
   if (!book) return res.status(400).json({ error: 'book data required' });
   if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase not configured' });
 
+  // Allowlist book fields to prevent arbitrary column injection via spread operator
+  const BOOK_FIELDS = [
+    'title', 'tier', 'style', 'tone', 'book_type', 'hero_name', 'hero_age',
+    'hero_type', 'has_photo', 'dedication', 'author_name', 'story_plan',
+    'story_idea', 'personal_ingredient', 'page_count', 'companion_count',
+    'health_status', 'image_quality_summary',
+  ];
+  const sanitizedBook = {};
+  for (const key of BOOK_FIELDS) {
+    if (book[key] !== undefined) sanitizedBook[key] = book[key];
+  }
+
   try {
     // Find or create user
     let dbUserId = null;
@@ -38,13 +50,13 @@ export default async function handler(req, res) {
     if (bookId) {
       // ── UPDATE existing book ─────────────────────────────────
       const updateData = {
-        ...book,
+        ...sanitizedBook,
         generation_status: generationStatus,
         generation_progress: generationProgress || {},
       };
       if (generationStatus === 'completed') {
         updateData.status = 'completed';
-        updateData.health_status = book.health_status || 'healthy';
+        updateData.health_status = sanitizedBook.health_status || 'healthy';
       }
 
       const { error: updateError } = await supabaseAdmin
@@ -63,7 +75,12 @@ export default async function handler(req, res) {
           .eq('book_id', bookId);
 
         const pagesWithBookId = pages.map(p => ({
-          ...p,
+          page_type: p.page_type,
+          page_index: p.page_index,
+          image_url: p.image_url,
+          left_page_text: p.left_page_text,
+          right_page_text: p.right_page_text,
+          scene_description: p.scene_description,
           book_id: bookId,
         }));
 
@@ -78,10 +95,10 @@ export default async function handler(req, res) {
       const { data: savedBook, error: bookError } = await supabaseAdmin
         .from('books')
         .insert({
-          ...book,
+          ...sanitizedBook,
           user_id: dbUserId,
           status: generationStatus === 'completed' ? 'completed' : 'generating',
-          health_status: book.health_status || 'healthy',
+          health_status: sanitizedBook.health_status || 'healthy',
           generation_status: generationStatus,
           generation_progress: generationProgress || {},
         })
@@ -94,7 +111,12 @@ export default async function handler(req, res) {
       // Insert pages
       if (pages?.length > 0) {
         const pagesWithBookId = pages.map(p => ({
-          ...p,
+          page_type: p.page_type,
+          page_index: p.page_index,
+          image_url: p.image_url,
+          left_page_text: p.left_page_text,
+          right_page_text: p.right_page_text,
+          scene_description: p.scene_description,
           book_id: savedBook.id,
         }));
 

@@ -47,6 +47,8 @@ export default async function handler(req, res) {
   const narrationText = prepareNarrationText(text);
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${voice}`,
       {
@@ -65,8 +67,10 @@ export default async function handler(req, res) {
             use_speaker_boost: false,
           },
         }),
+        signal: controller.signal,
       }
     );
+    clearTimeout(timeout);
 
     const durationMs = Date.now() - startTime;
 
