@@ -46,17 +46,6 @@ function getNanoStyle(styleName) {
   return "classic children's storybook illustration with bold saturated colours, clean outlines, and warm painterly backgrounds";
 }
 
-// Legacy compat
-const NANO_STYLES = {
-  "Classic Storybook": "classic children's storybook illustration with bold saturated colours, clean outlines, and warm painterly backgrounds",
-  "Soft Watercolor": "soft watercolour children's book illustration with visible brushstrokes, dreamy washes, and gentle colour bleeds",
-  "Bold & Bright": "modern vibrant children's book illustration with thick bold outlines, flat graphic colours, and playful energy",
-  "Cozy & Soft": "gentle pastel children's bedtime book illustration with rounded shapes, soft muted tones, and cozy warmth",
-  "Sketch & Color": "whimsical hand-drawn children's book illustration with visible pencil lines, loose ink outlines, and watercolour wash fills",
-  Storybook: "classic children's storybook illustration with bold saturated colours, clean outlines, and warm painterly backgrounds",
-  Watercolor: "soft watercolour children's book illustration with visible brushstrokes, dreamy washes, and gentle colour bleeds",
-};
-
 // ── Cost tracking ─────────────────────────────────────────────────────────────
 export function logCost(type, model, success, durationMs, error) {
   try {
@@ -536,9 +525,12 @@ function buildMasterSystemPrompt(cast, heroName, heroAge, styleName, tone, forma
   }
 
   supporting.forEach(c => {
-    const role = c.role === 'mom' ? 'Mother' : c.role === 'dad' ? 'Father' :
-      c.role === 'sibling' ? 'Sibling' : c.role === 'pet' ? 'Family pet' :
-      c.role === 'grandparent' ? 'Grandparent' : c.role === 'friend' ? 'Best friend' : c.role;
+    const roleMap = {
+      mom: 'Mother', dad: 'Father', sibling: 'Sibling', pet: 'Family pet',
+      grandma: 'Grandmother', grandpa: 'Grandfather', friend: 'Best friend',
+      child: 'Child', baby: 'Baby', partner: 'Partner', other: 'Companion',
+    };
+    const role = roleMap[c.role] || c.role;
     castDesc += `\n${c.name}: ${role}`;
     if (c.appearanceDescription) {
       castDesc += ` — ${c.appearanceDescription}`;

@@ -79,15 +79,22 @@ export default function App() {
   }, [removeToast]);
 
   const deleteStory = useCallback(async (id) => {
-    // Optimistic removal from local state
-    setStories((prev) => prev.filter((s) => s.id !== id));
+    // Optimistic removal — save previous state for rollback
+    let previousStories;
+    setStories((prev) => {
+      previousStories = prev;
+      return prev.filter((s) => s.id !== id);
+    });
     try {
-      await supabase
+      const { error } = await supabase
         .from('books')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id);
+      if (error) throw error;
     } catch (err) {
       console.warn('Failed to delete from Supabase:', err.message);
+      // Rollback: restore the story in the UI
+      if (previousStories) setStories(previousStories);
     }
   }, []);
 
