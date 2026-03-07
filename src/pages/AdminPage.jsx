@@ -37,13 +37,14 @@ export default function AdminPage() {
     document.title = "Admin Dashboard \u2014 Storytime";
   }, []);
 
-  // Check auth — sessionStorage first (synchronous), then server checks
+  // Check auth — sessionStorage for current session only, then server checks
   useEffect(() => {
     if (sessionStorage.getItem("admin_auth") === "true") {
       setAuthorized(true);
       return;
     }
     checkAuth();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkAuth = useCallback(async () => {
@@ -98,7 +99,6 @@ export default function AdminPage() {
       if (data.authorized) {
         setAuthorized(true);
         sessionStorage.setItem("admin_auth", "true");
-        sessionStorage.setItem("admin_password", password);
       } else {
         setLoginError("Invalid password");
       }

@@ -14,8 +14,10 @@ export default function StatusPage() {
       const email = clerkUser?.primaryEmailAddress?.emailAddress;
       if (email === "dom@ready.cards") {
         setAuthorized(true);
+        return;
       }
     } catch {}
+    // If not authorized via Clerk, remain unauthorized
   }, []);
 
   const fetchHealth = useCallback(async () => {

@@ -125,23 +125,25 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   async function handleEditSave(contentIndex, instruction, type) {
     const current = flatPages[contentIndex];
     if (type === "story") {
-      if (current.type === "spread") {
-        const spread = localSpreads[current.spreadIndex];
-        const fullText = `${spread.leftPageText} ${spread.rightPageText}`;
-        const newText = await editPageText(fullText, instruction, cast);
-        const sentences = newText.match(/[^.!?]+[.!?]+/g) || [newText];
-        const mid = Math.ceil(sentences.length / 2);
-        const leftText = sentences.slice(0, mid).join("").trim();
-        const rightText = sentences.slice(mid).join("").trim() || leftText;
-        setLocalSpreads((prev) => prev.map((s, i) =>
-          i === current.spreadIndex ? { ...s, leftPageText: leftText, rightPageText: rightText } : s
-        ));
-      } else if (current.type === "page") {
-        const newText = await editPageText(current.text, instruction, cast);
-        setLocalPages((prev) => prev.map((p, i) =>
-          i === current.pageIndex ? { ...p, text: newText } : p
-        ));
-      }
+      try {
+        if (current.type === "spread") {
+          const spread = localSpreads[current.spreadIndex];
+          const fullText = `${spread.leftPageText} ${spread.rightPageText}`;
+          const newText = await editPageText(fullText, instruction, cast);
+          const sentences = newText.match(/[^.!?]+[.!?]+/g) || [newText];
+          const mid = Math.ceil(sentences.length / 2);
+          const leftText = sentences.slice(0, mid).join("").trim();
+          const rightText = sentences.slice(mid).join("").trim() || leftText;
+          setLocalSpreads((prev) => prev.map((s, i) =>
+            i === current.spreadIndex ? { ...s, leftPageText: leftText, rightPageText: rightText } : s
+          ));
+        } else if (current.type === "page") {
+          const newText = await editPageText(current.text, instruction, cast);
+          setLocalPages((prev) => prev.map((p, i) =>
+            i === current.pageIndex ? { ...p, text: newText } : p
+          ));
+        }
+      } catch { addToast("Failed to edit text", "error"); }
     } else {
       const idx = current.spreadIndex ?? current.pageIndex;
       setRegeneratingImage(idx);
@@ -365,9 +367,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
 
       {/* Premium floating toolbar */}
       <div className="br-toolbar">
-        <a className="br-toolbar-back" onClick={() => navigate("/library")}>
+        <button className="br-toolbar-back" onClick={() => navigate("/library")}>
           &larr; Library
-        </a>
+        </button>
         <div className="br-toolbar-actions">
           <button
             className={`br-toolbar-icon${autoNarrate ? " br-toolbar-icon--narrate-on" : ""}`}

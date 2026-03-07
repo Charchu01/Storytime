@@ -232,7 +232,7 @@ export default function HeroSetup({ onComplete, onBack }) {
         <div className={`cast-lineup${isEmpty ? " cast-lineup--empty" : ""}`} ref={lineupRef}>
           {characters.map((char, i) => (
             <div
-              key={i}
+              key={`${char.name}-${char.characterType}-${i}`}
               className={`cast-card${editingIndex === i ? " cast-card--selected" : ""}${i === characters.length - 1 && editingIndex !== i ? " cast-card--new-entry" : ""}`}
               onClick={() => handleCardClick(i)}
             >
