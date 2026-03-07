@@ -115,8 +115,8 @@ export default function StatusPage() {
                 </tr>
               </thead>
               <tbody>
-                {last10.map((c, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                {last10.map((c) => (
+                  <tr key={`${c.ts}-${c.type}`} style={{ borderBottom: "1px solid #f3f4f6" }}>
                     <td style={{ padding: 8 }}>{new Date(c.ts).toLocaleTimeString()}</td>
                     <td style={{ padding: 8 }}>{c.type}</td>
                     <td style={{ padding: 8 }}>{c.success ? "✅" : "❌"}</td>

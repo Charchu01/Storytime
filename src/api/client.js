@@ -367,6 +367,7 @@ export async function validateImage(
           clientAttempt: clientAttempt ?? 1,
         }),
       });
+      if (!response.ok) throw new Error(`Validation returned ${response.status}`);
       const data = await response.json();
       return data;
     } catch (err) {
