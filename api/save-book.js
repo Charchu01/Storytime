@@ -108,18 +108,20 @@ export default async function handler(req, res) {
 
     // Update user stats only when book is fully completed
     if (generationStatus === 'completed' && dbUserId) {
-      await supabaseAdmin.rpc('increment_user_books', { uid: dbUserId }).catch(() => {});
+      const { error: rpcErr } = await supabaseAdmin.rpc('increment_user_books', { uid: dbUserId });
+      if (rpcErr) console.error('INCREMENT_USER_BOOKS_FAILED:', dbUserId, rpcErr.message);
     }
 
-    // Log activity
+    // Log activity — await before response
     const eventType = bookId ? 'book_updated' : (generationStatus === 'completed' ? 'book_completed' : 'book_generation_started');
-    await supabaseAdmin.from('activity_log').insert({
+    const { error: logErr } = await supabaseAdmin.from('activity_log').insert({
       event_type: eventType,
       severity: generationStatus === 'failed' ? 'error' : 'success',
       message: `Book ${eventType.replace('book_', '')}: "${book.title || 'Untitled'}" (${book.tier || 'standard'}, ${book.style || 'unknown'})`,
       book_id: savedBookId,
       user_id: dbUserId,
-    }).catch(() => {});
+    });
+    if (logErr) console.warn('ACTIVITY_LOG_FAILED:', logErr.message);
 
     res.json({ bookId: savedBookId });
   } catch (err) {

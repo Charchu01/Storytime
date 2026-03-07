@@ -39,28 +39,36 @@ export default async function handler(req, res) {
         }, { onConflict: 'session_id' });
       }
 
-      // Admin logging: revenue
+      // Admin logging: revenue — await before response
       const amount = pi.amount ? pi.amount / 100 : (tier === 'premium' ? 19.99 : 9.99);
-      await logRevenue({
-        status: 'succeeded',
-        amount,
-        tier,
-        sessionId: storySessionId,
-        stripeId: pi.id,
-      }).catch(() => {});
+      try {
+        await logRevenue({
+          status: 'succeeded',
+          amount,
+          tier,
+          sessionId: storySessionId,
+          stripeId: pi.id,
+        });
+      } catch (logErr) {
+        console.error('REVENUE_LOG_FAILED (succeeded):', pi.id, logErr.message);
+      }
     }
   }
 
   if (event.type === 'payment_intent.payment_failed') {
     const pi = event.data.object;
     const { storySessionId, tier } = pi.metadata || {};
-    await logRevenue({
-      status: 'failed',
-      amount: 0,
-      tier,
-      sessionId: storySessionId,
-      stripeId: pi.id,
-    }).catch(() => {});
+    try {
+      await logRevenue({
+        status: 'failed',
+        amount: 0,
+        tier,
+        sessionId: storySessionId,
+        stripeId: pi.id,
+      });
+    } catch (logErr) {
+      console.error('REVENUE_LOG_FAILED (failed):', pi.id, logErr.message);
+    }
   }
 
   res.json({ received: true });

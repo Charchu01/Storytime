@@ -74,28 +74,36 @@ export default async function handler(req, res) {
       const errText = await response.text().catch(() => "");
       console.error("ElevenLabs error:", response.status, errText.substring(0, 200));
 
-      logApiCall({
-        service: 'elevenlabs',
-        type: 'narration',
-        status: response.status,
-        durationMs,
-        error: `HTTP ${response.status}`,
-      }).catch(() => {});
+      try {
+        await logApiCall({
+          service: 'elevenlabs',
+          type: 'narration',
+          status: response.status,
+          durationMs,
+          error: `HTTP ${response.status}`,
+        });
+      } catch (logErr) {
+        console.warn('logApiCall failed:', logErr.message);
+      }
 
       return res.status(response.status).json({
         error: `Narration failed: ${response.status}`,
       });
     }
 
-    // Admin logging: success
-    logApiCall({
-      service: 'elevenlabs',
-      type: 'narration',
-      status: 200,
-      durationMs,
-      cost: 0.005,
-      details: `${text.length} chars`,
-    }).catch(() => {});
+    // Admin logging: success — await before sending response
+    try {
+      await logApiCall({
+        service: 'elevenlabs',
+        type: 'narration',
+        status: 200,
+        durationMs,
+        cost: 0.005,
+        details: `${text.length} chars`,
+      });
+    } catch (logErr) {
+      console.warn('logApiCall failed:', logErr.message);
+    }
 
     const contentType = response.headers.get("content-type");
     res.setHeader("Content-Type", contentType || "audio/mpeg");
@@ -105,13 +113,17 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error("Narrate error:", err);
     const durationMs = Date.now() - startTime;
-    logApiCall({
-      service: 'elevenlabs',
-      type: 'narration',
-      status: 500,
-      durationMs,
-      error: err.message,
-    }).catch(() => {});
+    try {
+      await logApiCall({
+        service: 'elevenlabs',
+        type: 'narration',
+        status: 500,
+        durationMs,
+        error: err.message,
+      });
+    } catch (logErr) {
+      console.warn('logApiCall failed:', logErr.message);
+    }
     res.status(500).json({ error: "Narration unavailable" });
   }
 }

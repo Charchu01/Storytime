@@ -244,32 +244,40 @@ export default async function handler(req, res) {
     const durationMs = Date.now() - startTime;
 
     if (!response.ok) {
-      logApiCall({
-        service: 'anthropic',
-        type: 'chat_assistant',
-        status: response.status,
-        durationMs,
-        model: 'claude-sonnet-4-20250514',
-        error: data.error?.message,
-      }).catch(() => {});
+      try {
+        await logApiCall({
+          service: 'anthropic',
+          type: 'chat_assistant',
+          status: response.status,
+          durationMs,
+          model: 'claude-sonnet-4-20250514',
+          error: data.error?.message,
+        });
+      } catch (logErr) {
+        console.warn('logApiCall failed:', logErr.message);
+      }
       return res.status(response.status).json({
         error: data.error?.message || "Anthropic API error",
       });
     }
 
-    // Calculate actual cost from token usage
+    // Calculate actual cost from token usage — await before response
     const inputTokens = data.usage?.input_tokens || 0;
     const outputTokens = data.usage?.output_tokens || 0;
     const cost = (inputTokens * 3 + outputTokens * 15) / 1_000_000;
-    logApiCall({
-      service: 'anthropic',
-      type: 'chat_assistant',
-      status: 200,
-      durationMs,
-      model: 'claude-sonnet-4-20250514',
-      cost,
-      details: { inputTokens, outputTokens },
-    }).catch(() => {});
+    try {
+      await logApiCall({
+        service: 'anthropic',
+        type: 'chat_assistant',
+        status: 200,
+        durationMs,
+        model: 'claude-sonnet-4-20250514',
+        cost,
+        details: { inputTokens, outputTokens },
+      });
+    } catch (logErr) {
+      console.warn('logApiCall failed:', logErr.message);
+    }
 
     const text = data.content.map((block) => block.text || "").join("").trim();
 

@@ -64,6 +64,9 @@ export default async function handler(req, res) {
 
     // ── PRIMARY: Nano Banana Pro (with images) ────────────────
     let primaryFailed = false;
+    let fallbackReason = null;
+    let faceRefLost = false;
+
     if (imageInputs.length > 0) {
       try {
         modelUsed = "google/nano-banana-pro";
@@ -79,17 +82,17 @@ export default async function handler(req, res) {
         });
       } catch (err) {
         primaryFailed = true;
-        console.error("FACE_REF_LOST: Primary model with images FAILED — falling back to no-reference generation. This WILL produce wrong character appearance.", err.message);
-        console.error("FACE_REF_LOST_URLS:", JSON.stringify(imageInputs.map(u => u?.substring(0, 80))));
+        faceRefLost = !!referencePhotoUrl;
+        fallbackReason = `primary_with_images_failed: ${err.message}`;
+        console.error("FACE_REF_LOST: Primary model with images FAILED — falling back to no-reference generation.", err.message);
         prediction = null;
       }
     }
 
     // ── FALLBACK 1: Nano Banana Pro without images ──────────
-    // WARNING: This generates WITHOUT any face reference — character will look different!
     if (!prediction) {
       if (primaryFailed && referencePhotoUrl) {
-        console.error("FACE_REF_LOST: Generating WITHOUT hero photo reference. Character ethnicity/appearance will NOT match the uploaded photo.");
+        console.error("FACE_REF_LOST: Generating WITHOUT hero photo reference. Character will NOT match uploaded photo.");
       }
       try {
         modelUsed = "google/nano-banana-pro";
@@ -102,8 +105,10 @@ export default async function handler(req, res) {
             allow_fallback_model: true,
           },
         });
+        if (!fallbackReason) fallbackReason = imageInputs.length > 0 ? null : 'no_reference_images';
       } catch (err) {
         console.warn("Nano Banana Pro (no images) failed:", err.message);
+        fallbackReason = fallbackReason || `nano_banana_no_images_failed: ${err.message}`;
         prediction = null;
       }
     }
@@ -112,6 +117,7 @@ export default async function handler(req, res) {
     if (!prediction && referencePhotoUrl) {
       try {
         modelUsed = "black-forest-labs/flux-kontext-pro";
+        faceRefLost = false; // Kontext preserves face
         prediction = await replicate.predictions.create({
           model: modelUsed,
           input: {
@@ -121,14 +127,18 @@ export default async function handler(req, res) {
             output_format: "jpg",
           },
         });
+        fallbackReason = `kontext_fallback: primary models failed`;
       } catch (err) {
         console.warn("Kontext Pro fallback failed:", err.message);
+        faceRefLost = true; // Back to lost
+        fallbackReason = `kontext_also_failed: ${err.message}`;
         prediction = null;
       }
     }
 
     // ── FALLBACK 3: Flux Pro Ultra (no face) ────────────────
     if (!prediction) {
+      faceRefLost = !!referencePhotoUrl; // Always lost at this point if there was a photo
       try {
         modelUsed = "black-forest-labs/flux-1.1-pro-ultra";
         prediction = await replicate.predictions.create({
@@ -140,8 +150,24 @@ export default async function handler(req, res) {
             output_quality: 90,
           },
         });
+        fallbackReason = `flux_ultra_fallback: all primary models failed`;
       } catch (err) {
         console.error("All models failed:", err.message);
+        const durationMs = Date.now() - startTime;
+        try {
+          await logApiCall({
+            service: 'replicate',
+            type: isCover ? 'cover' : 'spread',
+            bookId: bookId || null,
+            status: 500,
+            durationMs,
+            model: 'all_failed',
+            error: err.message,
+            details: { fallbackReason: 'all_4_models_failed', attempt: clientAttempt || 1 },
+          });
+        } catch (logErr) {
+          console.error('GEN_LOG_FAILED:', bookId, logErr.message);
+        }
         return res.status(500).json({
           error: "Image generation unavailable. Please try again.",
         });
@@ -172,7 +198,12 @@ export default async function handler(req, res) {
         durationMs,
         model: modelUsed,
         cost: 0.045,
-        details: { summary: `${modelUsed} | ${imageInputs.length} refs`, attempt: clientAttempt || 1 },
+        details: {
+          summary: `${modelUsed} | ${imageInputs.length} refs`,
+          attempt: clientAttempt || 1,
+          fallbackReason: fallbackReason || null,
+          faceRefLost,
+        },
       });
     } catch (logErr) {
       console.error('GEN_LOG_FAILED:', bookId, logErr.message);
@@ -182,18 +213,22 @@ export default async function handler(req, res) {
       predictionId: prediction.id,
       status: prediction.status,
       model: modelUsed,
-      faceRefLost: primaryFailed && !!referencePhotoUrl,
+      faceRefLost,
     });
   } catch (err) {
     console.error("generate-image error:", err);
-    logApiCall({
-      service: 'replicate',
-      type: 'image_gen',
-      bookId: bookId || null,
-      status: 500,
-      durationMs: Date.now() - startTime,
-      error: err.message,
-    }).catch(e => console.warn('logApiCall failed:', e.message));
+    try {
+      await logApiCall({
+        service: 'replicate',
+        type: 'image_gen',
+        bookId: bookId || null,
+        status: 500,
+        durationMs: Date.now() - startTime,
+        error: err.message,
+      });
+    } catch (logErr) {
+      console.warn('logApiCall failed:', logErr.message);
+    }
     res.status(500).json({ error: `Image generation failed: ${err.message}` });
   }
 }
