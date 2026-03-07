@@ -160,29 +160,143 @@ function buildCharacterDescription(cast) {
     .join(", ");
 }
 
+// ── Type-aware character analysis prompts ────────────────────────────────────
+function buildCharacterAnalysisPrompt(heroName, heroType, heroAge) {
+  const type = heroType || 'child';
+
+  if (type === 'pet') {
+    return {
+      system: `You are a children's book art director. Analyze this photo of a pet and write a FROZEN CHARACTER DESCRIPTION that an illustrator will reference on every page.
+
+Include ALL of these:
+- Species and breed (or best guess)
+- Coat/fur: color, pattern, length, texture (e.g., "long fluffy golden fur with a white chest patch")
+- Size: small/medium/large
+- Eyes: color and expression
+- Ears: shape and position (floppy, pointed, etc.)
+- Tail: length, bushiness, curl
+- Distinguishing features: spots, markings, collar, bandana, scars
+- Overall personality impression from appearance
+
+Write as ONE dense paragraph. No headers, no bullets. Example: "Biscuit — a medium-sized golden retriever with long wavy caramel-gold fur, a fluffy white chest, warm brown eyes with a perpetually happy expression, floppy ears that bounce when running, a thick feathered tail always wagging. Wears a red collar with a bone-shaped tag. Same collar on every page."`,
+      user: `Describe this pet named ${sanitizeForPrompt(heroName)} for an illustrator. Be specific about every visual detail.`,
+    };
+  }
+
+  if (type === 'stuffed_animal') {
+    return {
+      system: `You are a children's book art director. Analyze this photo of a stuffed animal/plush toy and write a FROZEN CHARACTER DESCRIPTION.
+
+Include: material/fabric type, color, size, eye type (button, plastic, embroidered), any clothing or accessories, wear/loved-look, distinguishing features.
+
+Write as ONE dense paragraph. Example: "Mr. Bear — a well-loved medium brown teddy bear, soft plush fur slightly matted from hugs, round black button eyes, stitched smile with brown thread, faded red bow tie around the neck, slightly floppy left ear. Warm and worn — a treasured companion. Same bow tie on every page."`,
+      user: `Describe this stuffed animal named ${sanitizeForPrompt(heroName)} for an illustrator. Include every detail that makes it unique.`,
+    };
+  }
+
+  if (type === 'adult') {
+    return {
+      system: `You are a children's book art director. Analyze this photo and write a FROZEN CHARACTER DESCRIPTION of this adult for a children's storybook illustrator.
+
+Include ALL of these:
+- Hair: color, length, style, any grey/balding
+- Skin: specific tone
+- Eyes: color, shape, glasses if present
+- Face: shape, notable features (beard, mustache, wrinkles, dimples, smile lines)
+- Build: body type, height impression
+- Age appearance: approximate decade (30s, 50s, 70s, etc.)
+- Outfit: assign a signature storybook-appropriate outfit
+
+Write as ONE dense paragraph. Example: "Grandpa Joe — a tall broad-shouldered man in his early 70s with a full head of silver-white hair combed to the side, warm deep brown skin with smile lines around his eyes, kind dark brown eyes behind round gold-rimmed glasses, a short salt-and-pepper beard. Wearing a cozy burgundy cardigan over a cream checkered shirt, brown corduroy trousers, leather shoes. Same outfit on every page."`,
+      user: `Describe this person named ${sanitizeForPrompt(heroName)}${heroAge ? ` (age ${heroAge})` : ''} for an illustrator. Be specific about every visual detail.`,
+    };
+  }
+
+  if (type === 'teen') {
+    return {
+      system: `You are a children's book art director. Analyze this photo of a teenager and write a FROZEN CHARACTER DESCRIPTION.
+
+Include: hair (color, length, style), skin tone, eyes, face shape, build, approximate age (13-19), distinguishing features, and a signature outfit.
+
+Write as ONE dense paragraph.`,
+      user: `Describe this teenager named ${sanitizeForPrompt(heroName)}${heroAge ? ` (age ${heroAge})` : ''} for an illustrator. Be specific about every visual detail.`,
+    };
+  }
+
+  if (type === 'baby') {
+    return {
+      system: `You are a children's book art director. Analyze this photo of a baby/toddler and write a FROZEN CHARACTER DESCRIPTION.
+
+Include: hair (color, amount — babies may have very little), skin tone, eyes, face shape (round cheeks, etc.), approximate age appearance, and a signature onesie or outfit.
+
+Baby proportions are critical for illustration: very large head relative to body, short chubby limbs, round belly, tiny hands and feet. Note these explicitly.
+
+Write as ONE dense paragraph.`,
+      user: `Describe this baby named ${sanitizeForPrompt(heroName)}${heroAge ? ` (age ${heroAge})` : ''} for an illustrator. Include age-appropriate proportions.`,
+    };
+  }
+
+  if (type === 'imaginary_friend' || type === 'magical_creature') {
+    return {
+      system: `You are a children's book art director. Analyze this image and write a FROZEN CHARACTER DESCRIPTION. This is a fantasy/imaginary character — describe what you see faithfully, including any magical or unusual features.
+
+Include: overall shape/form, colors, size, texture (fur, scales, sparkles, glow), eyes, distinguishing features.
+
+Write as ONE dense paragraph.`,
+      user: `Describe this character named ${sanitizeForPrompt(heroName)} for an illustrator. Capture every visual detail including any fantastical elements.`,
+    };
+  }
+
+  // Default: child (the most common case)
+  const isAdult = heroAge && parseInt(heroAge, 10) >= 16;
+  return {
+    system: `You are a children's book art director. Analyze this photo of a child and write a FROZEN CHARACTER DESCRIPTION that an illustrator will reference on every single page.
+
+Include ALL of these:
+- Hair: exact color, length, texture, style
+- Skin: specific tone (e.g., "warm olive" or "fair with light freckles" — not just "light")
+- Eyes: color, shape, size relative to face
+- Face shape: round, oval, heart, etc.
+- Distinguishing features: freckles, dimples, glasses, gap teeth, birthmarks
+- Build: body type relative to age
+- Age appearance: how old they look
+- Outfit: describe what they're wearing OR assign a signature outfit
+
+Write as ONE dense paragraph. No headers, no bullets. Example: "Luna — 5-year-old girl with long wavy auburn hair past her shoulders, fair skin with light freckles across her nose, large round hazel-green eyes, heart-shaped face with rosy cheeks and a small upturned nose. Petite build. Wearing a yellow raincoat over a blue striped dress, red rain boots. Same outfit on every page."
+${isAdult ? "\nIMPORTANT: This person is an ADULT. Do NOT describe them as a child. Use adult body proportions and features." : ""}`,
+    user: `Describe this ${isAdult ? 'person' : 'child'} named ${sanitizeForPrompt(heroName)}${heroAge ? ` (age ${heroAge})` : ''} for an illustrator. Be specific about every visual detail.`,
+  };
+}
+
+function buildFallbackDescription(heroName, heroType, heroAge) {
+  const type = heroType || 'child';
+  const age = heroAge ? `${heroAge}-year-old ` : '';
+
+  const typeLabels = {
+    child: `${age}child`,
+    teen: `${age}teenager`,
+    adult: `${age}adult`,
+    baby: `${age}baby`,
+    pet: 'pet',
+    stuffed_animal: 'stuffed animal',
+    imaginary_friend: 'imaginary friend',
+    magical_creature: 'magical creature',
+  };
+
+  return `${sanitizeForPrompt(heroName)} — a ${typeLabels[type] || type} character`;
+}
+
 // ── Analyze character photos ──────────────────────────────────────────────────
 async function analyzeCharacterPhotos_single(character, photoDataUri) {
-  const role = ROLES.find((r) => r.id === character.role)?.label || character.role;
-  const ageNote = character.age ? `, approximately ${character.age} years old` : "";
-  const isAdult = character.role === "adult" || (character.age && parseInt(character.age, 10) >= 16);
+  const heroType = character.role || 'child';
+  const heroAge = character.age || null;
+  const heroName = character.name;
 
   try {
+    const analysisPrompt = buildCharacterAnalysisPrompt(heroName, heroType, heroAge);
     const description = await claudeCall(
-      `You are a professional children's book illustrator creating a character reference sheet. Your description will be fed DIRECTLY into an AI image generator to draw this person as a storybook character.
-
-CRITICAL: Look at the PHOTO FIRST. Describe EXACTLY what you see — the REAL person in the image. Do NOT invent or assume features. If the person is clearly an adult, describe them as an adult. If they have a shaved head, say "shaved head" or "buzz cut" — do NOT write "curly hair" if you see no curls.
-
-Write an EXTREMELY specific and vivid visual description (4-6 sentences):
-- EXACT hair: color, texture, length/style — or "shaved/buzz cut" if applicable
-- EXACT skin tone (e.g. "warm golden brown", "fair with rosy cheeks", "olive-toned")
-- Eye color and shape
-- Face shape and key features (jawline, cheekbones, dimples, stubble/beard if present)
-- Body build: ${isAdult ? "adult build (tall, average, stocky, slim, muscular, etc.)" : "child build for their age (chubby toddler, slim, sturdy)"}
-- Any distinctive features (glasses, birthmark, facial hair, etc.)
-
-Format as a single flowing paragraph. Do NOT mention clothing. Do NOT use vague terms. Write in third person.
-${isAdult ? "\nIMPORTANT: This person is an ADULT. Do NOT describe them as a child. Use adult body proportions and features." : ""}`,
-      `This is ${sanitizeForPrompt(character.name)}, a ${role}${ageNote}. Look at the photo carefully and describe EXACTLY what you see — their real physical appearance.`,
+      analysisPrompt.system,
+      analysisPrompt.user,
       400,
       photoDataUri
     );
@@ -251,6 +365,8 @@ function assembleImagePrompt({
   authorName,
   subtitleText,
   companionNames = [],
+  frozenCharacterDescription,
+  heroType,
 }) {
   const sections = [];
 
@@ -269,8 +385,13 @@ function assembleImagePrompt({
 
     sections.push(
 `CHARACTER:
-${characterAppearances.hero}
-${sanitizeForPrompt(heroName)}'s face MUST match Image 1. Transform into illustrated style.`
+${frozenCharacterDescription || characterAppearances.hero || buildFallbackDescription(heroName, heroType)}
+
+CRITICAL CONSISTENCY RULES:
+- ${sanitizeForPrompt(heroName)} MUST look identical on every page — same face, same coloring, same outfit/markings
+- When ANY visual detail conflicts between this description and Image 1, Image 1 wins
+- No appearance changes between pages unless the story specifically calls for it
+- Zero variation — an illustrator would use this as their character model sheet`
     );
 
     if (characterAppearances.supporting) {
@@ -365,9 +486,13 @@ This is the COVER — the most polished, beautiful image in the entire book. Gal
 
     sections.push(
 `CHARACTER:
-${characterAppearances.hero}
+${frozenCharacterDescription || characterAppearances.hero || buildFallbackDescription(heroName, heroType)}
 ${sanitizeForPrompt(heroName)}'s face MUST match Image 1 (the photo). Their illustrated style MUST match Image 2 and Image 3 (previous pages).
-CRITICAL: Match the EXACT skin tone, ethnicity, and hair from the photo. Do NOT change the character's race or appearance.`
+
+CRITICAL CONSISTENCY RULES:
+- ${sanitizeForPrompt(heroName)} MUST look identical on every page — same face, same coloring, same outfit/markings
+- Match the EXACT skin tone, ethnicity, and hair from the photo. Do NOT change the character's race or appearance
+- When ANY visual detail conflicts between this description and Image 1, Image 1 wins`
     );
 
     sections.push(`SCENE:\n${sceneDescription}`);
@@ -423,9 +548,14 @@ The character must be rendered in the SAME illustrated style as Image 2 and Imag
 
   sections.push(
 `CHARACTER:
-${characterAppearances.hero}
+${frozenCharacterDescription || characterAppearances.hero || buildFallbackDescription(heroName, heroType)}
 ${sanitizeForPrompt(heroName)}'s face MUST match Image 1 (the photo). Match their EXACT skin tone, ethnicity, hair colour, and facial features. Do NOT change the character's race or skin colour.
-When in doubt, match the photo. NOT photorealistic — illustrated style.${!isFirstSpread ? `\n${sanitizeForPrompt(heroName)} must look IDENTICAL to how they appear in Image 3 (previous spread). Same skin tone, same features, same clothing.` : ""}`
+When in doubt, match the photo. NOT photorealistic — illustrated style.${!isFirstSpread ? `\n${sanitizeForPrompt(heroName)} must look IDENTICAL to how they appear in Image 3 (previous spread). Same skin tone, same features, same clothing.` : ""}
+
+CRITICAL CONSISTENCY RULES:
+- ${sanitizeForPrompt(heroName)} MUST look identical on every page — same face, same coloring, same outfit/markings
+- When ANY visual detail conflicts between this description and Image 1, Image 1 wins
+- No appearance changes between pages unless the story specifically calls for it`
   );
 
   if (characterAppearances.supporting) {
@@ -869,8 +999,10 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
 // Sequential chained flow: cover → spread1 → spread2 → ... → back cover
 // Each image references the hero photo + cover (style anchor) + previous image
 export async function generateAllImages(
-  storyPlan, heroPhotoUrl, onImageReady, tier, companionPhotoUrls = {}
+  storyPlan, heroPhotoUrl, onImageReady, tier, companionPhotoUrls = {},
+  { frozenCharacterDescription = null, heroType = 'child' } = {}
 ) {
+  const bookStartTime = Date.now();
   const images = {};
   const permanentImages = {};
   const savePromises = [];
@@ -900,9 +1032,11 @@ export async function generateAllImages(
     maxAttempts, stopAtTier, generateArgs, onProgress,
   }) {
     const allAttempts = [];
+    const pageStartTime = Date.now();
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
+        const attemptStartTime = Date.now();
         // Build prompt — first attempt uses original, retries append fixNotes
         const bestSoFar = allAttempts.length > 0
           ? selectBestImage(allAttempts, !!heroPhotoUrl)
@@ -915,6 +1049,7 @@ export async function generateAllImages(
 
         totalImageGenerations++;
         const imageUrl = await generateImage(prompt, ...generateArgs, tempBookId, attempt + 1);
+        console.log(`TIMING_GEN: ${pageType} attempt ${attempt + 1} — ${Date.now() - attemptStartTime}ms`);
 
         if (!imageUrl || !(await validateImageUrl(imageUrl))) {
           allAttempts.push({
@@ -946,13 +1081,16 @@ export async function generateAllImages(
         // don't block the image — accept it immediately and stop retrying.
         // Validation is a quality check, not a hard gate for book generation.
         const isInfraFailure = !valResult
+          || valResult.skipped === true
           || valResult.reason === 'validation_api_error'
           || valResult.reason === 'network_error'
-          || valResult.reason === 'parse_error';
+          || valResult.reason === 'parse_error'
+          || valResult.reason?.startsWith('validation_skipped');
 
         if (isInfraFailure) {
           const reason = valResult?.reason || 'no_response';
-          console.warn(`VALIDATION_INFRA_FAIL: ${pageType} attempt ${attempt + 1} — reason: ${reason}, accepting image and stopping retries`);
+          console.log(`TIMING_VAL: ${pageType} attempt ${attempt + 1} — ${Date.now() - attemptStartTime}ms total (validation skipped)`);
+          console.log(`VALIDATION_SKIPPED: ${pageType} attempt ${attempt + 1} — reason: ${reason}, using image without scores`);
           // Build a pass-through result: scores high enough to pass hard gates,
           // tagged so admin dashboard can distinguish infra failures from real passes
           allAttempts.push({
@@ -982,6 +1120,7 @@ export async function generateAllImages(
         }
 
         allAttempts.push({ imageUrl, validation: valResult, attempt });
+        console.log(`TIMING_VAL: ${pageType} attempt ${attempt + 1} — ${Date.now() - attemptStartTime}ms total`);
 
         // Check if we can stop early
         const qualityTier = getQualityTier(valResult);
@@ -1001,8 +1140,12 @@ export async function generateAllImages(
 
     // Select the best image from all attempts
     const validAttempts = allAttempts.filter(a => a.imageUrl);
-    if (validAttempts.length === 0) return null;
+    if (validAttempts.length === 0) {
+      console.log(`TIMING_PAGE: ${pageType} — ${Date.now() - pageStartTime}ms, 0 valid attempt(s) of ${allAttempts.length}`);
+      return null;
+    }
 
+    console.log(`TIMING_PAGE: ${pageType} — ${Date.now() - pageStartTime}ms, ${allAttempts.length} attempt(s)`);
     const best = selectBestImage(validAttempts, !!heroPhotoUrl);
     // Safety fallback: if hard gates rejected everything but we have images, use the first one
     // This prevents "All illustrations failed" when validation infrastructure is down
@@ -1014,7 +1157,7 @@ export async function generateAllImages(
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // 1. COVER — max 4 attempts, stop at excellent
+  // 1. COVER — max 2 attempts, stop at excellent
   // ═══════════════════════════════════════════════════════════════
   const coverPrompt = assembleImagePrompt({
     sceneDescription: storyPlan.cover.sceneDescription,
@@ -1026,6 +1169,8 @@ export async function generateAllImages(
     authorName: storyPlan.cover.authorName || storyPlan.authorName || "A loving family",
     subtitleText: storyPlan.subtitleText || null,
     companionNames,
+    frozenCharacterDescription,
+    heroType,
   });
 
   const coverResult = await generateWithRetries({
@@ -1033,7 +1178,7 @@ export async function generateAllImages(
     originalPrompt: coverPrompt,
     expectedTexts: storyPlan.cover.titleText ? [storyPlan.cover.titleText] : [],
     sceneDescription: storyPlan.cover.sceneDescription,
-    maxAttempts: 4,
+    maxAttempts: 2,
     stopAtTier: 'excellent',
     generateArgs: [heroPhotoUrl, tier, null, [...companionUrls], storyPlan.cover.aspectRatio || "2:3", true],
     onProgress: (url) => { if (onImageReady) onImageReady("cover", url); },
@@ -1052,7 +1197,7 @@ export async function generateAllImages(
   if (onImageReady) onImageReady("cover", images.cover || null);
 
   // ═══════════════════════════════════════════════════════════════
-  // 2. SPREADS — first spread: 3 attempts, rest: 2 attempts, stop at good
+  // 2. SPREADS — max 2 attempts, stop at good
   // ═══════════════════════════════════════════════════════════════
   for (let i = 0; i < storyPlan.spreads.length; i++) {
     const spread = storyPlan.spreads[i];
@@ -1067,6 +1212,8 @@ export async function generateAllImages(
       isFirstSpread: isFirst,
       heroName,
       companionNames,
+      frozenCharacterDescription,
+      heroType,
     });
 
     // Reference images: cover (style anchor) + previous spread (continuity) + companion photos
@@ -1077,7 +1224,7 @@ export async function generateAllImages(
     }
     refImages.push(...companionUrls);
 
-    const maxAttempts = isFirst ? 3 : 2;
+    const maxAttempts = 2; // Same for all pages
     const spreadIdx = i;
     const spreadResult = await generateWithRetries({
       pageType: 'spread',
@@ -1116,6 +1263,8 @@ export async function generateAllImages(
     isBackCover: true,
     heroName,
     companionNames,
+    frozenCharacterDescription,
+    heroType,
   });
 
   const backRefs = [];
@@ -1157,6 +1306,8 @@ export async function generateAllImages(
   if (!images.cover && spreadImages.every(url => !url)) {
     throw new Error("All illustrations failed. Please try again.");
   }
+
+  console.log(`TIMING_BOOK: ${Date.now() - bookStartTime}ms total, ${totalImageGenerations} image generation(s)`);
 
   // Wait for permanent saves to complete — these store images in Supabase storage
   // so they don't expire when Replicate CDN URLs rotate (~1 hour).

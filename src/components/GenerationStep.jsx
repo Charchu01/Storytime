@@ -392,6 +392,20 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       setPageCount(totalImages);
       setPageImages(new Array(totalImages).fill(undefined));
 
+      // Build frozen character description from enriched cast photo analysis
+      const heroChar = enrichedCast.find((c) => c.isHero) || enrichedCast[0];
+      const currentHeroType = wizardData?.heroType || heroChar?.role || "child";
+      let frozenCharacterDescription = heroChar?.appearanceDescription || null;
+      if (frozenCharacterDescription) {
+        console.log("CHAR_DESC_DONE:", JSON.stringify({
+          heroType: currentHeroType,
+          length: frozenCharacterDescription.length,
+          preview: frozenCharacterDescription.substring(0, 150),
+        }));
+      } else {
+        console.log("CHAR_DESC_NONE: No photo analysis available, using fallback");
+      }
+
       const onImageReady = (key, url) => {
         setPageImages(prev => {
           const next = [...prev];
@@ -406,7 +420,8 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       };
 
       const genResult = await generateAllImages(
-        storyPlan, heroPhotoUrl, onImageReady, tier, companionPhotoUrls
+        storyPlan, heroPhotoUrl, onImageReady, tier, companionPhotoUrls,
+        { frozenCharacterDescription, heroType: currentHeroType }
       );
       const images = genResult.images || genResult; // backward compat
       const permanentImages = genResult.permanentImages || {};
