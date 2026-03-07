@@ -513,6 +513,10 @@ CRITICAL CONSISTENCY RULES:
 - When ANY visual detail conflicts between this description and Image 1, Image 1 wins`
     );
 
+    if (ledgerBlock) {
+      sections.push(ledgerBlock);
+    }
+
     sections.push(`SCENE:\n${sceneDescription}`);
 
     sections.push(
@@ -634,7 +638,7 @@ ${textBoxDesign ? `Additional style notes: ${textBoxDesign}` : ""}`
   sections.push(
 `STYLE:
 ${artStyle || "Classic children's storybook illustration, bold saturated colours, clean outlines, warm painterly backgrounds."}
-Must be IDENTICAL on every page. Match Image 2 exactly.`
+Must be IDENTICAL on every page. Match Image ${coverImgIdx} exactly.`
   );
 
   sections.push(
