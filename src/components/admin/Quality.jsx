@@ -241,6 +241,71 @@ export default function Quality() {
         </div>
       </div>
 
+      {/* Full Generation Log — every generation with prompt + score */}
+      <div style={card}>
+        <h3 style={cardTitle}>Generation Log (All Attempts)</h3>
+        <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 12px" }}>
+          Every image generation attempt with prompt, image, and validation score.
+        </p>
+        <div style={{ maxHeight: 600, overflowY: "auto" }}>
+          {validations.slice(0, 50).map((v, i) => (
+            <div key={i} style={{
+              display: "flex", gap: 10, padding: "10px 12px", marginBottom: 6,
+              background: v.pass ? "#f0fdf4" : "#fef2f2", borderRadius: 8,
+              border: `1px solid ${v.pass ? "#bbf7d0" : "#fecaca"}`, alignItems: "flex-start",
+            }}>
+              {v.imageUrl ? (
+                <a href={v.imageUrl} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                  <img src={v.imageUrl} alt={`${v.page} #${v.attempt}`}
+                    style={{ width: 72, height: 54, objectFit: "cover", borderRadius: 6, border: "1px solid #e2e8f0" }}
+                    onError={(e) => { e.target.style.display = "none"; }} />
+                </a>
+              ) : (
+                <div style={{ width: 72, height: 54, background: "#e2e8f0", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#94a3b8", flexShrink: 0 }}>
+                  No img
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontWeight: 700, fontSize: 12, color: v.pass ? "#16a34a" : "#dc2626" }}>
+                    {v.pass ? "\u2705" : "\u274C"} {v.page} #{v.attempt}
+                  </span>
+                  <span style={{ fontSize: 10, color: "#94a3b8" }}>
+                    {v.ts ? new Date(v.ts).toLocaleString() : "-"}
+                  </span>
+                  {v.compositeScore != null && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: v.compositeScore >= 7 ? "#16a34a" : v.compositeScore >= 5 ? "#d97706" : "#dc2626" }}>
+                      Score: {v.compositeScore.toFixed ? v.compositeScore.toFixed(1) : v.compositeScore}
+                    </span>
+                  )}
+                  <span style={{ fontSize: 10, color: "#64748b" }}>
+                    T:{v.textScore} F:{v.faceScore} S:{v.sceneAccuracy}{v.textBoxScore != null ? ` TB:${v.textBoxScore}` : ""}
+                  </span>
+                </div>
+                {(v.issues || []).length > 0 && (
+                  <div style={{ fontSize: 10, color: "#dc2626", marginBottom: 2 }}>
+                    {v.issues.join(", ")}
+                  </div>
+                )}
+                {v.prompt && (
+                  <details style={{ fontSize: 10 }}>
+                    <summary style={{ cursor: "pointer", color: "#6366f1", fontWeight: 600 }}>View Prompt ({v.prompt.length} chars)</summary>
+                    <pre style={{ marginTop: 4, padding: 6, background: "#f1f5f9", borderRadius: 4, whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 9, color: "#334155", maxHeight: 150, overflowY: "auto", border: "1px solid #e2e8f0" }}>
+                      {v.prompt}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            </div>
+          ))}
+          {validations.length === 0 && (
+            <p style={{ textAlign: "center", color: "#94a3b8", padding: 40, fontSize: 12 }}>
+              No generation attempts logged yet.
+            </p>
+          )}
+        </div>
+      </div>
+
       {/* AI Insights */}
       <div style={card}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>

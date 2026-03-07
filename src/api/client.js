@@ -115,7 +115,8 @@ export async function generateImage(
   style = null,
   referenceImageUrls = [],
   aspectRatio = "2:3",
-  isCover = false
+  isCover = false,
+  bookId = null
 ) {
   let response;
   try {
@@ -130,6 +131,7 @@ export async function generateImage(
         style,
         aspectRatio,
         isCover,
+        bookId: bookId || null,
       }),
     });
   } catch (err) {
@@ -147,9 +149,12 @@ export async function generateImage(
     throw new Error(data.error || friendlyError(response.status));
   }
 
-  const { predictionId } = data;
+  const { predictionId, faceRefLost } = data;
   if (!predictionId) {
     throw new Error("No prediction ID returned");
+  }
+  if (faceRefLost) {
+    console.warn("FACE_REF_LOST: Image generated WITHOUT hero face reference — character may look different");
   }
 
   const POLL_INTERVAL = 2500;
@@ -327,7 +332,8 @@ export async function saveBookImage(imageUrl, bookId, pageType, pageIndex) {
 export async function validateImage(
   imageUrl, expectedTexts, heroName,
   artStyle, pageType, sceneDescription, bookId,
-  referencePhotoUrl, characterDescriptions, previousPageStyle
+  referencePhotoUrl, characterDescriptions, previousPageStyle,
+  generationPrompt
 ) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -345,6 +351,7 @@ export async function validateImage(
           referencePhotoUrl: referencePhotoUrl || null,
           characterDescriptions: characterDescriptions || null,
           previousPageStyle: previousPageStyle || null,
+          generationPrompt: generationPrompt || null,
         }),
       });
       const data = await response.json();

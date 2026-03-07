@@ -193,6 +193,8 @@ export default async function handler(req, res) {
           qualityTier: v.quality_tier,
           compositeScore: v.composite_score,
           createdAt: v.created_at,
+          prompt: v.prompt || null,
+          imageUrl: v.image_url || null,
         }));
 
         // Get API calls for this book (image generations, validations, etc.)
@@ -359,6 +361,8 @@ export default async function handler(req, res) {
           characterCount: v.character_count,
           qualityTier: v.quality_tier,
           compositeScore: v.composite_score,
+          prompt: v.prompt || null,
+          imageUrl: v.image_url || null,
         }));
 
         const trends = await getQualityTrends();

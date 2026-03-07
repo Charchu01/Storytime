@@ -33,6 +33,7 @@ export default async function handler(req, res) {
       style,
       aspectRatio,
       isCover,
+      bookId,
     } = req.body || {};
 
     if (!prompt) {
@@ -61,6 +62,7 @@ export default async function handler(req, res) {
     }));
 
     // ── PRIMARY: Nano Banana Pro (with images) ────────────────
+    let primaryFailed = false;
     if (imageInputs.length > 0) {
       try {
         modelUsed = "google/nano-banana-pro";
@@ -75,13 +77,19 @@ export default async function handler(req, res) {
           },
         });
       } catch (err) {
-        console.warn("Nano Banana Pro failed:", err.message);
+        primaryFailed = true;
+        console.error("FACE_REF_LOST: Primary model with images FAILED — falling back to no-reference generation. This WILL produce wrong character appearance.", err.message);
+        console.error("FACE_REF_LOST_URLS:", JSON.stringify(imageInputs.map(u => u?.substring(0, 80))));
         prediction = null;
       }
     }
 
     // ── FALLBACK 1: Nano Banana Pro without images ──────────
+    // WARNING: This generates WITHOUT any face reference — character will look different!
     if (!prediction) {
+      if (primaryFailed && referencePhotoUrl) {
+        console.error("FACE_REF_LOST: Generating WITHOUT hero photo reference. Character ethnicity/appearance will NOT match the uploaded photo.");
+      }
       try {
         modelUsed = "google/nano-banana-pro";
         prediction = await replicate.predictions.create({
@@ -158,6 +166,7 @@ export default async function handler(req, res) {
     logApiCall({
       service: 'replicate',
       type: isCover ? 'cover' : 'spread',
+      bookId: bookId || null,
       status: 200,
       durationMs,
       model: modelUsed,
@@ -170,12 +179,14 @@ export default async function handler(req, res) {
       predictionId: prediction.id,
       status: prediction.status,
       model: modelUsed,
+      faceRefLost: primaryFailed && !!referencePhotoUrl,
     });
   } catch (err) {
     console.error("generate-image error:", err);
     logApiCall({
       service: 'replicate',
       type: 'image_gen',
+      bookId: bookId || null,
       status: 500,
       durationMs: Date.now() - startTime,
       error: err.message,

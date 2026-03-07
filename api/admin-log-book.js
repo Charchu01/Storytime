@@ -1,4 +1,4 @@
-import { logBook, logEvent } from './lib/admin-logger.js';
+import { logBook, logEvent, relinkBookId } from './lib/admin-logger.js';
 import { supabaseAdmin } from './lib/supabase-admin.js';
 
 export const config = { maxDuration: 15 };
@@ -23,6 +23,12 @@ export default async function handler(req, res) {
     }
 
     const bookId = bookData.supabaseBookId || bookData.bookId || `book_${Date.now()}`;
+
+    // Relink admin records (validations, api_calls) from temp bookId to real UUID
+    if (bookData.supabaseBookId && bookData.tempBookId && bookData.supabaseBookId !== bookData.tempBookId) {
+      relinkBookId(bookData.tempBookId, bookData.supabaseBookId)
+        .catch(err => console.warn('relinkBookId failed:', err.message));
+    }
 
     // Log event to activity_log
     await logEvent('book_completed', {
