@@ -21,7 +21,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const dedication = data.dedication || story.dedication || null;
   const coverImageUrl = images.cover || story.coverImageUrl || null;
   const backCoverImageUrl = images.backCover || null;
-  const heroName = cast.find((c) => c.isHero)?.name || cast[0]?.name || "your little one";
+  const heroName = cast.find((c) => c.isHero)?.name || cast[0]?.name || data.hero_name || story.heroName || "your little one";
   const authorName = data.authorName || "A loving family";
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -39,7 +39,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   const narrationAudio = useRef(null);
   const narrationCache = useRef({});
   const touchStartX = useRef(null);
-  const autoNarateRef = useRef(false);
+  const autoNarrateRef = useRef(false);
 
   // Build flat page array
   const flatPages = useMemo(() => {
@@ -123,7 +123,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
 
   // ── Edit handlers ──────────────────────────────────────────────────────────
   async function handleEditSave(contentIndex, instruction, type) {
-    const current = flatPages[currentIndex];
+    const current = flatPages[contentIndex];
     if (type === "story") {
       if (current.type === "spread") {
         const spread = localSpreads[current.spreadIndex];
@@ -167,7 +167,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   }
 
   // Keep ref in sync with state
-  useEffect(() => { autoNarateRef.current = autoNarrate; }, [autoNarrate]);
+  useEffect(() => { autoNarrateRef.current = autoNarrate; }, [autoNarrate]);
 
   // ── Narration ──────────────────────────────────────────────────────────────
   const VOICE_ID = "o5yhdpwO4YUK0MmUtJv5";
@@ -196,7 +196,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       setNarrating(true);
       audio.addEventListener("ended", () => {
         setNarrating(false);
-        if (autoNarateRef.current) {
+        if (autoNarrateRef.current) {
           setTimeout(() => goNext(), 1200);
         }
       });
@@ -228,7 +228,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
 
   // Auto-narrate on page change
   useEffect(() => {
-    if (autoNarateRef.current) {
+    if (autoNarrateRef.current) {
       const current = flatPages[currentIndex];
       if (current?.text) {
         narratePage(currentIndex);

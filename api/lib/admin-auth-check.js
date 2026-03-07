@@ -42,16 +42,20 @@ export function checkAdminAuth(req) {
   }
 
   // Check x-admin-email header (set by client after login) against ADMIN_EMAILS
-  if (adminEmails.length) {
+  // Requires BOTH a valid email AND the correct password to prevent header spoofing
+  if (adminEmails.length && adminPassword) {
     const emailHeader = (req.headers?.['x-admin-email'] || '').trim().toLowerCase();
-    if (emailHeader && adminEmails.includes(emailHeader)) {
+    const passwordHeader = req.headers?.['x-admin-password'] || '';
+    if (emailHeader && adminEmails.includes(emailHeader) && safeCompare(passwordHeader, adminPassword)) {
       return { authorized: true, method: 'email' };
     }
   }
 
-  // Check request body for email/password (used by the login endpoint)
+  // Check request body for email+password (used by the login endpoint)
   const body = req.body || {};
-  if (adminEmails.length && body.email && adminEmails.includes(body.email.toLowerCase().trim())) {
+  if (adminEmails.length && adminPassword && body.email && body.password
+    && adminEmails.includes(body.email.toLowerCase().trim())
+    && safeCompare(body.password, adminPassword)) {
     return { authorized: true, method: 'email' };
   }
   if (adminPassword && body.password && safeCompare(body.password, adminPassword)) {

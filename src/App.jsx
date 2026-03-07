@@ -63,16 +63,16 @@ export default function App() {
   useEffect(() => { fetchBooks(); }, [fetchBooks]);
 
   // Toast system
+  const removeToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   const addToast = useCallback((message, type = "info", duration = 4000) => {
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, message, type }]);
     if (duration > 0) setTimeout(() => removeToast(id), duration);
     return id;
-  }, []);
-
-  const removeToast = useCallback((id) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  }, [removeToast]);
 
   const deleteStory = useCallback(async (id) => {
     // Optimistic removal from local state

@@ -11,7 +11,7 @@ export default function FamilyVault({ userId = "anonymous" }) {
   useEffect(() => {
     getVaultCharacters(userId)
       .then((chars) => {
-        setCharacters(chars);
+        setCharacters(chars || []);
         setLoading(false);
       })
       .catch((err) => {

@@ -170,8 +170,8 @@ function EventRow({ event }) {
 
   let detail = "";
   if (event.title) detail = `\u2014 "${event.title}"`;
-  if (event.amount) detail = `\u2014 $${event.amount} ${event.tier || ""}`;
-  if (event.page) detail = `\u2014 ${event.page} (text: ${event.textScore || "?"}/10)`;
+  else if (event.amount) detail = `\u2014 $${event.amount} ${event.tier || ""}`;
+  else if (event.page) detail = `\u2014 ${event.page} (text: ${event.textScore || "?"}/10)`;
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #f1f5f9", fontSize: 13 }}>

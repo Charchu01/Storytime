@@ -14,7 +14,14 @@ const IMAGE_SIGNATURES = [
 export function detectMediaType(buffer) {
   const header = new Uint8Array(buffer.slice(0, 12));
   for (const sig of IMAGE_SIGNATURES) {
-    if (sig.bytes.every((b, i) => header[i] === b)) return sig.type;
+    if (sig.bytes.every((b, i) => header[i] === b)) {
+      // RIFF signature matches many formats (WAV, AVI) — verify bytes 8-11 are "WEBP"
+      if (sig.type === 'image/webp') {
+        const webpMark = [0x57, 0x45, 0x42, 0x50]; // "WEBP"
+        if (!webpMark.every((b, i) => header[8 + i] === b)) continue;
+      }
+      return sig.type;
+    }
   }
   return 'image/jpeg'; // safe fallback — Claude will reject if truly wrong
 }

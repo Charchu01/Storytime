@@ -46,7 +46,11 @@ export default async function handler(req, res) {
     // Determine which pages exist and which are missing
     const tier = book.tier || 'standard';
     const expectedPages = EXPECTED_PAGES[tier] || EXPECTED_PAGES.standard;
-    const completedPageTypes = new Set((pages || []).map(p => p.page_type));
+    const completedPageTypes = new Set((pages || []).map(p => {
+      // Build composite key matching EXPECTED_PAGES format (e.g. 'spread_0', 'spread_1')
+      if (p.page_type === 'spread') return `spread_${p.page_index - 1}`;
+      return p.page_type;
+    }));
 
     const missingPages = expectedPages.filter(pt => !completedPageTypes.has(pt));
 

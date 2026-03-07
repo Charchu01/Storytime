@@ -26,9 +26,9 @@ export default function APIs() {
       }
 
       setHealth(await healthRes.json());
-      setCalls((await callsRes.json()).calls || []);
-      setErrors((await errorsRes.json()).errors || []);
-      setDailyStats((await statsRes.json()).stats || []);
+      setCalls(callsRes.ok ? (await callsRes.json()).calls || [] : []);
+      setErrors(errorsRes.ok ? (await errorsRes.json()).errors || [] : []);
+      setDailyStats(statsRes.ok ? (await statsRes.json()).stats || [] : []);
       setFetchError(null);
     } catch (err) {
       console.error("Failed to fetch API data:", err);

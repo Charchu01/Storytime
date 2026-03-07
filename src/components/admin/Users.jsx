@@ -32,9 +32,9 @@ export default function Users() {
   const today = dailyStats[dailyStats.length - 1] || {};
   const userStats = today.users || {};
   const totalBooks = users.reduce((sum, u) => sum + (u.bookCount || 0), 0);
-  const avgBooksPerUser = total > 0 ? (totalBooks / total).toFixed(1) : "0";
+  const avgBooksPerUser = users.length > 0 ? (totalBooks / users.length).toFixed(1) : "0";
   const returningUsers = users.filter(u => u.bookCount > 1).length;
-  const returnRate = total > 0 ? Math.round((returningUsers / total) * 100) : 0;
+  const returnRate = users.length > 0 ? Math.round((returningUsers / users.length) * 100) : 0;
 
   return (
     <div>

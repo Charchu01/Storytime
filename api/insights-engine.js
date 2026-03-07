@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './lib/supabase-admin.js';
 import { logEvent, logApiCall } from './lib/admin-logger.js';
+import { checkAdminAuth } from './lib/admin-auth-check.js';
 
 export const config = { maxDuration: 60 };
 
@@ -8,6 +9,12 @@ const sb = supabaseAdmin;
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Admin-only endpoint — requires authentication
+  const auth = checkAdminAuth(req);
+  if (!auth.authorized) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const apiKey = process.env.ANTHROPIC_KEY;
@@ -19,6 +26,7 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: 'Supabase not configured' });
   }
 
+  const startTime = Date.now();
   try {
     // Gather post-game analyses from Supabase
     const { data: pgData } = await sb.from('admin_postgame')
@@ -175,6 +183,7 @@ Return JSON:
           service: 'anthropic',
           type: 'insights_engine',
           status: response.status,
+          durationMs: Date.now() - startTime,
           model: 'claude-sonnet-4-20250514',
           error: data.error?.message,
         });
@@ -193,6 +202,7 @@ Return JSON:
         service: 'anthropic',
         type: 'insights_engine',
         status: 200,
+        durationMs: Date.now() - startTime,
         model: 'claude-sonnet-4-20250514',
         cost,
         details: { inputTokens, outputTokens },

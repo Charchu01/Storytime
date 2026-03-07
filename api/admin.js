@@ -759,18 +759,12 @@ async function getQualityTrends() {
 
 async function checkAnthropic() {
   if (!process.env.ANTHROPIC_KEY) return { configured: false };
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
+  // Use models endpoint to verify key without billable API usage
+  const resp = await fetch('https://api.anthropic.com/v1/models', {
     headers: {
-      'Content-Type': 'application/json',
       'x-api-key': process.env.ANTHROPIC_KEY,
       'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1,
-      messages: [{ role: 'user', content: 'hi' }],
-    }),
     signal: AbortSignal.timeout(8000),
   });
   return { configured: true, httpStatus: resp.status };

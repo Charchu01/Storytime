@@ -16,7 +16,6 @@ export default function StatusPage() {
         setAuthorized(true);
       }
     } catch {}
-    setAuthorized(true);
   }, []);
 
   const fetchHealth = useCallback(async () => {

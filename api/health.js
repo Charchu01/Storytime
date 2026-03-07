@@ -23,21 +23,16 @@ export default async function handler(_req, res) {
     result.replicate = "not_configured";
   }
 
-  // Test Anthropic API key
+  // Test Anthropic API key — use a minimal request with max_tokens=1 to minimize cost,
+  // or just validate the key format if cost is a concern
   if (process.env.ANTHROPIC_KEY) {
     try {
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
+      // Use GET on models endpoint to verify key without billable usage
+      const resp = await fetch("https://api.anthropic.com/v1/models", {
         headers: {
-          "Content-Type": "application/json",
           "x-api-key": process.env.ANTHROPIC_KEY,
           "anthropic-version": "2023-06-01",
         },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1,
-          messages: [{ role: "user", content: "hi" }],
-        }),
         signal: AbortSignal.timeout(5000),
       });
       result.anthropic = resp.ok ? "ok" : `error_${resp.status}`;

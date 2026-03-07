@@ -221,7 +221,7 @@ export default async function handler(req, res) {
       await logApiCall({
         service: 'replicate',
         type: 'image_gen',
-        bookId: bookId || null,
+        bookId: req.body?.bookId || null,
         status: 500,
         durationMs: Date.now() - startTime,
         error: err.message,

@@ -56,6 +56,7 @@ function transformSupabaseBook(data) {
     },
     images,
     styleName: data.style || "Watercolor",
+    hero_name: data.hero_name || null,
     cast: [],
     tier: data.tier || "standard",
     mode: data.hero_type || "child",
@@ -77,7 +78,7 @@ export default function BookReaderPage() {
 
   // Load book from Supabase (or from navigation state as immediate fallback)
   useEffect(() => {
-    if (id === "demo" || resolvedStory) return;
+    if (id === "demo") return;
 
     // Check if story was passed via navigation state (immediate after generation)
     if (location.state?.storyData) {
@@ -108,7 +109,7 @@ export default function BookReaderPage() {
 
     loadBook();
     return () => { cancelled = true; };
-  }, [id, resolvedStory, location.state]);
+  }, [id, location.state]);
 
   // Handle demo book
   useEffect(() => {

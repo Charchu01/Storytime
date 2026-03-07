@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './lib/supabase-admin.js';
 import { logEvent } from './lib/admin-logger.js';
+import { checkAdminAuth } from './lib/admin-auth-check.js';
 
 export const config = { maxDuration: 30 };
 
@@ -8,6 +9,12 @@ const sb = supabaseAdmin;
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Admin-only endpoint — requires authentication
+  const auth = checkAdminAuth(req);
+  if (!auth.authorized) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   if (!sb) {
