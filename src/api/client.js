@@ -149,9 +149,12 @@ export async function generateImage(
     throw new Error(data.error || friendlyError(response.status));
   }
 
-  const { predictionId } = data;
+  const { predictionId, faceRefLost } = data;
   if (!predictionId) {
     throw new Error("No prediction ID returned");
+  }
+  if (faceRefLost) {
+    console.warn("FACE_REF_LOST: Image generated WITHOUT hero face reference — character may look different");
   }
 
   const POLL_INTERVAL = 2500;
