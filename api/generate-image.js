@@ -162,19 +162,24 @@ export default async function handler(req, res) {
       durationMs,
     }));
 
-    // Admin logging
-    // TODO: Fetch actual cost from Replicate prediction.metrics after completion
-    logApiCall({
-      service: 'replicate',
-      type: isCover ? 'cover' : 'spread',
-      bookId: bookId || null,
-      status: 200,
-      durationMs,
-      model: modelUsed,
-      cost: 0.045,
-      details: { summary: `${modelUsed} | ${imageInputs.length} refs`, attempt: clientAttempt || 1 },
-    }).catch(e => console.error('LOGAPICALL_FAILED:', bookId, e.message));
-    updateDailyApiStats('replicate', durationMs, 0.045, false).catch(() => {});
+    // Admin logging — MUST await before res.json() or Vercel kills pending writes
+    await Promise.allSettled([
+      logApiCall({
+        service: 'replicate',
+        type: isCover ? 'cover' : 'spread',
+        bookId: bookId || null,
+        status: 200,
+        durationMs,
+        model: modelUsed,
+        cost: 0.045,
+        details: { summary: `${modelUsed} | ${imageInputs.length} refs`, attempt: clientAttempt || 1 },
+      }),
+      updateDailyApiStats('replicate', durationMs, 0.045, false),
+    ]).then(results => {
+      results.forEach((r, i) => {
+        if (r.status === 'rejected') console.error(`GEN_LOG_FAILED[${i}]:`, bookId, r.reason?.message);
+      });
+    });
 
     res.json({
       predictionId: prediction.id,
