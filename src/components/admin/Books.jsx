@@ -298,6 +298,25 @@ function BookDetailModal({ detail, onClose }) {
                           Fix notes: {v.fixNotes}
                         </div>
                       )}
+                      {(v.imageUrl || v.prompt) && (
+                        <div style={{ width: "100%", marginTop: 6, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                          {v.imageUrl && (
+                            <a href={v.imageUrl} target="_blank" rel="noopener noreferrer">
+                              <img src={v.imageUrl} alt={`${pageName} attempt ${v.attempt}`}
+                                style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 6, border: "1px solid #e2e8f0" }}
+                                onError={(e) => { e.target.style.display = 'none'; }} />
+                            </a>
+                          )}
+                          {v.prompt && (
+                            <details style={{ flex: 1, fontSize: 11 }}>
+                              <summary style={{ cursor: "pointer", color: "#6366f1", fontWeight: 600 }}>View Prompt</summary>
+                              <pre style={{ marginTop: 4, padding: 8, background: "#f1f5f9", borderRadius: 6, whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 10, color: "#334155", maxHeight: 200, overflowY: "auto", border: "1px solid #e2e8f0" }}>
+                                {v.prompt}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

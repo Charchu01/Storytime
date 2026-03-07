@@ -33,6 +33,7 @@ export default async function handler(req, res) {
       style,
       aspectRatio,
       isCover,
+      bookId,
     } = req.body || {};
 
     if (!prompt) {
@@ -158,6 +159,7 @@ export default async function handler(req, res) {
     logApiCall({
       service: 'replicate',
       type: isCover ? 'cover' : 'spread',
+      bookId: bookId || null,
       status: 200,
       durationMs,
       model: modelUsed,
@@ -176,6 +178,7 @@ export default async function handler(req, res) {
     logApiCall({
       service: 'replicate',
       type: 'image_gen',
+      bookId: bookId || null,
       status: 500,
       durationMs: Date.now() - startTime,
       error: err.message,

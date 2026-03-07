@@ -509,6 +509,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       const clerkUser = window.__clerk_user;
       logBookToAdmin({
         supabaseBookId,
+        tempBookId,
         bookId: supabaseBookId || `book_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         userId: clerkUser?.id || storySessionId || `anon_${Date.now().toString(36)}`,
         userEmail: clerkUser?.primaryEmailAddress?.emailAddress || null,

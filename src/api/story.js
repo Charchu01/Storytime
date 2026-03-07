@@ -351,19 +351,21 @@ This is the COVER — the most polished, beautiful image in the entire book. Gal
   // ═══════════════════════════════════════════════════════════════
   if (isBackCover) {
     const companionRefLines = companionNames.map((name, i) =>
-      `- Image ${i + 3}: Photo of ${name} — match their EXACT facial features.`
+      `- Image ${i + 4}: Photo of ${name} — match their EXACT facial features, head shape, hair, and skin tone. Transform into the illustrated art style.`
     ).join("\n");
 
     sections.push(
 `REFERENCE IMAGES:
-- Image 1: Photo of ${heroName} — match face identity.
-- Image 2: The COVER of this book — match this EXACT art style, colour palette, and brush technique.${companionRefLines ? "\n" + companionRefLines : ""}`
+- Image 1: Photograph of ${heroName}. Match their EXACT facial features, head shape, hair, skin tone, and ethnicity. Transform into illustrated art style — NOT photorealistic.
+- Image 2: The COVER of this book — your STYLE BIBLE. Match this EXACT art style, colour palette, brush technique, and character rendering.
+- Image 3: The PREVIOUS SPREAD from this book. ${heroName} must look IDENTICAL to how they appear in this image. Same skin tone, same hair, same clothing style, same illustrated rendering.${companionRefLines ? "\n" + companionRefLines : ""}`
     );
 
     sections.push(
 `CHARACTER:
 ${characterAppearances.hero}
-${heroName}'s face MUST match Image 1. Transform into illustrated style.`
+${heroName}'s face MUST match Image 1 (the photo). Their illustrated style MUST match Image 2 and Image 3 (previous pages).
+CRITICAL: Match the EXACT skin tone, ethnicity, and hair from the photo. Do NOT change the character's race or appearance.`
     );
 
     sections.push(`SCENE:\n${sceneDescription}`);
@@ -371,7 +373,8 @@ ${heroName}'s face MUST match Image 1. Transform into illustrated style.`
     sections.push(
 `STYLE:
 ${artStyle || "Classic children's storybook illustration"}
-Match the COVER art style exactly. This is the closing image — warm, gentle, reflective.`
+Match the COVER art style exactly. This is the closing image — warm, gentle, reflective.
+The character must be rendered in the SAME illustrated style as Image 2 and Image 3.`
     );
 
     sections.push(
@@ -386,7 +389,8 @@ Match the COVER art style exactly. This is the closing image — warm, gentle, r
 - Simpler composition than the front cover
 - Leave the lower third slightly softer/darker for text overlay
 - Keep 5% safe zone at edges
-- NOT photorealistic — illustrated children's book style`
+- NOT photorealistic — illustrated children's book style
+- Character MUST have the same skin tone, hair, and features as in Image 1 and the rest of the book`
     );
 
     return sections.join("\n\n");
@@ -418,7 +422,8 @@ Match the COVER art style exactly. This is the closing image — warm, gentle, r
   sections.push(
 `CHARACTER:
 ${characterAppearances.hero}
-${heroName}'s face MUST match Image 1. When in doubt, match the photo. NOT photorealistic — illustrated style.`
+${heroName}'s face MUST match Image 1 (the photo). Match their EXACT skin tone, ethnicity, hair colour, and facial features. Do NOT change the character's race or skin colour.
+When in doubt, match the photo. NOT photorealistic — illustrated style.${!isFirstSpread ? `\n${heroName} must look IDENTICAL to how they appear in Image 3 (previous spread). Same skin tone, same features, same clothing.` : ""}`
   );
 
   if (characterAppearances.supporting) {
@@ -429,7 +434,7 @@ ${heroName}'s face MUST match Image 1. When in doubt, match the photo. NOT photo
       sections.push(
 `SUPPORTING CHARACTERS:
 ${supportingText}
-Must look identical to previous pages.`
+Must look identical to previous pages. Same skin tone, same features.`
       );
     }
   }
@@ -480,7 +485,7 @@ Must be IDENTICAL on every page. Match Image 2 exactly.`
 - NO page numbers
 - NO speech bubbles or word balloons
 - NO text outside the text boxes
-- Character IDENTICAL to Image 1${!isFirstSpread ? " and Image 3" : ""}
+- Character IDENTICAL to Image 1${!isFirstSpread ? " and Image 3" : ""} — same skin tone, ethnicity, hair, and features throughout the ENTIRE book
 - Keep important content 5% from edges (safe zone)
 - NOT photorealistic — illustrated children's book style`
   );
@@ -895,7 +900,7 @@ export async function generateAllImages(
         if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
 
         totalImageGenerations++;
-        const imageUrl = await generateImage(prompt, ...generateArgs);
+        const imageUrl = await generateImage(prompt, ...generateArgs, tempBookId);
 
         if (!imageUrl || !(await validateImageUrl(imageUrl))) {
           allAttempts.push({
@@ -915,7 +920,8 @@ export async function generateAllImages(
           valResult = await validateImage(
             imageUrl, expectedTexts, heroName, artStyle, pageType,
             sceneDescription, tempBookId, heroPhotoUrl,
-            characterDescriptions, textBoxStyleReference
+            characterDescriptions, textBoxStyleReference,
+            prompt
           );
         } catch (valErr) {
           console.warn(`Validation call failed for ${pageType}:`, valErr.message);
@@ -1100,8 +1106,11 @@ export async function generateAllImages(
 
   const backRefs = [];
   if (images.cover) backRefs.push(images.cover);
-  if (previousImageUrl && previousImageUrl !== images.cover) {
-    backRefs.push(previousImageUrl);
+  // Add the last successful spread for visual continuity (prefer the most recent one)
+  const lastSpreadUrl = previousImageUrl
+    || [...storyPlan.spreads].reverse().map((_, i) => images[`spread_${storyPlan.spreads.length - 1 - i}`]).find(Boolean);
+  if (lastSpreadUrl && lastSpreadUrl !== images.cover) {
+    backRefs.push(lastSpreadUrl);
   }
   backRefs.push(...companionUrls);
 

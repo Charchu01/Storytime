@@ -61,6 +61,7 @@ export default async function handler(req, res) {
     referencePhotoUrl,
     characterDescriptions,
     previousPageStyle,
+    generationPrompt,
   } = req.body || {};
 
   if (!imageUrl) {
@@ -221,6 +222,7 @@ export default async function handler(req, res) {
           formatOk: false, pass: false, issues: apiErrorResult.issues,
           fixNotes: `API error HTTP ${response.status}`,
           qualityTier: 'poor', compositeScore: 0,
+          prompt: generationPrompt || null, imageUrl: imageUrl || null,
         }).catch(() => {});
         return res.json(apiErrorResult);
       }
@@ -334,6 +336,8 @@ export default async function handler(req, res) {
           characterCount: normalized.characterCount,
           qualityTier: normalized.qualityTier,
           compositeScore: normalized.compositeScore,
+          prompt: generationPrompt || null,
+          imageUrl: imageUrl || null,
         }).catch(e => console.warn('logValidation failed:', e.message));
 
         return res.json(normalized);
@@ -367,6 +371,7 @@ export default async function handler(req, res) {
           textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
           formatOk: false, pass: false, issues: parseErrorResult.issues,
           fixNotes: 'Parse error', qualityTier: 'poor', compositeScore: 0,
+          prompt: generationPrompt || null, imageUrl: imageUrl || null,
         }).catch(() => {});
         return res.json(parseErrorResult);
       }
@@ -413,6 +418,7 @@ export default async function handler(req, res) {
         textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
         formatOk: false, pass: false, issues: networkErrorResult.issues,
         fixNotes: `Network error: ${err.message}`, qualityTier: 'poor', compositeScore: 0,
+        prompt: generationPrompt || null, imageUrl: imageUrl || null,
       }).catch(() => {});
       return res.json(networkErrorResult);
     }

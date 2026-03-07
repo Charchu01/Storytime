@@ -188,6 +188,8 @@ export async function logValidation(validationData) {
       character_count: validationData.characterCount || null,
       quality_tier: validationData.qualityTier || null,
       composite_score: validationData.compositeScore ?? null,
+      prompt: validationData.prompt || null,
+      image_url: validationData.imageUrl || null,
     };
 
     const { error } = await sb.from('admin_validations').insert(record);
@@ -210,6 +212,34 @@ export async function logValidation(validationData) {
   } catch (err) {
     console.error('Admin logger - logValidation error:', err.message);
     return null;
+  }
+}
+
+// ── Relink Temp Book ID → Real UUID ──────────────────────────────────────────
+// After save-book creates a real Supabase UUID, relink all admin records
+// (validations, api_calls) from the temp client-side ID to the real ID.
+
+export async function relinkBookId(tempBookId, realBookId) {
+  const sb = getSb();
+  if (!sb || !tempBookId || !realBookId) return;
+  try {
+    // Update admin_validations
+    const { error: valErr, count: valCount } = await sb.from('admin_validations')
+      .update({ book_id: realBookId })
+      .eq('book_id', tempBookId);
+    if (valErr) console.warn('relinkBookId validations error:', valErr.message);
+
+    // Update admin_api_calls
+    const { error: apiErr, count: apiCount } = await sb.from('admin_api_calls')
+      .update({ book_id: realBookId })
+      .eq('book_id', tempBookId);
+    if (apiErr) console.warn('relinkBookId api_calls error:', apiErr.message);
+
+    console.log(`RELINK_BOOK_ID: ${tempBookId} → ${realBookId} (validations: ${valCount || '?'}, api_calls: ${apiCount || '?'})`);
+    return true;
+  } catch (err) {
+    console.error('relinkBookId error:', err.message);
+    return false;
   }
 }
 
