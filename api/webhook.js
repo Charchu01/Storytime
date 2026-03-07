@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
   if (event.type === 'payment_intent.succeeded') {
     const pi = event.data.object;
-    const { storySessionId, tier } = pi.metadata;
+    const { storySessionId, tier } = pi.metadata || {};
     if (storySessionId) {
       // Record payment in Supabase (replaces Vercel KV)
       if (supabaseAdmin) {

@@ -343,7 +343,8 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       setStarted(true);
       handleGenerate();
     }
-  }, [started]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleGenerate() {
     setLoading(true);

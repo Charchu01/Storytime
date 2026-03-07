@@ -119,23 +119,23 @@ export default function Revenue() {
             <tr style={trow}>
               <td style={tdStyle}>Standard</td>
               <td style={tdStyle}>$9.99</td>
-              <td style={{ ...tdStyle, textAlign: "right" }}>${standardCount > 0 ? (totalCosts * (standardRev / grossRevenue || 0.5) / standardCount).toFixed(2) : "0.00"}</td>
+              <td style={{ ...tdStyle, textAlign: "right" }}>${standardCount > 0 ? (totalCosts * (grossRevenue > 0 ? standardRev / grossRevenue : 0.5) / standardCount).toFixed(2) : "0.00"}</td>
               <td style={{ ...tdStyle, textAlign: "right", color: "#10b981", fontWeight: 700 }}>
-                ${standardCount > 0 ? (9.99 - totalCosts * (standardRev / grossRevenue || 0.5) / standardCount).toFixed(2) : "9.99"}
+                ${standardCount > 0 ? (9.99 - totalCosts * (grossRevenue > 0 ? standardRev / grossRevenue : 0.5) / standardCount).toFixed(2) : "9.99"}
               </td>
               <td style={{ ...tdStyle, textAlign: "right" }}>
-                {standardCount > 0 ? ((1 - totalCosts * (standardRev / grossRevenue || 0.5) / standardCount / 9.99) * 100).toFixed(1) : "100"}%
+                {standardCount > 0 ? ((1 - totalCosts * (grossRevenue > 0 ? standardRev / grossRevenue : 0.5) / standardCount / 9.99) * 100).toFixed(1) : "100"}%
               </td>
             </tr>
             <tr style={trow}>
               <td style={tdStyle}>Premium</td>
               <td style={tdStyle}>$19.99</td>
-              <td style={{ ...tdStyle, textAlign: "right" }}>${premiumCount > 0 ? (totalCosts * (premiumRev / grossRevenue || 0.5) / premiumCount).toFixed(2) : "0.00"}</td>
+              <td style={{ ...tdStyle, textAlign: "right" }}>${premiumCount > 0 ? (totalCosts * (grossRevenue > 0 ? premiumRev / grossRevenue : 0.5) / premiumCount).toFixed(2) : "0.00"}</td>
               <td style={{ ...tdStyle, textAlign: "right", color: "#10b981", fontWeight: 700 }}>
-                ${premiumCount > 0 ? (19.99 - totalCosts * (premiumRev / grossRevenue || 0.5) / premiumCount).toFixed(2) : "19.99"}
+                ${premiumCount > 0 ? (19.99 - totalCosts * (grossRevenue > 0 ? premiumRev / grossRevenue : 0.5) / premiumCount).toFixed(2) : "19.99"}
               </td>
               <td style={{ ...tdStyle, textAlign: "right" }}>
-                {premiumCount > 0 ? ((1 - totalCosts * (premiumRev / grossRevenue || 0.5) / premiumCount / 19.99) * 100).toFixed(1) : "100"}%
+                {premiumCount > 0 ? ((1 - totalCosts * (grossRevenue > 0 ? premiumRev / grossRevenue : 0.5) / premiumCount / 19.99) * 100).toFixed(1) : "100"}%
               </td>
             </tr>
           </tbody>
@@ -156,7 +156,7 @@ export default function Revenue() {
           </div>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 24, fontWeight: 900, color: "#10b981" }}>
-              {totalTransactions > 0 ? ((1 - failedPayments / (totalTransactions + failedPayments)) * 100).toFixed(1) : "100"}%
+              {totalTransactions > 0 ? ((1 - failedPayments / totalTransactions) * 100).toFixed(1) : "100"}%
             </div>
             <div style={{ fontSize: 12, color: "#64748b" }}>Success Rate</div>
           </div>

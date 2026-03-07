@@ -5,6 +5,7 @@ export default async function handler(req, res) {
 
   const { imageUrl, bookId, pageType, pageIndex } = req.body;
   if (!imageUrl || !bookId) return res.status(400).json({ error: 'imageUrl and bookId required' });
+  if (!pageType) return res.status(400).json({ error: 'pageType is required' });
 
   try {
     const filename = `${pageType}_${pageIndex || 0}.jpg`;

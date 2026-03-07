@@ -133,8 +133,9 @@ ${(storyTexts || []).map((t, i) => `Page ${i + 1}: ${typeof t === 'string' ? t :
 Review the following images from this book:`,
     });
 
-    // Add each image
-    const imageKeys = ['cover', 'spread_0', 'spread_1', 'spread_2', 'spread_3', 'spread_4', 'backCover'];
+    // Add each image — dynamically enumerate keys to support both standard and premium tiers
+    const imageKeys = ['cover', 'spread_0', 'spread_1', 'spread_2', 'spread_3', 'spread_4',
+      'spread_5', 'spread_6', 'spread_7', 'spread_8', 'backCover'];
     const validImages = [];
 
     for (const key of imageKeys) {
@@ -144,11 +145,25 @@ Review the following images from this book:`,
           type: 'text',
           text: `\n--- ${key.toUpperCase()} ---`,
         });
-        content.push({
-          type: 'image',
-          source: { type: 'url', url },
-        });
-        validImages.push(key);
+        // Download and convert to base64 — Claude API rejects URL source type with HTTP 400
+        try {
+          const imgResp = await fetch(url);
+          if (!imgResp.ok) continue;
+          const buffer = await imgResp.arrayBuffer();
+          const header = new Uint8Array(buffer.slice(0, 4));
+          let mediaType = 'image/jpeg';
+          if (header[0] === 0x89 && header[1] === 0x50) mediaType = 'image/png';
+          else if (header[0] === 0x47 && header[1] === 0x49) mediaType = 'image/gif';
+          else if (header[0] === 0x52 && header[1] === 0x49) mediaType = 'image/webp';
+          const base64 = Buffer.from(buffer).toString('base64');
+          content.push({
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: base64 },
+          });
+          validImages.push(key);
+        } catch (imgErr) {
+          console.warn(`Failed to fetch image for ${key}:`, imgErr.message);
+        }
       }
     }
 

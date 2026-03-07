@@ -9,9 +9,9 @@ function prepareNarrationText(text) {
   // Add gentle pauses after sentences for a bedtime-story cadence
   prepared = prepared.replace(/\. /g, "... ");
   // Add slight pause after commas for more natural breath
-  prepared = prepared.replace(/, /g, ", ");
+  prepared = prepared.replace(/, /g, ",... ");
   // Add emphasis on exclamations
-  prepared = prepared.replace(/!/g, "!");
+  prepared = prepared.replace(/!/g, "!... ");
   return prepared.trim();
 }
 

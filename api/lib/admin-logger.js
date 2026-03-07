@@ -310,7 +310,7 @@ export async function setConfig(key, value) {
   try {
     await sb.from('admin_config').upsert({
       key: `config:${key}`,
-      value: JSON.stringify(value) === value ? value : value,
+      value: typeof value === 'string' ? value : JSON.stringify(value),
       updated_at: new Date().toISOString(),
     });
     return true;

@@ -31,7 +31,7 @@ export default function Quality() {
   const runInsightsEngine = async () => {
     setRunningInsights(true);
     try {
-      const res = await fetch("/api/insights-engine", { method: "POST" });
+      const res = await adminFetch("/api/insights-engine", { method: "POST" });
       const data = await res.json();
       if (data.success) {
         setInsights(data.insights);

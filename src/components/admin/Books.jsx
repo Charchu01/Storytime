@@ -402,7 +402,7 @@ function BookDetailModal({ detail, onClose }) {
         {feedback && (
           <Section title="User Feedback">
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={{ fontSize: 20 }}>{"&#x2B50;".repeat(feedback.stars || 0)}</span>
+              <span style={{ fontSize: 20 }}>{"\u2B50".repeat(feedback.stars || 0)}</span>
               {feedback.reaction && <span style={{ ...badge, background: "#fef3c7" }}>{feedback.reaction}</span>}
             </div>
             {feedback.comment && <p style={{ fontSize: 13, color: "#475569", marginTop: 8 }}>{feedback.comment}</p>}
