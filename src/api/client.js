@@ -167,7 +167,7 @@ export async function generateImage(
 
     let pollRes;
     try {
-      pollRes = await fetch(`/api/poll-image?id=${predictionId}`);
+      pollRes = await fetch(`/api/poll-image?id=${encodeURIComponent(predictionId)}`);
     } catch {
       continue;
     }
@@ -224,8 +224,8 @@ export async function createPaymentIntent(tier, storySessionId) {
 export async function checkPayment(sessionId) {
   try {
     const response = await fetch(`/api/check-payment?sessionId=${encodeURIComponent(sessionId)}`);
+    if (!response.ok) throw new Error(friendlyError(response.status, "Payment check failed"));
     const data = await response.json();
-    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
     return data;
   } catch (err) {
     throw new Error(err.message || "Failed to check payment status.");
@@ -237,8 +237,8 @@ export async function checkPayment(sessionId) {
 export async function getVaultCharacters(userId = "anonymous") {
   try {
     const response = await fetch(`/api/vault?userId=${encodeURIComponent(userId)}`);
+    if (!response.ok) throw new Error(friendlyError(response.status, "Vault fetch failed"));
     const data = await response.json();
-    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
     return data.characters;
   } catch (err) {
     throw new Error(err.message || "Failed to load saved characters.");
@@ -252,8 +252,8 @@ export async function saveToVault(character, userId = "anonymous") {
       headers: { "Content-Type": "application/json", "x-user-id": userId },
       body: JSON.stringify(character),
     });
+    if (!response.ok) throw new Error(friendlyError(response.status, "Failed to save character"));
     const data = await response.json();
-    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
     return data.character;
   } catch (err) {
     throw new Error(err.message || "Failed to save character.");
@@ -267,8 +267,8 @@ export async function deleteFromVault(characterId, userId = "anonymous") {
       headers: { "Content-Type": "application/json", "x-user-id": userId },
       body: JSON.stringify({ characterId }),
     });
+    if (!response.ok) throw new Error(friendlyError(response.status, "Failed to delete character"));
     const data = await response.json();
-    if (!response.ok) throw new Error(friendlyError(response.status, data.error));
     return data;
   } catch (err) {
     throw new Error(err.message || "Failed to delete character.");

@@ -17,7 +17,7 @@ export default function PrintUpsell({ onDismiss }) {
 
   function handleEmailSubmit(e) {
     e.preventDefault();
-    if (email.trim()) {
+    if (email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setSubmitted(true);
       try {
         const waitlist = JSON.parse(localStorage.getItem("sk_print_waitlist") || "[]");

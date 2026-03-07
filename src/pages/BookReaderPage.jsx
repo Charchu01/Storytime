@@ -115,7 +115,7 @@ export default function BookReaderPage() {
   useEffect(() => {
     if (id === "demo") {
       fetch("/demo/book.json")
-        .then((r) => r.json())
+        .then((r) => { if (!r.ok) throw new Error("Demo fetch failed"); return r.json(); })
         .then((data) => {
           setDemoData({
             story: data,

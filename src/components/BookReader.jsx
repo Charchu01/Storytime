@@ -436,7 +436,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                   <span>Regenerating...</span>
                 </div>
               ) : current.imageUrl && isGeneratedImage(current.imageUrl) && !brokenImages.has(current.imageUrl) ? (
-                <img src={current.imageUrl} className="br-page-image" alt=""
+                <img src={current.imageUrl} className="br-page-image" alt={`Story illustration - page ${currentIndex}`}
                   onError={() => setBrokenImages(prev => new Set(prev).add(current.imageUrl))} />
               ) : current.text ? (
                 <div className="br-page-text-fallback" style={{ padding: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', borderRadius: 12 }}>
@@ -454,7 +454,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
                   <span>Regenerating...</span>
                 </div>
               ) : current.imageUrl && isGeneratedImage(current.imageUrl) && !brokenImages.has(current.imageUrl) ? (
-                <img src={current.imageUrl} className="br-page-image" alt=""
+                <img src={current.imageUrl} className="br-page-image" alt={`Story page ${currentIndex}`}
                   onError={() => setBrokenImages(prev => new Set(prev).add(current.imageUrl))} />
               ) : current.emoji ? (
                 <div className="br-page-emoji">{current.emoji}</div>
