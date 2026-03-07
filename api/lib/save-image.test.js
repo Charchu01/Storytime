@@ -71,6 +71,7 @@ describe('saveImageToStorage', () => {
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
+      headers: { get: vi.fn().mockReturnValue('8') },
       arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
     });
 
@@ -111,6 +112,7 @@ describe('saveImageToStorage', () => {
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
+      headers: { get: vi.fn().mockReturnValue('8') },
       arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
     });
 
@@ -142,6 +144,7 @@ describe('saveImageToStorage', () => {
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
+      headers: { get: vi.fn().mockReturnValue('8') },
       arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
     });
 
@@ -174,6 +177,7 @@ describe('saveImageToStorage', () => {
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
+      headers: { get: vi.fn().mockReturnValue('8') },
       arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
     });
 

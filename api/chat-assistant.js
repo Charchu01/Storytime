@@ -286,7 +286,7 @@ export default async function handler(req, res) {
       console.warn('logApiCall failed:', logErr.message);
     }
 
-    const text = data.content.map((block) => block.text || "").join("").trim();
+    const text = (data.content || []).map((block) => block.text || "").join("").trim();
 
     // Extract JSON from Claude's response
     const parsed = extractJSON(text);

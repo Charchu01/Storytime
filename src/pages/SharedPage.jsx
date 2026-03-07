@@ -9,7 +9,14 @@ export default function SharedPage() {
 
   const sharedData = useMemo(() => {
     try {
-      const encoded = searchParams.get("d");
+      let encoded = searchParams.get("d");
+      // Support localStorage-based sharing for large stories
+      if (!encoded) {
+        const key = searchParams.get("key");
+        if (key) {
+          try { encoded = localStorage.getItem(key); } catch { /* private browsing */ }
+        }
+      }
       if (!encoded) return null;
       const binStr = atob(encoded);
       // Try TextEncoder-compatible decoding first (handles non-ASCII characters)

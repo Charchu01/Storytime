@@ -1476,7 +1476,7 @@ export async function uploadCompanionPhotos(cast) {
 }
 
 // ── Generate a single page image (fallback for edits) ────────────────────────
-export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood) {
+export async function generatePageImage(sceneDescription, cast, styleName, heroPhotoUrl, mood, aspectRatio = "4:3") {
   const styleDesc = getNanoStyle(styleName);
   const prompt = `Children's storybook illustration in ${styleDesc} style. ${sceneDescription}. The illustration fills the ENTIRE image edge-to-edge — NO borders, NO frames. Award-winning picture book quality, no text in image.`;
 
@@ -1484,7 +1484,7 @@ export async function generatePageImage(sceneDescription, cast, styleName, heroP
 
   if (heroPhotoUrl) {
     try {
-      const url = await generateImage(prompt, heroPhotoUrl, "standard", styleName);
+      const url = await generateImage(prompt, heroPhotoUrl, "standard", styleName, [], aspectRatio);
       if (await validateImageUrl(url)) {
         logCost("nano_banana", "standard", true, Date.now() - startTime, null);
         return url;
@@ -1495,7 +1495,7 @@ export async function generatePageImage(sceneDescription, cast, styleName, heroP
   }
 
   try {
-    const url = await generateImage(prompt, null, "standard", styleName);
+    const url = await generateImage(prompt, null, "standard", styleName, [], aspectRatio);
     if (await validateImageUrl(url)) {
       logCost("flux", "no_face", true, Date.now() - startTime, null);
       return url;

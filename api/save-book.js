@@ -67,13 +67,8 @@ export default async function handler(req, res) {
       if (updateError) throw updateError;
       savedBookId = bookId;
 
-      // Upsert pages — delete existing then re-insert for simplicity
+      // Upsert pages — delete existing then re-insert
       if (pages?.length > 0) {
-        await supabaseAdmin
-          .from('book_pages')
-          .delete()
-          .eq('book_id', bookId);
-
         const pagesWithBookId = pages.map(p => ({
           page_type: p.page_type,
           page_index: p.page_index,
@@ -84,13 +79,19 @@ export default async function handler(req, res) {
           book_id: bookId,
         }));
 
+        // Insert new pages first, then delete old ones — avoids data loss on insert failure
         const { error: pagesError } = await supabaseAdmin
           .from('book_pages')
-          .insert(pagesWithBookId);
+          .upsert(pagesWithBookId, { onConflict: 'book_id,page_index' });
 
         if (pagesError) {
-          console.warn('Pages update error:', pagesError.message);
-          throw new Error('Failed to update book pages');
+          // Fallback: try delete-then-insert if upsert fails (e.g. no unique constraint)
+          await supabaseAdmin.from('book_pages').delete().eq('book_id', bookId);
+          const { error: insertErr } = await supabaseAdmin.from('book_pages').insert(pagesWithBookId);
+          if (insertErr) {
+            console.warn('Pages update error:', insertErr.message);
+            throw new Error('Failed to update book pages');
+          }
         }
       }
     } else {

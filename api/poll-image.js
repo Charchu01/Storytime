@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     if (!id) {
       return res.status(400).json({ error: "id query parameter is required" });
     }
-    if (!/^[a-z0-9]{20,30}$/.test(id)) {
+    if (!/^[a-z0-9]{10,40}$/.test(id)) {
       return res.status(400).json({ error: "Invalid prediction ID format" });
     }
 
