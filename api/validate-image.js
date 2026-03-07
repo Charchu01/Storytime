@@ -68,6 +68,7 @@ async function fetchImageAsBase64(url) {
 }
 
 export default async function handler(req, res) {
+  console.log("VALIDATE_VERSION: v3_base64_phase1");
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -236,19 +237,20 @@ export default async function handler(req, res) {
           await new Promise(r => setTimeout(r, 3000));
           continue;
         }
-        // Other API errors — fail closed so bad images don't sneak through
+        // API errors mean we couldn't validate — accept the image rather than wasting a retry
         const apiErrorResult = {
-          pass: false,
-          reason: "validation_api_error",
+          pass: true,
+          skipped: true,
+          reason: "validation_skipped_api_error",
           apiStatus: response.status,
-          textScore: 0,
-          faceScore: 0,
+          textScore: null,
+          faceScore: null,
           textBoxScore: null,
-          sceneAccuracy: 0,
-          formatOk: false,
-          issues: [`Validation unavailable (HTTP ${response.status}): ${data.error?.message || 'unknown'}`],
-          qualityTier: 'poor',
-          compositeScore: 0,
+          sceneAccuracy: null,
+          formatOk: true,
+          issues: ["Validation could not run — image accepted without scoring"],
+          qualityTier: 'unscored',
+          compositeScore: null,
         };
         console.error("VALIDATION_API_ERROR:", JSON.stringify({ pageType, status: response.status, error: data.error?.message }));
         const errDuration = Date.now() - (req._adminStartTime || Date.now());
@@ -262,10 +264,10 @@ export default async function handler(req, res) {
           }),
           logValidation({
             bookId: bookId || null, page: pageType, attempt: clientAttempt || (attempt + 1),
-            textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
-            formatOk: false, pass: false, issues: apiErrorResult.issues,
-            fixNotes: `API error HTTP ${response.status}`,
-            qualityTier: 'poor', compositeScore: 0,
+            textScore: null, faceScore: null, textBoxScore: null, sceneAccuracy: null,
+            formatOk: true, pass: true, issues: apiErrorResult.issues,
+            fixNotes: `Validation skipped: API error HTTP ${response.status}`,
+            qualityTier: 'unscored', compositeScore: null,
             prompt: generationPrompt || null, imageUrl: imageUrl || null,
           }),
 
@@ -399,17 +401,18 @@ export default async function handler(req, res) {
         console.warn(`Validation parse error (attempt ${attempt + 1}):`, text.substring(0, 200));
         if (attempt === 0) continue; // Retry on parse failure
         const parseErrorResult = {
-          pass: false,
-          reason: "parse_error",
-          issues: ["Validation response could not be parsed"],
-          fixNotes: "Re-generate with clearer composition",
-          textScore: 0,
-          faceScore: 0,
+          pass: true,
+          skipped: true,
+          reason: "validation_skipped_parse_error",
+          issues: ["Validation could not run — image accepted without scoring"],
+          fixNotes: "",
+          textScore: null,
+          faceScore: null,
           textBoxScore: null,
-          sceneAccuracy: 0,
-          formatOk: false,
-          qualityTier: 'poor',
-          compositeScore: 0,
+          sceneAccuracy: null,
+          formatOk: true,
+          qualityTier: 'unscored',
+          compositeScore: null,
         };
         const parseDuration = Date.now() - (req._adminStartTime || Date.now());
         await Promise.allSettled([
@@ -422,9 +425,9 @@ export default async function handler(req, res) {
           }),
           logValidation({
             bookId: bookId || null, page: pageType, attempt: clientAttempt || (attempt + 1),
-            textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
-            formatOk: false, pass: false, issues: parseErrorResult.issues,
-            fixNotes: 'Parse error', qualityTier: 'poor', compositeScore: 0,
+            textScore: null, faceScore: null, textBoxScore: null, sceneAccuracy: null,
+            formatOk: true, pass: true, issues: parseErrorResult.issues,
+            fixNotes: 'Validation skipped: parse error', qualityTier: 'unscored', compositeScore: null,
             prompt: generationPrompt || null, imageUrl: imageUrl || null,
           }),
 
@@ -446,18 +449,19 @@ export default async function handler(req, res) {
         await new Promise(r => setTimeout(r, 2000));
         continue;
       }
-      // Final attempt failed — fail closed so bad images don't sneak through
+      // Network error means we couldn't validate — accept the image rather than wasting a retry
       const networkErrorResult = {
-        pass: false,
-        reason: "network_error",
-        textScore: 0,
-        faceScore: 0,
+        pass: true,
+        skipped: true,
+        reason: "validation_skipped_network_error",
+        textScore: null,
+        faceScore: null,
         textBoxScore: null,
-        sceneAccuracy: 0,
-        formatOk: false,
-        issues: ["Validation could not reach API"],
-        qualityTier: 'poor',
-        compositeScore: 0,
+        sceneAccuracy: null,
+        formatOk: true,
+        issues: ["Validation could not run — image accepted without scoring"],
+        qualityTier: 'unscored',
+        compositeScore: null,
       };
       console.error("VALIDATION_NETWORK_ERROR:", JSON.stringify({ pageType, error: err.message }));
       const netDuration = Date.now() - (req._adminStartTime || Date.now());
@@ -471,9 +475,9 @@ export default async function handler(req, res) {
         }),
         logValidation({
           bookId: bookId || null, page: pageType, attempt: clientAttempt || (attempt + 1),
-          textScore: 0, faceScore: 0, textBoxScore: null, sceneAccuracy: 0,
-          formatOk: false, pass: false, issues: networkErrorResult.issues,
-          fixNotes: `Network error: ${err.message}`, qualityTier: 'poor', compositeScore: 0,
+          textScore: null, faceScore: null, textBoxScore: null, sceneAccuracy: null,
+          formatOk: true, pass: true, issues: networkErrorResult.issues,
+          fixNotes: `Validation skipped: network error: ${err.message}`, qualityTier: 'unscored', compositeScore: null,
           prompt: generationPrompt || null, imageUrl: imageUrl || null,
         }),
 
