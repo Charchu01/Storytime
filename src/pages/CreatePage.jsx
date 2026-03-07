@@ -8,7 +8,7 @@ function saveDraft(data) {
   try {
     const safe = { ...data };
     delete safe.cast;
-    delete safe.wizardData;
+    // Keep wizardData for draft restoration (story idea, dedication, etc.)
     localStorage.setItem(DRAFT_KEY, JSON.stringify(safe));
   } catch (err) {
     console.warn('saveDraft failed:', err.message);

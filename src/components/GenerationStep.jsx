@@ -340,12 +340,12 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on mount and when started is reset for retry
   useEffect(() => {
-    if (!started) {
+    if (!started && !loading) {
       setStarted(true);
       handleGenerate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [started]);
 
   async function handleGenerate() {
     setLoading(true);

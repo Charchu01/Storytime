@@ -62,6 +62,8 @@ export default function Paywall({ bookType, artStyle, heroData, wizardData, onPa
   const heroName = heroData?.heroName || wizardData?.heroName || "Your hero";
 
   function handleProceedToPayment() {
+    // Prevent multiple payment intents from rapid clicks
+    if (loading || clientSecret) return;
     setShowPayment(true);
     setLoading(true);
     setError(null);

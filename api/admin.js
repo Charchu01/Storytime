@@ -269,7 +269,7 @@ export default async function handler(req, res) {
 
       // ── API Calls Log ────────────────────────────────────────
       case 'api_calls': {
-        const limit = parseInt(req.query.limit) || 50;
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
         const { data } = await sb.from('admin_api_calls')
           .select('*')
           .order('created_at', { ascending: false })
@@ -293,7 +293,7 @@ export default async function handler(req, res) {
 
       // ── Error Log ────────────────────────────────────────────
       case 'errors': {
-        const limit = parseInt(req.query.limit) || 50;
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
         const { data } = await sb.from('admin_errors')
           .select('*')
           .order('created_at', { ascending: false })
@@ -351,7 +351,7 @@ export default async function handler(req, res) {
 
       // ── Quality / Validation Data ────────────────────────────
       case 'quality': {
-        const limit = parseInt(req.query.limit) || 50;
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
         const { data } = await sb.from('admin_validations')
           .select('*')
           .order('created_at', { ascending: false })
@@ -385,7 +385,7 @@ export default async function handler(req, res) {
 
       // ── Post-Game Analyses ───────────────────────────────────
       case 'postgame': {
-        const limit = parseInt(req.query.limit) || 20;
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 200);
         const { data } = await sb.from('admin_postgame')
           .select('*')
           .order('created_at', { ascending: false })
@@ -549,7 +549,7 @@ export default async function handler(req, res) {
 
       // ── User Feedback ────────────────────────────────────────
       case 'feedback': {
-        const limit = parseInt(req.query.limit) || 50;
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
         const { data } = await sb.from('admin_feedback')
           .select('*')
           .order('created_at', { ascending: false })

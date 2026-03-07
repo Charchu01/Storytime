@@ -137,6 +137,8 @@ export default function HeroSetup({ onComplete, onBack }) {
     if (typeof editingIndex !== "number") return;
     const char = characters[editingIndex];
     if (!char?.name.trim()) return;
+    // Trim whitespace from name on save
+    updateCharacter(editingIndex, { name: char.name.trim() });
     setEditingIndex(null);
   }
 
@@ -193,7 +195,7 @@ export default function HeroSetup({ onComplete, onBack }) {
       relationship: c.relationship || "friend",
       photo: c.photo,
       characterType: c.characterType,
-      age: c.age,
+      age: c.age ? parseInt(c.age, 10) || c.age : "",
     }));
 
     onComplete({

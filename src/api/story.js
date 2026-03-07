@@ -821,12 +821,12 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
   }
 
   // Ensure each spread has required fields
-  parsed.spreads = parsed.spreads.map((spread, i) => ({
-    spreadNumber: spread.spreadNumber || i + 1,
-    leftPageText: spread.leftPageText || "",
-    rightPageText: spread.rightPageText || "",
-    sceneDescription: spread.sceneDescription || spread.imagePrompt || "",
-    aspectRatio: spread.aspectRatio || "4:3",
+  parsed.spreads = parsed.spreads.filter(Boolean).map((spread, i) => ({
+    spreadNumber: spread?.spreadNumber || i + 1,
+    leftPageText: spread?.leftPageText || "",
+    rightPageText: spread?.rightPageText || "",
+    sceneDescription: spread?.sceneDescription || spread?.imagePrompt || "",
+    aspectRatio: spread?.aspectRatio || "4:3",
   }));
 
   // Ensure cover and back cover
@@ -1029,7 +1029,7 @@ export async function generateAllImages(
   if (coverResult) {
     images.cover = coverResult.imageUrl;
     previousImageUrl = coverResult.imageUrl;
-    logCost("nano_banana", tier, true, 0, null);
+    logCost("nano_banana", "nano-banana-pro", true, 0, null);
     savePromises.push(
       saveBookImage(coverResult.imageUrl, tempBookId, 'cover', 0)
         .then(permanentUrl => { if (permanentUrl && permanentUrl !== coverResult.imageUrl) permanentImages.cover = permanentUrl; })
@@ -1080,7 +1080,7 @@ export async function generateAllImages(
     if (spreadResult) {
       images[`spread_${i}`] = spreadResult.imageUrl;
       previousImageUrl = spreadResult.imageUrl;
-      logCost("nano_banana", tier, true, 0, null);
+      logCost("nano_banana", "nano-banana-pro", true, 0, null);
       savePromises.push(
         saveBookImage(spreadResult.imageUrl, tempBookId, 'spread', i)
           .then(permanentUrl => { if (permanentUrl && permanentUrl !== spreadResult.imageUrl) permanentImages[`spread_${i}`] = permanentUrl; })
@@ -1128,7 +1128,7 @@ export async function generateAllImages(
 
   if (backResult) {
     images.backCover = backResult.imageUrl;
-    logCost("nano_banana", tier, true, 0, null);
+    logCost("nano_banana", "nano-banana-pro", true, 0, null);
     savePromises.push(
       saveBookImage(backResult.imageUrl, tempBookId, 'back_cover', 0)
         .then(permanentUrl => { if (permanentUrl && permanentUrl !== backResult.imageUrl) permanentImages.backCover = permanentUrl; })

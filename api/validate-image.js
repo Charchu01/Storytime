@@ -58,7 +58,10 @@ async function fetchImageAsBase64(url) {
     clearTimeout(imgTimeout);
   }
   if (!resp.ok) throw new Error(`Image fetch failed: ${resp.status} for ${url.substring(0, 80)}`);
+  const contentLength = parseInt(resp.headers.get('content-length') || '0', 10);
+  if (contentLength > 20 * 1024 * 1024) throw new Error('Image too large (>20MB)');
   const buffer = await resp.arrayBuffer();
+  if (buffer.byteLength > 20 * 1024 * 1024) throw new Error('Image too large (>20MB)');
   const mediaType = detectMediaType(buffer);
   const base64 = Buffer.from(buffer).toString('base64');
   return { type: "base64", media_type: mediaType, data: base64 };

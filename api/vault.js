@@ -3,6 +3,10 @@ import { supabaseAdmin } from './lib/supabase-admin.js';
 export const config = { maxDuration: 10 };
 
 export default async function handler(req, res) {
+  if (!['GET', 'POST', 'DELETE'].includes(req.method)) {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   if (!supabaseAdmin) {
     return res.status(503).json({ error: 'Database not configured' });
   }
@@ -67,7 +71,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('vault error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Vault operation failed. Please try again.' });
   }
 }
 

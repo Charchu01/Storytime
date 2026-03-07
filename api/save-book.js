@@ -88,7 +88,10 @@ export default async function handler(req, res) {
           .from('book_pages')
           .insert(pagesWithBookId);
 
-        if (pagesError) console.warn('Pages save error:', pagesError.message);
+        if (pagesError) {
+          console.warn('Pages update error:', pagesError.message);
+          throw new Error('Failed to update book pages');
+        }
       }
     } else {
       // ── INSERT new book ──────────────────────────────────────
@@ -124,7 +127,10 @@ export default async function handler(req, res) {
           .from('book_pages')
           .insert(pagesWithBookId);
 
-        if (pagesError) console.warn('Pages save error:', pagesError.message);
+        if (pagesError) {
+          console.warn('Pages insert error:', pagesError.message);
+          throw new Error('Failed to save book pages');
+        }
       }
     }
 
@@ -148,6 +154,6 @@ export default async function handler(req, res) {
     res.json({ bookId: savedBookId });
   } catch (err) {
     console.error('save-book error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to save book. Please try again.' });
   }
 }
