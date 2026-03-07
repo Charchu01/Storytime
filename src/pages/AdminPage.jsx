@@ -40,7 +40,7 @@ export default function AdminPage() {
   // Check auth — sessionStorage for current session only, then server checks
   useEffect(() => {
     try {
-      if (sessionStorage.getItem("admin_auth") === "true") {
+      if (sessionStorage.getItem("admin_auth") === "true" && sessionStorage.getItem("admin_password")) {
         setAuthorized(true);
         return;
       }
@@ -105,7 +105,10 @@ export default function AdminPage() {
       const data = await res.json();
       if (data.authorized) {
         setAuthorized(true);
-        try { sessionStorage.setItem("admin_auth", "true"); } catch {}
+        try {
+          sessionStorage.setItem("admin_auth", "true");
+          sessionStorage.setItem("admin_password", password);
+        } catch {}
       } else {
         setLoginError("Invalid password");
       }
