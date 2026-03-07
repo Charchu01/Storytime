@@ -28,6 +28,7 @@ export default async function handler(req, res) {
     const {
       prompt,
       referencePhotoUrl,
+      characterPhotoUrls,
       referenceImageUrls,
       tier,
       style,
@@ -46,17 +47,30 @@ export default async function handler(req, res) {
     let modelUsed;
 
     // ── BUILD IMAGE INPUTS ARRAY ────────────────────────────
+    // Order matters — matches prompt's "Image 1, Image 2..." references
+    // Character photos first (face matching), then style refs (cover, prev spread)
     const imageInputs = [];
-    if (referencePhotoUrl) imageInputs.push(referencePhotoUrl);
+
+    // Support new characterPhotoUrls array (all cast photos)
+    if (characterPhotoUrls && Array.isArray(characterPhotoUrls) && characterPhotoUrls.length > 0) {
+      imageInputs.push(...characterPhotoUrls.filter(Boolean));
+    } else if (referencePhotoUrl) {
+      // Backward compat: single hero photo
+      imageInputs.push(referencePhotoUrl);
+    }
+
+    // Style references (cover, previous spread)
     if (referenceImageUrls && Array.isArray(referenceImageUrls)) {
       imageInputs.push(...referenceImageUrls.filter(Boolean));
     }
+
+    const hasAnyCharacterPhoto = (characterPhotoUrls?.length > 0) || !!referencePhotoUrl;
 
     console.log("NANO_BANANA_INPUT:", JSON.stringify({
       promptLength: prompt.length,
       promptStart: prompt.substring(0, 120),
       imageCount: imageInputs.length,
-      hasRefPhoto: !!referencePhotoUrl,
+      characterPhotoCount: characterPhotoUrls?.length || (referencePhotoUrl ? 1 : 0),
       refImageCount: referenceImageUrls?.length || 0,
       imageInputUrls: imageInputs.map(u => u?.substring(0, 60)),
       aspectRatio: aspectRatio || "2:3",
@@ -82,7 +96,7 @@ export default async function handler(req, res) {
         });
       } catch (err) {
         primaryFailed = true;
-        faceRefLost = !!referencePhotoUrl;
+        faceRefLost = hasAnyCharacterPhoto;
         fallbackReason = `primary_with_images_failed: ${err.message}`;
         console.error("FACE_REF_LOST: Primary model with images FAILED — falling back to no-reference generation.", err.message);
         prediction = null;
@@ -91,8 +105,8 @@ export default async function handler(req, res) {
 
     // ── FALLBACK 1: Nano Banana Pro without images ──────────
     if (!prediction) {
-      if (primaryFailed && referencePhotoUrl) {
-        console.error("FACE_REF_LOST: Generating WITHOUT hero photo reference. Character will NOT match uploaded photo.");
+      if (primaryFailed && hasAnyCharacterPhoto) {
+        console.error("FACE_REF_LOST: Generating WITHOUT character photo references. Characters will NOT match uploaded photos.");
       }
       try {
         modelUsed = "google/nano-banana-pro";
@@ -114,7 +128,9 @@ export default async function handler(req, res) {
     }
 
     // ── FALLBACK 2: Kontext Pro (face-preserving) ───────────
-    if (!prediction && referencePhotoUrl) {
+    // Use first character photo for Kontext (it only supports single image)
+    const primaryCharacterPhoto = (characterPhotoUrls?.length > 0 ? characterPhotoUrls[0] : referencePhotoUrl) || null;
+    if (!prediction && primaryCharacterPhoto) {
       try {
         modelUsed = "black-forest-labs/flux-kontext-pro";
         faceRefLost = false; // Kontext preserves face
@@ -122,7 +138,7 @@ export default async function handler(req, res) {
           model: modelUsed,
           input: {
             prompt: `Turn this person into a children's storybook illustration. ${prompt}. Keep their exact face from the photo. No text or words.`,
-            input_image: referencePhotoUrl,
+            input_image: primaryCharacterPhoto,
             aspect_ratio: aspectRatio || "2:3",
             output_format: "jpg",
           },
@@ -138,7 +154,7 @@ export default async function handler(req, res) {
 
     // ── FALLBACK 3: Flux Pro Ultra (no face) ────────────────
     if (!prediction) {
-      faceRefLost = !!referencePhotoUrl; // Always lost at this point if there was a photo
+      faceRefLost = hasAnyCharacterPhoto; // Always lost at this point if there were photos
       try {
         modelUsed = "black-forest-labs/flux-1.1-pro-ultra";
         prediction = await replicate.predictions.create({

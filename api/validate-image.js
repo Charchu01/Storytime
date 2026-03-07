@@ -68,7 +68,7 @@ async function fetchImageAsBase64(url) {
 }
 
 export default async function handler(req, res) {
-  console.log("VALIDATE_VERSION: v3_base64_phase1");
+  console.log("VALIDATE_VERSION: v4_phase1_complete");
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
