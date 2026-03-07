@@ -1,4 +1,4 @@
-import { logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
+import { logApiCall } from './lib/admin-logger.js';
 import { rateLimit } from './lib/rate-limiter.js';
 
 export const config = { maxDuration: 60 };
@@ -83,7 +83,7 @@ export default async function handler(req, res) {
         model: 'claude-sonnet-4-20250514',
         error: data.error?.message,
       }).catch(() => {});
-      updateDailyApiStats('anthropic', durationMs, 0, true).catch(() => {});
+
 
       return res.status(response.status).json({
         error: data.error?.message || "Anthropic API error",
@@ -104,7 +104,7 @@ export default async function handler(req, res) {
       cost,
       details: { inputTokens, outputTokens },
     }).catch(() => {});
-    updateDailyApiStats('anthropic', durationMs, cost, false).catch(() => {});
+
 
     const text = data.content.map((block) => block.text || "").join("").trim();
     res.json({ text });
@@ -118,7 +118,6 @@ export default async function handler(req, res) {
       durationMs,
       error: err.message,
     }).catch(() => {});
-    updateDailyApiStats('anthropic', durationMs, 0, true).catch(() => {});
     res.status(500).json({ error: `Failed to call Claude API: ${err.message}` });
   }
 }

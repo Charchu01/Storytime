@@ -1,4 +1,4 @@
-import { logApiCall, logValidation, updateDailyApiStats } from './lib/admin-logger.js';
+import { logApiCall, logValidation } from './lib/admin-logger.js';
 import { rateLimit } from './lib/rate-limiter.js';
 
 export const config = { maxDuration: 60 };
@@ -225,7 +225,7 @@ export default async function handler(req, res) {
             qualityTier: 'poor', compositeScore: 0,
             prompt: generationPrompt || null, imageUrl: imageUrl || null,
           }),
-          updateDailyApiStats('anthropic', errDuration, 0, true),
+
         ]);
         return res.json(apiErrorResult);
       }
@@ -342,7 +342,7 @@ export default async function handler(req, res) {
             prompt: generationPrompt || null,
             imageUrl: imageUrl || null,
           }),
-          updateDailyApiStats('anthropic', valDuration, cost, false),
+
         ]).then(results => {
           results.forEach((r, i) => {
             if (r.status === 'rejected') {
@@ -384,7 +384,7 @@ export default async function handler(req, res) {
             fixNotes: 'Parse error', qualityTier: 'poor', compositeScore: 0,
             prompt: generationPrompt || null, imageUrl: imageUrl || null,
           }),
-          updateDailyApiStats('anthropic', parseDuration, 0, true),
+
         ]);
         return res.json(parseErrorResult);
       }
@@ -433,7 +433,7 @@ export default async function handler(req, res) {
           fixNotes: `Network error: ${err.message}`, qualityTier: 'poor', compositeScore: 0,
           prompt: generationPrompt || null, imageUrl: imageUrl || null,
         }),
-        updateDailyApiStats('anthropic', netDuration, 0, true),
+
       ]);
       return res.json(networkErrorResult);
     }

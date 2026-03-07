@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './lib/supabase-admin.js';
-import { logEvent, logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
+import { logEvent, logApiCall } from './lib/admin-logger.js';
 
 export const config = { maxDuration: 60 };
 
@@ -169,7 +169,6 @@ Return JSON:
         model: 'claude-sonnet-4-20250514',
         error: data.error?.message,
       }).catch(() => {});
-      updateDailyApiStats('anthropic', 0, 0, true).catch(() => {});
       return res.status(response.status).json({ error: data.error?.message });
     }
 
@@ -185,7 +184,6 @@ Return JSON:
       cost,
       details: { inputTokens, outputTokens },
     }).catch(() => {});
-    updateDailyApiStats('anthropic', 0, cost, false).catch(() => {});
 
     const text = data.content.map(b => b.text || '').join('').trim();
     let insights;

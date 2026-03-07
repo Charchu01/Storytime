@@ -1,4 +1,4 @@
-import { logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
+import { logApiCall } from './lib/admin-logger.js';
 import { rateLimit } from './lib/rate-limiter.js';
 
 export const config = { maxDuration: 30 };
@@ -81,7 +81,6 @@ export default async function handler(req, res) {
         durationMs,
         error: `HTTP ${response.status}`,
       }).catch(() => {});
-      updateDailyApiStats('elevenlabs', durationMs, 0, true).catch(() => {});
 
       return res.status(response.status).json({
         error: `Narration failed: ${response.status}`,
@@ -97,7 +96,6 @@ export default async function handler(req, res) {
       cost: 0.005,
       details: `${text.length} chars`,
     }).catch(() => {});
-    updateDailyApiStats('elevenlabs', durationMs, 0.005, false).catch(() => {});
 
     const contentType = response.headers.get("content-type");
     res.setHeader("Content-Type", contentType || "audio/mpeg");
@@ -114,7 +112,6 @@ export default async function handler(req, res) {
       durationMs,
       error: err.message,
     }).catch(() => {});
-    updateDailyApiStats('elevenlabs', durationMs, 0, true).catch(() => {});
     res.status(500).json({ error: "Narration unavailable" });
   }
 }

@@ -1,4 +1,4 @@
-import { logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
+import { logApiCall } from './lib/admin-logger.js';
 import { rateLimit } from './lib/rate-limiter.js';
 
 export const config = { maxDuration: 30 };
@@ -252,7 +252,6 @@ export default async function handler(req, res) {
         model: 'claude-sonnet-4-20250514',
         error: data.error?.message,
       }).catch(() => {});
-      updateDailyApiStats('anthropic', durationMs, 0, true).catch(() => {});
       return res.status(response.status).json({
         error: data.error?.message || "Anthropic API error",
       });
@@ -271,7 +270,6 @@ export default async function handler(req, res) {
       cost,
       details: { inputTokens, outputTokens },
     }).catch(() => {});
-    updateDailyApiStats('anthropic', durationMs, cost, false).catch(() => {});
 
     const text = data.content.map((block) => block.text || "").join("").trim();
 
@@ -305,6 +303,6 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error("Chat assistant error:", err);
-    res.status(500).json({ error: `Chat assistant failed: ${err.message}` });
+    return res.status(500).json({ error: `Chat assistant failed: ${err.message}` });
   }
 }

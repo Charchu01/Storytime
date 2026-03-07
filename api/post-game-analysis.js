@@ -1,4 +1,4 @@
-import { logPostGameAnalysis, logEvent, logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
+import { logPostGameAnalysis, logEvent, logApiCall } from './lib/admin-logger.js';
 
 export const config = { maxDuration: 60 };
 
@@ -190,7 +190,6 @@ Review the following images from this book:`,
         model: 'claude-sonnet-4-20250514',
         error: data.error?.message,
       }).catch(() => {});
-      updateDailyApiStats('anthropic', durationMs, 0, true).catch(() => {});
       return res.status(response.status).json({
         error: data.error?.message || 'Analysis API error',
       });
@@ -209,7 +208,6 @@ Review the following images from this book:`,
       cost,
       details: { inputTokens, outputTokens },
     }).catch(() => {});
-    updateDailyApiStats('anthropic', durationMs, cost, false).catch(() => {});
 
     const text = data.content.map(b => b.text || '').join('').trim();
 

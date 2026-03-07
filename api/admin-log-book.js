@@ -48,23 +48,27 @@ export default async function handler(req, res) {
       status: bookData.status || 'healthy',
     });
 
-    // Trigger post-game analysis asynchronously (fire and forget)
+    // Trigger post-game analysis — await to prevent Vercel from killing the request
     if (bookId && bookData.images && Object.keys(bookData.images).length > 0) {
       const origin = req.headers.origin
         || (req.headers['x-forwarded-host'] ? `https://${req.headers['x-forwarded-host']}` : null)
         || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://storytime-eight.vercel.app');
-      fetch(`${origin}/api/post-game-analysis`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bookId,
-          images: bookData.images,
-          storyTexts: bookData.storyTexts,
-          artStyle: bookData.style,
-          heroName: bookData.heroName,
-          title: bookData.title,
-        }),
-      }).catch((err) => console.warn('Post-game analysis trigger failed:', err.message));
+      try {
+        await fetch(`${origin}/api/post-game-analysis`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookId,
+            images: bookData.images,
+            storyTexts: bookData.storyTexts,
+            artStyle: bookData.style,
+            heroName: bookData.heroName,
+            title: bookData.title,
+          }),
+        });
+      } catch (err) {
+        console.warn('Post-game analysis trigger failed:', err.message);
+      }
     }
 
     return res.json({ success: true, bookId });

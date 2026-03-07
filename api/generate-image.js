@@ -1,5 +1,5 @@
 import Replicate from "replicate";
-import { logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
+import { logApiCall } from './lib/admin-logger.js';
 import { rateLimit } from './lib/rate-limiter.js';
 
 export const config = { maxDuration: 60 };
@@ -163,8 +163,8 @@ export default async function handler(req, res) {
     }));
 
     // Admin logging — MUST await before res.json() or Vercel kills pending writes
-    await Promise.allSettled([
-      logApiCall({
+    try {
+      await logApiCall({
         service: 'replicate',
         type: isCover ? 'cover' : 'spread',
         bookId: bookId || null,
@@ -173,13 +173,10 @@ export default async function handler(req, res) {
         model: modelUsed,
         cost: 0.045,
         details: { summary: `${modelUsed} | ${imageInputs.length} refs`, attempt: clientAttempt || 1 },
-      }),
-      updateDailyApiStats('replicate', durationMs, 0.045, false),
-    ]).then(results => {
-      results.forEach((r, i) => {
-        if (r.status === 'rejected') console.error(`GEN_LOG_FAILED[${i}]:`, bookId, r.reason?.message);
       });
-    });
+    } catch (logErr) {
+      console.error('GEN_LOG_FAILED:', bookId, logErr.message);
+    }
 
     res.json({
       predictionId: prediction.id,
@@ -197,7 +194,6 @@ export default async function handler(req, res) {
       durationMs: Date.now() - startTime,
       error: err.message,
     }).catch(e => console.warn('logApiCall failed:', e.message));
-    updateDailyApiStats('replicate', Date.now() - startTime, 0, true).catch(() => {});
     res.status(500).json({ error: `Image generation failed: ${err.message}` });
   }
 }
