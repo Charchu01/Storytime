@@ -241,6 +241,16 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     };
   }, [currentIndex]);
 
+  // Revoke cached object URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      Object.values(narrationCache.current).forEach(url => {
+        try { URL.revokeObjectURL(url); } catch {}
+      });
+      narrationCache.current = {};
+    };
+  }, []);
+
   // ── Share ──────────────────────────────────────────────────────────────────
   function handleShare() {
     try {
@@ -286,6 +296,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         if (pg.imageUrl && isGeneratedImage(pg.imageUrl)) {
           try {
             const resp = await fetch(pg.imageUrl);
+            if (!resp.ok) throw new Error(`Image fetch failed: ${resp.status}`);
             const blob = await resp.blob();
             const dataUrl = await new Promise((resolve) => {
               const reader = new FileReader();
@@ -336,7 +347,7 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER: Page-by-Page Viewer
   // ═══════════════════════════════════════════════════════════════════════════
-  const current = flatPages[currentIndex] || flatPages[0];
+  const current = flatPages[currentIndex] || flatPages[0] || { type: "cover", imageUrl: null };
   const canEdit = current?.type === "spread" || current?.type === "page";
 
   return (

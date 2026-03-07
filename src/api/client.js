@@ -213,7 +213,7 @@ export async function createPaymentIntent(tier, storySessionId) {
 
 export async function checkPayment(sessionId) {
   try {
-    const response = await fetch(`/api/check-payment?sessionId=${sessionId}`);
+    const response = await fetch(`/api/check-payment?sessionId=${encodeURIComponent(sessionId)}`);
     const data = await response.json();
     if (!response.ok) throw new Error(friendlyError(response.status, data.error));
     return data;
@@ -226,7 +226,7 @@ export async function checkPayment(sessionId) {
 
 export async function getVaultCharacters(userId = "anonymous") {
   try {
-    const response = await fetch(`/api/vault?userId=${userId}`);
+    const response = await fetch(`/api/vault?userId=${encodeURIComponent(userId)}`);
     const data = await response.json();
     if (!response.ok) throw new Error(friendlyError(response.status, data.error));
     return data.characters;

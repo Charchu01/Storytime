@@ -25,9 +25,14 @@ export default function EditDrawer({ type, onSave }) {
   async function handleSubmit(text) {
     if (!text.trim() || saving) return;
     setSaving(true);
-    await onSave(text);
-    setSaving(false);
-    setInputText("");
+    try {
+      await onSave(text);
+      setInputText("");
+    } catch (err) {
+      console.warn("Edit save failed:", err.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (

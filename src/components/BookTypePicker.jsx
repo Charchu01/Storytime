@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { BOOK_TYPES } from "../constants/data";
 
 const MOOD_COLORS = {
@@ -23,6 +23,12 @@ export default function BookTypePicker({ onSelect, onBack }) {
   const [customDesc, setCustomDesc] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const advanceTimer = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    };
+  }, []);
 
   function handleCardClick(type) {
     if (advanceTimer.current) return;

@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     // Validate the image URL is actually an image before returning
     if (prediction.status === "succeeded" && imageUrl) {
       try {
-        const check = await fetch(imageUrl, { method: "HEAD" });
+        const check = await fetch(imageUrl, { method: "HEAD", signal: AbortSignal.timeout(5000) });
         const contentType = check.headers.get("content-type") || "";
         if (!check.ok || !contentType.startsWith("image/")) {
           return res.json({

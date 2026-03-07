@@ -136,14 +136,16 @@ function BookDetailModal({ detail, onClose }) {
 
   const statusIcon = (s) => s === "healthy" ? "\u{1F7E2}" : s === "warnings" ? "\u{1F7E1}" : "\u{1F534}";
 
-  // Compute generation stats
+  // Compute generation stats — use both api_calls and validations as data sources
   const imageGenCalls = apiCalls.filter(c => c.type === 'cover' || c.type === 'spread' || c.type === 'back_cover' || c.service === 'replicate');
   const validationCalls = apiCalls.filter(c => c.type === 'validation' || c.service === 'anthropic');
+  const bookValidations = book.validations || [];
   const totalApiCost = apiCalls.reduce((sum, c) => sum + (parseFloat(c.cost) || 0), 0);
-  const totalImageGens = imageGenCalls.length;
+  const totalImageGens = imageGenCalls.length || bookValidations.length || 0;
   const finalImageCount = book.images ? Object.values(book.images).filter(Boolean).length : 0;
   const retryCount = totalImageGens > finalImageCount ? totalImageGens - finalImageCount : 0;
-  const failedValidations = (book.validations || []).filter(v => !v.pass);
+  const failedValidations = bookValidations.filter(v => !v.pass);
+  const valCheckCount = validationCalls.length || bookValidations.length;
 
   // Build per-page generation timeline from validations
   const pageTimeline = {};
@@ -201,7 +203,7 @@ function BookDetailModal({ detail, onClose }) {
             <KV label="Final Images" value={finalImageCount} />
             <KV label="Total Generations" value={totalImageGens || finalImageCount} />
             <KV label="Retries" value={retryCount > 0 ? `${retryCount} (extra $${(retryCount * 0.045).toFixed(3)})` : "0"} />
-            <KV label="Validation Checks" value={validationCalls.length || (book.validations || []).length} />
+            <KV label="Validation Checks" value={valCheckCount} />
             <KV label="Validation Failures" value={failedValidations.length} />
             <KV label="Story Writing" value="$0.050" />
           </Grid>

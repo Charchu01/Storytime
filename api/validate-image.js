@@ -1,4 +1,4 @@
-import { logApiCall, logValidation, updateDailyApiStats } from './lib/admin-logger.js';
+import { logApiCall, logValidation } from './lib/admin-logger.js';
 import { rateLimit } from './lib/rate-limiter.js';
 
 export const config = { maxDuration: 60 };
@@ -23,7 +23,14 @@ export function detectMediaType(buffer) {
 // We detect format from actual bytes, not content-type header,
 // because CDNs often return application/octet-stream or wrong types
 async function fetchImageAsBase64(url) {
-  const resp = await fetch(url);
+  const imgController = new AbortController();
+  const imgTimeout = setTimeout(() => imgController.abort(), 15000);
+  let resp;
+  try {
+    resp = await fetch(url, { signal: imgController.signal });
+  } finally {
+    clearTimeout(imgTimeout);
+  }
   if (!resp.ok) throw new Error(`Image fetch failed: ${resp.status} for ${url.substring(0, 80)}`);
   const buffer = await resp.arrayBuffer();
   const mediaType = detectMediaType(buffer);
@@ -159,24 +166,32 @@ export default async function handler(req, res) {
         firstImageMediaType: messageContent[0]?.source?.media_type,
       }));
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 600,
-          messages: [
-            {
-              role: "user",
-              content: messageContent,
-            },
-          ],
-        }),
-      });
+      const valController = new AbortController();
+      const valTimeout = setTimeout(() => valController.abort(), 50000);
+      let response;
+      try {
+        response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 600,
+            messages: [
+              {
+                role: "user",
+                content: messageContent,
+              },
+            ],
+          }),
+          signal: valController.signal,
+        });
+      } finally {
+        clearTimeout(valTimeout);
+      }
 
       console.log("VALIDATE_CLAUDE_RESPONSE:", JSON.stringify({
         status: response.status,
@@ -225,7 +240,7 @@ export default async function handler(req, res) {
             qualityTier: 'poor', compositeScore: 0,
             prompt: generationPrompt || null, imageUrl: imageUrl || null,
           }),
-          updateDailyApiStats('anthropic', errDuration, 0, true),
+
         ]);
         return res.json(apiErrorResult);
       }
@@ -342,7 +357,7 @@ export default async function handler(req, res) {
             prompt: generationPrompt || null,
             imageUrl: imageUrl || null,
           }),
-          updateDailyApiStats('anthropic', valDuration, cost, false),
+
         ]).then(results => {
           results.forEach((r, i) => {
             if (r.status === 'rejected') {
@@ -384,7 +399,7 @@ export default async function handler(req, res) {
             fixNotes: 'Parse error', qualityTier: 'poor', compositeScore: 0,
             prompt: generationPrompt || null, imageUrl: imageUrl || null,
           }),
-          updateDailyApiStats('anthropic', parseDuration, 0, true),
+
         ]);
         return res.json(parseErrorResult);
       }
@@ -433,7 +448,7 @@ export default async function handler(req, res) {
           fixNotes: `Network error: ${err.message}`, qualityTier: 'poor', compositeScore: 0,
           prompt: generationPrompt || null, imageUrl: imageUrl || null,
         }),
-        updateDailyApiStats('anthropic', netDuration, 0, true),
+
       ]);
       return res.json(networkErrorResult);
     }

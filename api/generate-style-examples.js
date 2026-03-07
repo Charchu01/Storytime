@@ -52,9 +52,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "POST only" });
   }
 
-  const replicateToken = process.env.REPLICATE_API_TOKEN;
+  const replicateToken = process.env.REPLICATE_KEY || process.env.REPLICATE_API_TOKEN;
   if (!replicateToken) {
-    return res.status(500).json({ error: "Missing REPLICATE_API_TOKEN" });
+    return res.status(500).json({ error: "Missing REPLICATE_KEY" });
   }
 
   const results = {};
@@ -63,35 +63,62 @@ export default async function handler(req, res) {
     try {
       console.log(`Generating example for ${style.id}...`);
 
-      const response = await fetch("https://api.replicate.com/v1/predictions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${replicateToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "black-forest-labs/flux-1.1-pro",
-          input: {
-            prompt: style.prompt,
-            aspect_ratio: "2:3",
-            output_format: "webp",
-            output_quality: 80,
-            safety_tolerance: 5,
-            prompt_upsampling: true,
+      const createController = new AbortController();
+      const createTimeout = setTimeout(() => createController.abort(), 30000);
+      let response;
+      try {
+        response = await fetch("https://api.replicate.com/v1/predictions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${replicateToken}`,
+            "Content-Type": "application/json",
           },
-        }),
-      });
+          body: JSON.stringify({
+            model: "black-forest-labs/flux-1.1-pro",
+            input: {
+              prompt: style.prompt,
+              aspect_ratio: "2:3",
+              output_format: "webp",
+              output_quality: 80,
+              safety_tolerance: 5,
+              prompt_upsampling: true,
+            },
+          }),
+          signal: createController.signal,
+        });
+      } finally {
+        clearTimeout(createTimeout);
+      }
+
+      if (!response.ok) {
+        console.warn(`✗ ${style.id}: HTTP ${response.status}`);
+        results[style.id] = null;
+        continue;
+      }
 
       const prediction = await response.json();
 
-      // Poll for completion
+      // Poll for completion (max 4 minutes per image)
       let result = prediction;
+      const pollDeadline = Date.now() + 240000;
       while (result.status !== "succeeded" && result.status !== "failed") {
+        if (Date.now() > pollDeadline) {
+          console.warn(`✗ ${style.id}: polling timeout`);
+          result.status = "failed";
+          break;
+        }
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
-          headers: { "Authorization": `Bearer ${replicateToken}` },
-        });
-        result = await poll.json();
+        const pollController = new AbortController();
+        const pollTimeout = setTimeout(() => pollController.abort(), 15000);
+        try {
+          const poll = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
+            headers: { "Authorization": `Bearer ${replicateToken}` },
+            signal: pollController.signal,
+          });
+          result = await poll.json();
+        } finally {
+          clearTimeout(pollTimeout);
+        }
       }
 
       if (result.status === "succeeded" && result.output) {

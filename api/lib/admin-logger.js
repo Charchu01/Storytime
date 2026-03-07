@@ -285,14 +285,8 @@ export async function logUser(userData) {
   return null;
 }
 
-// ── Daily Stats ──────────────────────────────────────────────────────────────
 // Daily stats are now computed via SQL aggregation in admin.js queries.
-// No need to maintain a separate stats record.
-
-export async function updateDailyApiStats(/* service, durationMs, cost, isError */) {
-  // No-op: daily stats are now aggregated from admin_api_calls table directly.
-  // The logApiCall() in each endpoint already inserts the record.
-}
+// No separate stats record needed — logApiCall() inserts the raw data.
 
 // ── Config Management ────────────────────────────────────────────────────────
 

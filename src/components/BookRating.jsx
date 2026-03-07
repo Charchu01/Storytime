@@ -19,10 +19,15 @@ export default function BookRating({ bookId, onClose }) {
   const handleSubmit = async () => {
     if (stars === 0 && !reaction) return;
     setSubmitting(true);
-    await submitBookFeedback(bookId, { stars, reaction, comment: comment.trim() || null });
-    setSubmitted(true);
-    setSubmitting(false);
-    setTimeout(() => onClose?.(), 2000);
+    try {
+      await submitBookFeedback(bookId, { stars, reaction, comment: comment.trim() || null });
+      setSubmitted(true);
+      setTimeout(() => onClose?.(), 2000);
+    } catch (err) {
+      console.warn("Feedback submit failed:", err.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -48,6 +53,7 @@ export default function BookRating({ bookId, onClose }) {
         <div style={{ display: "flex", gap: 4, justifyContent: "center", marginBottom: 16 }}>
           {[1, 2, 3, 4, 5].map(s => (
             <button key={s}
+              aria-label={`Rate ${s} star${s > 1 ? 's' : ''}`}
               onMouseEnter={() => setHoveredStar(s)}
               onMouseLeave={() => setHoveredStar(0)}
               onClick={() => setStars(s)}
@@ -67,6 +73,8 @@ export default function BookRating({ bookId, onClose }) {
         <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 16 }}>
           {reactions.map(r => (
             <button key={r.id}
+              aria-label={r.label}
+              aria-pressed={reaction === r.id}
               onClick={() => setReaction(reaction === r.id ? null : r.id)}
               style={{
                 padding: "8px 12px", borderRadius: 10, cursor: "pointer", fontSize: 13,

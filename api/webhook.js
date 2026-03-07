@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     if (storySessionId) {
       // Record payment in Supabase (replaces Vercel KV)
       if (supabaseAdmin) {
-        await supabaseAdmin.from('payment_records').upsert({
+        const { error: upsertErr } = await supabaseAdmin.from('payment_records').upsert({
           session_id: storySessionId,
           paid: true,
           tier,
@@ -37,30 +37,41 @@ export default async function handler(req, res) {
           paid_at: new Date().toISOString(),
           expires_at: new Date(Date.now() + 86400 * 1000).toISOString(),
         }, { onConflict: 'session_id' });
+        if (upsertErr) {
+          console.error('PAYMENT_RECORD_UPSERT_FAILED:', pi.id, upsertErr.message);
+        }
       }
 
-      // Admin logging: revenue
+      // Admin logging: revenue — await before response
       const amount = pi.amount ? pi.amount / 100 : (tier === 'premium' ? 19.99 : 9.99);
-      await logRevenue({
-        status: 'succeeded',
-        amount,
-        tier,
-        sessionId: storySessionId,
-        stripeId: pi.id,
-      }).catch(() => {});
+      try {
+        await logRevenue({
+          status: 'succeeded',
+          amount,
+          tier,
+          sessionId: storySessionId,
+          stripeId: pi.id,
+        });
+      } catch (logErr) {
+        console.error('REVENUE_LOG_FAILED (succeeded):', pi.id, logErr.message);
+      }
     }
   }
 
   if (event.type === 'payment_intent.payment_failed') {
     const pi = event.data.object;
     const { storySessionId, tier } = pi.metadata || {};
-    await logRevenue({
-      status: 'failed',
-      amount: 0,
-      tier,
-      sessionId: storySessionId,
-      stripeId: pi.id,
-    }).catch(() => {});
+    try {
+      await logRevenue({
+        status: 'failed',
+        amount: 0,
+        tier,
+        sessionId: storySessionId,
+        stripeId: pi.id,
+      });
+    } catch (logErr) {
+      console.error('REVENUE_LOG_FAILED (failed):', pi.id, logErr.message);
+    }
   }
 
   res.json({ received: true });

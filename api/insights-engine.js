@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './lib/supabase-admin.js';
-import { logEvent, logApiCall, updateDailyApiStats } from './lib/admin-logger.js';
+import { logEvent, logApiCall } from './lib/admin-logger.js';
 
 export const config = { maxDuration: 60 };
 
@@ -146,46 +146,60 @@ Return JSON:
   "anomalies": ["anything unusual"]
 }`;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: insightsPrompt }],
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 55000);
+    let response;
+    try {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2000,
+          messages: [{ role: 'user', content: insightsPrompt }],
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const data = await response.json();
     if (!response.ok) {
-      logApiCall({
-        service: 'anthropic',
-        type: 'insights_engine',
-        status: response.status,
-        model: 'claude-sonnet-4-20250514',
-        error: data.error?.message,
-      }).catch(() => {});
-      updateDailyApiStats('anthropic', 0, 0, true).catch(() => {});
+      try {
+        await logApiCall({
+          service: 'anthropic',
+          type: 'insights_engine',
+          status: response.status,
+          model: 'claude-sonnet-4-20250514',
+          error: data.error?.message,
+        });
+      } catch (logErr) {
+        console.warn('logApiCall failed:', logErr.message);
+      }
       return res.status(response.status).json({ error: data.error?.message });
     }
 
-    // Calculate actual cost from token usage
+    // Calculate actual cost from token usage — await before response
     const inputTokens = data.usage?.input_tokens || 0;
     const outputTokens = data.usage?.output_tokens || 0;
     const cost = (inputTokens * 3 + outputTokens * 15) / 1_000_000;
-    logApiCall({
-      service: 'anthropic',
-      type: 'insights_engine',
-      status: 200,
-      model: 'claude-sonnet-4-20250514',
-      cost,
-      details: { inputTokens, outputTokens },
-    }).catch(() => {});
-    updateDailyApiStats('anthropic', 0, cost, false).catch(() => {});
+    try {
+      await logApiCall({
+        service: 'anthropic',
+        type: 'insights_engine',
+        status: 200,
+        model: 'claude-sonnet-4-20250514',
+        cost,
+        details: { inputTokens, outputTokens },
+      });
+    } catch (logErr) {
+      console.warn('logApiCall failed:', logErr.message);
+    }
 
     const text = data.content.map(b => b.text || '').join('').trim();
     let insights;

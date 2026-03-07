@@ -833,6 +833,7 @@ export async function generateStoryAndVisualPlan(cast, styleName, storyData) {
   parsed.cover = {
     sceneDescription: parsed.cover.sceneDescription || parsed.cover.imagePrompt || "",
     titleText: parsed.cover.titleText || parsed.title || "",
+    authorName: parsed.cover.authorName || storyData.authorName || "A loving family",
     aspectRatio: parsed.cover.aspectRatio || "2:3",
   };
   parsed.backCover = parsed.backCover || {
@@ -1032,7 +1033,7 @@ export async function generateAllImages(
     savePromises.push(
       saveBookImage(coverResult.imageUrl, tempBookId, 'cover', 0)
         .then(permanentUrl => { if (permanentUrl && permanentUrl !== coverResult.imageUrl) permanentImages.cover = permanentUrl; })
-        .catch(() => {})
+        .catch(err => console.warn('SAVE_IMAGE_FAILED:', err.message))
     );
   }
   if (onImageReady) onImageReady("cover", images.cover || null);
@@ -1083,7 +1084,7 @@ export async function generateAllImages(
       savePromises.push(
         saveBookImage(spreadResult.imageUrl, tempBookId, 'spread', i)
           .then(permanentUrl => { if (permanentUrl && permanentUrl !== spreadResult.imageUrl) permanentImages[`spread_${i}`] = permanentUrl; })
-          .catch(() => {})
+          .catch(err => console.warn('SAVE_IMAGE_FAILED:', err.message))
       );
     } else {
       images[`spread_${i}`] = null;
@@ -1131,7 +1132,7 @@ export async function generateAllImages(
     savePromises.push(
       saveBookImage(backResult.imageUrl, tempBookId, 'back_cover', 0)
         .then(permanentUrl => { if (permanentUrl && permanentUrl !== backResult.imageUrl) permanentImages.backCover = permanentUrl; })
-        .catch(() => {})
+        .catch(err => console.warn('SAVE_IMAGE_FAILED:', err.message))
     );
   } else {
     images.backCover = null;

@@ -7,11 +7,12 @@ export default function Quality() {
   const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(true);
   const [runningInsights, setRunningInsights] = useState(false);
+  const [pageFilter, setPageFilter] = useState("all"); // all, cover, spread, back_cover
 
   const fetchData = useCallback(async () => {
     try {
       const [qualRes, insightsRes] = await Promise.all([
-        adminFetch("/api/admin?action=quality&limit=50"),
+        adminFetch("/api/admin?action=quality&limit=200"),
         adminFetch("/api/admin?action=insights"),
       ]);
       const q = await qualRes.json();
@@ -43,30 +44,36 @@ export default function Quality() {
 
   if (loading) return <Loading />;
 
-  // Calculate quality overview
-  const recentVals = validations.slice(0, 100);
-  const avgText = recentVals.length > 0
-    ? (recentVals.reduce((sum, v) => sum + (v.textScore || 0), 0) / recentVals.length).toFixed(1) : "-";
-  const avgFace = recentVals.length > 0
-    ? (recentVals.reduce((sum, v) => sum + (v.faceScore || 0), 0) / recentVals.length).toFixed(1) : "-";
-  const firstPass = recentVals.filter(v => v.attempt === 1 && v.pass).length;
-  const firstPassRate = recentVals.length > 0
-    ? Math.round((firstPass / recentVals.length) * 100) : 100;
-  const retries = recentVals.filter(v => v.attempt > 1).length;
-  const retryRate = recentVals.length > 0
-    ? Math.round((retries / recentVals.length) * 100) : 0;
-  const tbVals = recentVals.filter(v => v.textBoxScore != null);
+  // Apply page type filter
+  const filtered = pageFilter === "all"
+    ? validations
+    : validations.filter(v => v.page === pageFilter);
+
+  // Exclude zero-score API errors from stats (they skew averages)
+  const realVals = filtered.filter(v => v.textScore > 0 || v.faceScore > 0);
+  const avgText = realVals.length > 0
+    ? (realVals.reduce((sum, v) => sum + (v.textScore || 0), 0) / realVals.length).toFixed(1) : "-";
+  const avgFace = realVals.length > 0
+    ? (realVals.reduce((sum, v) => sum + (v.faceScore || 0), 0) / realVals.length).toFixed(1) : "-";
+  const firstPass = realVals.filter(v => v.attempt === 1 && v.pass).length;
+  const firstAttempts = realVals.filter(v => v.attempt === 1).length;
+  const firstPassRate = firstAttempts > 0
+    ? Math.round((firstPass / firstAttempts) * 100) : 0;
+  const retries = realVals.filter(v => v.attempt > 1).length;
+  const retryRate = realVals.length > 0
+    ? Math.round((retries / realVals.length) * 100) : 0;
+  const tbVals = realVals.filter(v => v.textBoxScore != null);
   const avgTextBox = tbVals.length > 0
     ? (tbVals.reduce((sum, v) => sum + v.textBoxScore, 0) / tbVals.length).toFixed(1) : "-";
-  const compVals = recentVals.filter(v => v.compositeScore != null);
+  const compVals = realVals.filter(v => v.compositeScore != null && v.compositeScore > 0);
   const avgComposite = compVals.length > 0
     ? (compVals.reduce((sum, v) => sum + v.compositeScore, 0) / compVals.length).toFixed(1) : "-";
 
-  // Issue frequency
+  // Issue frequency (exclude API error issues)
   const issueMap = {};
-  for (const v of recentVals) {
+  for (const v of realVals) {
     for (const issue of (v.issues || [])) {
-      const normalized = issue.toLowerCase().substring(0, 50);
+      const normalized = issue.toLowerCase().substring(0, 60);
       issueMap[normalized] = (issueMap[normalized] || 0) + 1;
     }
   }
@@ -74,11 +81,36 @@ export default function Quality() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8);
 
-  const failedVals = validations.filter(v => !v.pass);
-  const passedVals = validations.filter(v => v.pass);
+  const failedVals = filtered.filter(v => !v.pass);
+  const passedVals = filtered.filter(v => v.pass);
+
+  // Page type counts for summary
+  const pageCounts = {};
+  for (const v of validations) {
+    const p = v.page || 'unknown';
+    pageCounts[p] = (pageCounts[p] || 0) + 1;
+  }
 
   return (
     <div>
+      {/* Page Filter + Summary */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b" }}>Filter:</span>
+        {["all", "cover", "spread", "back_cover"].map(f => (
+          <button key={f} onClick={() => setPageFilter(f)} style={{
+            padding: "4px 12px", borderRadius: 6, border: "1px solid #e2e8f0",
+            background: pageFilter === f ? "#3b82f6" : "#fff",
+            color: pageFilter === f ? "#fff" : "#334155",
+            fontSize: 12, fontWeight: 600, cursor: "pointer",
+          }}>
+            {f === "all" ? `All (${validations.length})` : `${f} (${pageCounts[f] || 0})`}
+          </button>
+        ))}
+        <span style={{ marginLeft: "auto", fontSize: 12, color: "#64748b" }}>
+          {passedVals.length} passed / {failedVals.length} failed
+        </span>
+      </div>
+
       {/* Quality Overview */}
       <div style={grid4}>
         <MetricCard value={`${firstPassRate}%`} label="First-Pass Rate" color="#10b981" />
@@ -106,7 +138,7 @@ export default function Quality() {
           <h3 style={cardTitle}>Common Validation Failures</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {topIssues.map(([issue, count], i) => {
-              const pct = recentVals.length > 0 ? (count / recentVals.length) * 100 : 0;
+              const pct = realVals.length > 0 ? (count / realVals.length) * 100 : 0;
               return (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ flex: 1, fontSize: 13 }}>{issue}</div>
