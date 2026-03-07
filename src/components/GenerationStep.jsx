@@ -338,6 +338,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
   const [error, setError] = useState(null);
   const [started, setStarted] = useState(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on mount and when started is reset for retry
   useEffect(() => {
     if (!started) {
       setStarted(true);

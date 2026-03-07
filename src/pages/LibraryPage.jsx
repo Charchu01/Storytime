@@ -22,7 +22,11 @@ export default function LibraryPage() {
   function handleShare(story) {
     try {
       const shareData = { story: { title: story.title || story.story?.title }, styleName: story.style || story.styleName, heroName: story.hero_name };
-      const encoded = btoa(encodeURIComponent(JSON.stringify(shareData)));
+      const jsonStr = JSON.stringify(shareData);
+      // Use TextEncoder to safely handle non-ASCII characters (accented names, etc.)
+      const bytes = new TextEncoder().encode(jsonStr);
+      const binStr = Array.from(bytes, (b) => String.fromCharCode(b)).join("");
+      const encoded = btoa(binStr);
       navigator.clipboard.writeText(`${window.location.origin}/shared?d=${encoded}`);
       addToast("Link copied! Send it to grandma 👵", "magic");
     } catch { addToast("Failed to copy link", "error"); }

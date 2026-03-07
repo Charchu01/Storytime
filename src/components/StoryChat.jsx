@@ -85,6 +85,7 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
     }
   }, [heroData, bookType, artStyle, onDataUpdate, onReady, scrollToBottom]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs once on mount; ref guard prevents re-init
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
@@ -98,7 +99,7 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
 
     setMessages([greeting]);
     sendToAssistant([greeting]);
-  }, [contextString, artStyle, heroData, sendToAssistant]);
+  }, []);
 
   function handleSend(text) {
     const trimmed = (text || input).trim();

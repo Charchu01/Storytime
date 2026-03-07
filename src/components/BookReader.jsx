@@ -227,10 +227,11 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   }
 
   // Auto-narrate on page change
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- narratePage uses refs and stable state; only re-run on page index change
   useEffect(() => {
     if (autoNarrateRef.current) {
-      const current = flatPages[currentIndex];
-      if (current?.text) {
+      const page = flatPages[currentIndex];
+      if (page?.text) {
         narratePage(currentIndex);
       }
     }
@@ -262,7 +263,11 @@ export default function BookReader({ data, cast, styleName, onReset }) {
         dedication,
         authorName,
       };
-      const encoded = btoa(encodeURIComponent(JSON.stringify(shareData)));
+      const jsonStr = JSON.stringify(shareData);
+      // Use TextEncoder to safely handle non-ASCII characters (accented names, etc.)
+      const bytes = new TextEncoder().encode(jsonStr);
+      const binStr = Array.from(bytes, (b) => String.fromCharCode(b)).join("");
+      const encoded = btoa(binStr);
       const url = `${window.location.origin}/shared?d=${encoded}`;
       if (navigator.share) {
         navigator.share({ title: `${heroName}'s Story`, text: `Check out this story made for ${heroName}!`, url });

@@ -70,7 +70,11 @@ export default function App() {
   const addToast = useCallback((message, type = "info", duration = 4000) => {
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, message, type }]);
-    if (duration > 0) setTimeout(() => removeToast(id), duration);
+    if (duration > 0) {
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, duration);
+    }
     return id;
   }, [removeToast]);
 
@@ -92,7 +96,9 @@ export default function App() {
       const history = JSON.parse(localStorage.getItem("sk_activity") || "[]");
       history.unshift({ date: new Date().toISOString(), title: storyTitle, action, status: "Complete" });
       localStorage.setItem("sk_activity", JSON.stringify(history.slice(0, 50)));
-    } catch {}
+    } catch (err) {
+      console.warn('addActivity failed:', err.message);
+    }
   }
 
   const appValue = { stories, storiesLoading, deleteStory, addActivity, refreshBooks: fetchBooks };

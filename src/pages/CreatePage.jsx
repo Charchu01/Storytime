@@ -10,7 +10,9 @@ function saveDraft(data) {
     delete safe.cast;
     delete safe.wizardData;
     localStorage.setItem(DRAFT_KEY, JSON.stringify(safe));
-  } catch {}
+  } catch (err) {
+    console.warn('saveDraft failed:', err.message);
+  }
 }
 
 function loadDraft() {
@@ -93,6 +95,16 @@ export default function CreatePage() {
   const [storySessionId] = useState(() => Date.now().toString(36) + Math.random().toString(36).slice(2));
   const [vaultChar, setVaultChar] = useState(null);
 
+  // ── Restore draft from localStorage on mount ───────────────────────────
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) {
+      if (draft.bookType) setBookType(draft.bookType);
+      if (draft.heroData) setHeroData(draft.heroData);
+      if (draft.artStyle) setArtStyle(draft.artStyle);
+    }
+  }, []);
+
   // Check for vault character from Family Vault
   useEffect(() => {
     if (searchParams.get("vaultChar")) {
@@ -111,11 +123,20 @@ export default function CreatePage() {
           });
           navigate("/create/style", { replace: true });
         }
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to load vault character:', err.message);
+      }
     }
   }, []);
 
   useEffect(() => { document.title = "Create Your Story — Storytime"; }, []);
+
+  // ── Persist draft when wizard state changes ────────────────────────────────
+  useEffect(() => {
+    if (bookType || heroData || artStyle) {
+      saveDraft({ bookType, heroData, artStyle });
+    }
+  }, [bookType, heroData, artStyle]);
 
   // ── Step handlers (navigate instead of setStep) ──────────────────────────
 
