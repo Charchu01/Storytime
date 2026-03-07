@@ -196,12 +196,14 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       const audio = new Audio(audioUrl);
       narrationAudio.current = audio;
       setNarrating(true);
-      audio.addEventListener("ended", () => {
+      const onEnded = () => {
+        audio.removeEventListener("ended", onEnded);
         setNarrating(false);
         if (autoNarrateRef.current) {
           setTimeout(() => goNext(), 1200);
         }
-      });
+      };
+      audio.addEventListener("ended", onEnded);
       audio.play().catch(() => {
         setNarrating(false);
         addToast("Audio unavailable — try again later", "info");

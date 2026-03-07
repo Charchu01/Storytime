@@ -399,7 +399,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
           if (key === "cover") next[0] = url;
           else if (key === "backCover") next[totalImages - 1] = url;
           else {
-            const idx = parseInt(key.split("_")[1]) + 1;
+            const idx = parseInt(key.split("_")[1], 10) + 1;
             next[idx] = url;
           }
           return next;

@@ -151,7 +151,7 @@ function buildCharacterDescription(cast) {
 async function analyzeCharacterPhotos_single(character, photoDataUri) {
   const role = ROLES.find((r) => r.id === character.role)?.label || character.role;
   const ageNote = character.age ? `, approximately ${character.age} years old` : "";
-  const isAdult = character.role === "adult" || (character.age && parseInt(character.age) >= 16);
+  const isAdult = character.role === "adult" || (character.age && parseInt(character.age, 10) >= 16);
 
   try {
     const description = await claudeCall(
@@ -507,7 +507,7 @@ function buildMasterSystemPrompt(cast, heroName, heroAge, styleName, tone, forma
   // Build character descriptions
   const heroChar = cast.find(c => c.isHero) || cast[0];
   const heroRole = heroChar?.role || "child";
-  const isAdultHero = heroRole === "adult" || (heroAge && parseInt(heroAge) >= 16);
+  const isAdultHero = heroRole === "adult" || (heroAge && parseInt(heroAge, 10) >= 16);
 
   let castDesc = `MAIN CHARACTER: ${heroName}`;
   if (isAdultHero) {

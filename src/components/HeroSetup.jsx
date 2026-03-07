@@ -204,7 +204,7 @@ export default function HeroSetup({ onComplete, onBack }) {
         : mainChar.characterType === "teen" ? "child"
         : mainChar.characterType === "baby" ? "child"
         : mainChar.characterType,
-      heroAge: mainChar.age ? parseInt(mainChar.age) || mainChar.age : "",
+      heroAge: mainChar.age ? parseInt(mainChar.age, 10) || mainChar.age : "",
       heroPhoto: mainChar.photo,
       companions,
     });

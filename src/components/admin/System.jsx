@@ -103,7 +103,7 @@ export default function System() {
           <ConfigSelect label="Max Retries Per Image" configKey="max_retries"
             value={String(config.max_retries || 2)}
             options={[["1", "1"], ["2", "2"], ["3", "3"]]}
-            onChange={v => updateConfig("max_retries", parseInt(v))} />
+            onChange={v => updateConfig("max_retries", parseInt(v, 10))} />
           <ConfigToggle label="Enable Narration" configKey="enable_narration"
             value={config.enable_narration !== false} onChange={v => updateConfig("enable_narration", v)} />
           <ConfigSelect label="Primary Image Model" configKey="primary_image_model"
@@ -113,7 +113,7 @@ export default function System() {
           <ConfigSelect label="Max Generation Time" configKey="max_generation_time"
             value={String(config.max_generation_time || 300)}
             options={[["180", "3 min"], ["300", "5 min"], ["600", "10 min"]]}
-            onChange={v => updateConfig("max_generation_time", parseInt(v))} />
+            onChange={v => updateConfig("max_generation_time", parseInt(v, 10))} />
         </div>
       </div>
 
@@ -277,7 +277,7 @@ function CostCalculator() {
         </div>
         <div>
           <label style={calcLabel}>Pages</label>
-          <select value={pageCount} onChange={e => setPageCount(parseInt(e.target.value))} style={calcSelect}>
+          <select value={pageCount} onChange={e => setPageCount(parseInt(e.target.value, 10))} style={calcSelect}>
             <option value="4">4</option><option value="6">6</option><option value="10">10</option>
           </select>
         </div>
