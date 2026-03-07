@@ -4,8 +4,7 @@
 
 import { supabaseAdmin } from './supabase-admin.js';
 
-// Lazy getter — if supabaseAdmin was null at first import (e.g. cold start
-// before env vars were available), re-check on each call.
+// Returns supabaseAdmin client (may be null if env vars are not configured).
 function getSb() {
   return supabaseAdmin;
 }

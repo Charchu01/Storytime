@@ -33,9 +33,11 @@ function isAllowedImageUrl(url) {
     const hostname = parsed.hostname;
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0') return false;
     if (hostname.startsWith('169.254.') || hostname.startsWith('10.') || hostname.startsWith('192.168.')) return false;
-    if (hostname === '[::1]') return false;
     if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return false;
     if (hostname.endsWith('.internal') || hostname.endsWith('.local')) return false;
+    // Block IPv6 private/reserved ranges (brackets stripped by URL parser)
+    const bare = hostname.replace(/^\[|]$/g, '');
+    if (bare === '::1' || bare === '::' || bare.startsWith('fe80') || bare.startsWith('fc') || bare.startsWith('fd') || bare.includes('::ffff:')) return false;
     return true;
   } catch {
     return false;
@@ -498,7 +500,7 @@ export function buildValidationPrompt({
   hasReferencePhoto,
 }) {
   const isCover = pageType === "cover";
-  const hasExpectedText = expectedTexts?.filter(t => t?.trim()).length > 0;
+  const hasExpectedText = (expectedTexts?.filter(t => t?.trim())?.length || 0) > 0;
 
   let textSection;
   if (isCover && hasExpectedText) {

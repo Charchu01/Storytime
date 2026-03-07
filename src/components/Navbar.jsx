@@ -4,12 +4,8 @@ import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/clerk-re
 
 const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
-function AuthSection() {
+function ClerkAuthSection() {
   const { isSignedIn, isLoaded } = useUser();
-
-  if (!CLERK_ENABLED) {
-    return <Link to="/create" className="gn-cta">Start Free →</Link>;
-  }
 
   if (!isLoaded) return null;
 
@@ -39,10 +35,15 @@ function AuthSection() {
   );
 }
 
-function MobileAuthSection() {
-  const { isSignedIn, isLoaded } = useUser();
+function AuthSection() {
+  if (!CLERK_ENABLED) {
+    return <Link to="/create" className="gn-cta">Start Free →</Link>;
+  }
+  return <ClerkAuthSection />;
+}
 
-  if (!CLERK_ENABLED) return null;
+function ClerkMobileAuthSection() {
+  const { isSignedIn, isLoaded } = useUser();
 
   if (!isLoaded || isSignedIn) return null;
 
@@ -59,6 +60,11 @@ function MobileAuthSection() {
       </div>
     </>
   );
+}
+
+function MobileAuthSection() {
+  if (!CLERK_ENABLED) return null;
+  return <ClerkMobileAuthSection />;
 }
 
 export default function Navbar() {

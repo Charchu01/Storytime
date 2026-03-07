@@ -44,7 +44,15 @@ export default function AccountPage() {
 
   function handleDeleteAccount() {
     if (!confirm("Are you sure you want to delete your account and ALL data? This cannot be undone.")) return;
-    localStorage.clear();
+    // Only remove Storytime keys — preserve auth tokens, cookie consent, etc.
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('sk_') || key.startsWith('st_') || key.startsWith('share_'))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
     window.location.href = "/";
   }
 

@@ -41,7 +41,7 @@ export default function StatusPage() {
   useEffect(() => {
     try {
       const log = JSON.parse(localStorage.getItem("st_costs") || "[]");
-      setCosts(log);
+      setCosts(Array.isArray(log) ? log : []);
     } catch (err) { console.warn("Failed to load cost data:", err.message); }
   }, []);
 

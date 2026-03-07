@@ -99,6 +99,9 @@ export default function BookReader({ data, cast, styleName, onReset }) {
   // Keyboard nav
   useEffect(() => {
     function handleKey(e) {
+      // Don't steal keyboard events from form inputs
+      const tag = e.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) return;
       if (e.key === "ArrowRight" || e.key === " ") {
         e.preventDefault();
         goNext();
@@ -276,7 +279,17 @@ export default function BookReader({ data, cast, styleName, onReset }) {
       const bytes = new TextEncoder().encode(jsonStr);
       const binStr = Array.from(bytes, (b) => String.fromCharCode(b)).join("");
       const encoded = btoa(binStr);
-      const url = `${window.location.origin}/shared?d=${encoded}`;
+
+      // If encoded data is too large for a URL (>8KB), store in localStorage and use a key
+      let url;
+      if (encoded.length > 8000) {
+        const shareKey = `share_${Date.now().toString(36)}`;
+        try { localStorage.setItem(shareKey, encoded); } catch { /* quota */ }
+        url = `${window.location.origin}/shared?key=${shareKey}`;
+      } else {
+        url = `${window.location.origin}/shared?d=${encoded}`;
+      }
+
       if (navigator.share) {
         navigator.share({ title: `${heroName}'s Story`, text: `Check out this story made for ${heroName}!`, url });
       } else {

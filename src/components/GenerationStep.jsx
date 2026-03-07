@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   generateStoryAndVisualPlan,
   generateAllImages,
@@ -201,7 +201,7 @@ function LoadingScreen({ heroName, loadPhase, pageImages, pageCount, style, erro
   const [phraseIdx, setPhraseIdx] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [factIdx, setFactIdx] = useState(0);
-  const completedCount = pageImages.filter((url) => url !== undefined).length;
+  const completedCount = pageImages.filter((url) => url != null).length;
   const config = PHASE_CONFIG[loadPhase] || PHASE_CONFIG.writing;
 
   // Rotate phrases
@@ -337,10 +337,12 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
   const [pageCount, setPageCount] = useState(0);
   const [error, setError] = useState(null);
   const [started, setStarted] = useState(false);
+  const generatingRef = useRef(false);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on mount and when started is reset for retry
   useEffect(() => {
-    if (!started && !loading) {
+    if (!started && !loading && !generatingRef.current) {
+      generatingRef.current = true;
       setStarted(true);
       handleGenerate();
     }
@@ -443,7 +445,6 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
 
       if (tier === "premium" && heroPhotoUrl) {
         try {
-          const heroChar = enrichedCast.find((c) => c.isHero) || enrichedCast[0];
           await saveToVault({
             name: heroChar.name,
             photoUrl: heroPhotoUrl,
@@ -586,7 +587,7 @@ export default function GenerationStep({ cast, style, length = 6, tier, storySes
       pageCount={pageCount}
       style={style}
       error={error}
-      onRetry={() => { setError(null); setLoading(false); setStarted(false); }}
+      onRetry={() => { setError(null); setLoading(false); setStarted(false); generatingRef.current = false; }}
     />
   );
 }

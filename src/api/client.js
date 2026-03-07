@@ -37,15 +37,20 @@ export async function claudeCall(system, userMsg, maxTokens = 1400, imageDataUrl
     throw new Error(`Story generation request failed: ${err.message}`);
   }
 
+  if (!response.ok) {
+    let errMsg;
+    try {
+      const errData = await response.json();
+      errMsg = errData.error;
+    } catch { /* non-JSON error body */ }
+    throw new Error(errMsg || friendlyError(response.status));
+  }
+
   let data;
   try {
     data = await response.json();
   } catch {
-    throw new Error(`Story API returned non-JSON response (status ${response.status}). Check that API routes are accessible.`);
-  }
-
-  if (!response.ok) {
-    throw new Error(data.error || friendlyError(response.status));
+    throw new Error(`Story API returned non-JSON response (status ${response.status}).`);
   }
 
   return data.text;
