@@ -135,6 +135,7 @@ export default function CreatePage() {
   }, [navigate]);
 
   const handleStudioComplete = useCallback((studioData) => {
+    if (!heroData) return;
     // Build cast from heroData
     const heroPhotos = heroData.heroPhoto
       ? [{ dataUri: heroData.heroPhoto, quality: "fair", feedback: "" }]

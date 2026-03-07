@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
+import { useAppContext } from "../App";
 
 export default function InstallPrompt() {
   const location = useLocation();
+  const { stories } = useAppContext();
   const [show, setShow] = useState(false);
   const deferredPrompt = useRef(null);
 
@@ -20,22 +22,15 @@ export default function InstallPrompt() {
 
     // Show prompt 30s after first story is created
     let showTimer = null;
-    function checkStories() {
-      const stories = JSON.parse(localStorage.getItem("sk_stories") || "[]");
-      if (stories.length > 0 && deferredPrompt.current && !showTimer) {
-        showTimer = setTimeout(() => setShow(true), 30000);
-        clearInterval(interval);
-      }
+    if (stories.length > 0 && deferredPrompt.current) {
+      showTimer = setTimeout(() => setShow(true), 30000);
     }
-
-    const interval = setInterval(checkStories, 5000);
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
-      clearInterval(interval);
       if (showTimer) clearTimeout(showTimer);
     };
-  }, []);
+  }, [stories.length]);
 
   function handleInstall() {
     deferredPrompt.current?.prompt();

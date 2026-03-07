@@ -52,13 +52,11 @@ export default function LibraryPage() {
     );
   }
 
-  const heroName = stories[0]?.hero_name || "friend";
-
   return (
     <div className="lib-page">
       <div className="lib-header">
         <div>
-          <h1 className="lib-h1">Welcome back, {heroName} 👋</h1>
+          <h1 className="lib-h1">Welcome back 👋</h1>
           <p className="lib-sub">Your family's storybook collection · {stories.length} {stories.length === 1 ? "story" : "stories"} created</p>
         </div>
         <Link to="/create" className="lib-create-btn">✨ Create New Story</Link>
