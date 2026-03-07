@@ -1,6 +1,9 @@
 // One-time API endpoint to generate example images for each art style.
 // Call POST /api/generate-style-examples to generate all examples.
 // Results are returned as JSON with URLs — save them to your constants or public folder.
+// REQUIRES admin authentication (Bearer token or password).
+
+import { checkAdminAuth } from './lib/admin-auth-check.js';
 
 export const config = { maxDuration: 300 };
 
@@ -50,6 +53,12 @@ const STYLES_TO_GENERATE = [
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "POST only" });
+  }
+
+  // Require admin authentication — this endpoint triggers expensive image generation
+  const auth = checkAdminAuth(req);
+  if (!auth.authorized) {
+    return res.status(401).json({ error: "Admin authentication required" });
   }
 
   const replicateToken = process.env.REPLICATE_KEY || process.env.REPLICATE_API_TOKEN;
