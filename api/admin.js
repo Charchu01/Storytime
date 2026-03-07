@@ -800,8 +800,8 @@ async function checkStripe() {
       return { configured: true, httpStatus: resp.status, balance: { available: available / 100, pending: pending / 100, currency } };
     }
     return { configured: true, httpStatus: resp.status };
-  } catch {
-    return { configured: true };
+  } catch (err) {
+    return { configured: true, error: err.message };
   }
 }
 

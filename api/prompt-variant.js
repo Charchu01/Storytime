@@ -16,6 +16,10 @@ export default async function handler(req, res) {
 
   const { action } = req.body || {};
 
+  if (!action) {
+    return res.status(400).json({ error: 'action is required' });
+  }
+
   try {
     switch (action) {
       // ── Create new experiment ───────────────────────────────
