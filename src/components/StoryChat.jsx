@@ -126,16 +126,21 @@ export default function StoryChat({ bookType, heroData, artStyle, onDataUpdate, 
 
   async function handleMoreIdeas() {
     setLoadingMoreIdeas(true);
-    const moreMsg = {
-      role: "user",
-      content: "Those ideas don't quite fit. Give me 4 completely different and creative story suggestions. Be surprising and unique!",
-      timestamp: Date.now(),
-      hidden: true,
-    };
-    const newMessages = [...messages, moreMsg];
-    setMessages(newMessages);
-    await sendToAssistant(newMessages);
-    setLoadingMoreIdeas(false);
+    try {
+      const moreMsg = {
+        role: "user",
+        content: "Those ideas don't quite fit. Give me 4 completely different and creative story suggestions. Be surprising and unique!",
+        timestamp: Date.now(),
+        hidden: true,
+      };
+      const newMessages = [...messages, moreMsg];
+      setMessages(newMessages);
+      await sendToAssistant(newMessages);
+    } catch (err) {
+      console.warn("handleMoreIdeas failed:", err.message);
+    } finally {
+      setLoadingMoreIdeas(false);
+    }
   }
 
   function handleKeyDown(e) {

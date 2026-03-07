@@ -241,6 +241,16 @@ export default function BookReader({ data, cast, styleName, onReset }) {
     };
   }, [currentIndex]);
 
+  // Revoke cached object URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      Object.values(narrationCache.current).forEach(url => {
+        try { URL.revokeObjectURL(url); } catch {}
+      });
+      narrationCache.current = {};
+    };
+  }, []);
+
   // ── Share ──────────────────────────────────────────────────────────────────
   function handleShare() {
     try {

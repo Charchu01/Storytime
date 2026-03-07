@@ -138,7 +138,7 @@ export default function Quality() {
           <h3 style={cardTitle}>Common Validation Failures</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {topIssues.map(([issue, count], i) => {
-              const pct = recentVals.length > 0 ? (count / recentVals.length) * 100 : 0;
+              const pct = realVals.length > 0 ? (count / realVals.length) * 100 : 0;
               return (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ flex: 1, fontSize: 13 }}>{issue}</div>
