@@ -93,8 +93,8 @@ export default async function handler(req, res) {
         console.warn('logApiCall failed:', logErr.message);
       }
 
-      return res.status(response.status).json({
-        error: data.error?.message || "Anthropic API error",
+      return res.status(response.status >= 500 ? 502 : response.status).json({
+        error: "AI service temporarily unavailable. Please try again.",
       });
     }
 
@@ -133,6 +133,6 @@ export default async function handler(req, res) {
     } catch (logErr) {
       console.warn('logApiCall failed:', logErr.message);
     }
-    res.status(500).json({ error: `Failed to call Claude API: ${err.message}` });
+    res.status(500).json({ error: 'AI service unavailable. Please try again.' });
   }
 }

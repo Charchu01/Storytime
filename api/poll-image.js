@@ -17,6 +17,9 @@ export default async function handler(req, res) {
     if (!id) {
       return res.status(400).json({ error: "id query parameter is required" });
     }
+    if (!/^[a-z0-9]{20,30}$/.test(id)) {
+      return res.status(400).json({ error: "Invalid prediction ID format" });
+    }
 
     const replicate = new Replicate({ auth: apiKey });
     const prediction = await replicate.predictions.get(id);
@@ -69,7 +72,7 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error("poll-image error:", err);
     res.status(500).json({
-      error: `Failed to check prediction: ${err.message || "Unknown"}`,
+      error: 'Failed to check image status. Please try again.',
     });
   }
 }

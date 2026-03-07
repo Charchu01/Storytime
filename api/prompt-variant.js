@@ -265,7 +265,7 @@ Return JSON:
 
         const data = await response.json();
         if (!response.ok) {
-          return res.status(response.status).json({ error: data.error?.message });
+          return res.status(502).json({ error: 'AI service temporarily unavailable' });
         }
 
         const text = data.content.map(b => b.text || '').join('').trim();
@@ -279,10 +279,10 @@ Return JSON:
       }
 
       default:
-        return res.status(400).json({ error: `Unknown action: ${action}` });
+        return res.status(400).json({ error: 'Unknown action' });
     }
   } catch (err) {
     console.error('Prompt variant error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Operation failed. Please try again.' });
   }
 }

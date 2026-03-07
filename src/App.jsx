@@ -79,10 +79,10 @@ export default function App() {
   }, [removeToast]);
 
   const deleteStory = useCallback(async (id) => {
-    // Optimistic removal — save previous state for rollback
-    let previousStories;
+    // Optimistic removal — use functional updater for rollback to avoid race conditions
+    let removedStory = null;
     setStories((prev) => {
-      previousStories = prev;
+      removedStory = prev.find((s) => s.id === id) || null;
       return prev.filter((s) => s.id !== id);
     });
     try {
@@ -93,8 +93,8 @@ export default function App() {
       if (error) throw error;
     } catch (err) {
       console.warn('Failed to delete from Supabase:', err.message);
-      // Rollback: restore the story in the UI
-      if (previousStories) setStories(previousStories);
+      // Rollback: re-insert the specific story rather than restoring full snapshot
+      if (removedStory) setStories((prev) => [...prev, removedStory].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
     }
   }, []);
 

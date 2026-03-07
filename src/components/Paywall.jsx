@@ -184,7 +184,14 @@ export default function Paywall({ bookType, artStyle, heroData, wizardData, onPa
         {showPayment && (
           <div className="pw-payment-section">
             {loading && <div className="pw-loading">Setting up secure payment...</div>}
-            {error && <div className="pw-error">Hmm, something went wrong setting up payment. Please try again!</div>}
+            {error && (
+              <div className="pw-error">
+                Hmm, something went wrong setting up payment.
+                <button className="pw-retry-btn" onClick={() => { setClientSecret(null); setShowPayment(false); setError(null); }}>
+                  Try Again
+                </button>
+              </div>
+            )}
             {clientSecret && (
               <Elements
                 stripe={stripePromise}

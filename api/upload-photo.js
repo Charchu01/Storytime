@@ -27,6 +27,9 @@ export default async function handler(req, res) {
   if (!photoDataUri) {
     return res.status(400).json({ error: "photoDataUri is required" });
   }
+  if (typeof photoDataUri !== 'string' || photoDataUri.length > 15 * 1024 * 1024) {
+    return res.status(400).json({ error: "Photo too large. Please use an image under 10MB." });
+  }
 
   try {
     // Parse the data URI
@@ -91,7 +94,7 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error("Photo upload error:", err);
     res.status(500).json({
-      error: `Failed to upload photo: ${err.message || "Unknown error"}`,
+      error: 'Failed to upload photo. Please try again.',
     });
   }
 }

@@ -229,6 +229,6 @@ export default async function handler(req, res) {
     } catch (logErr) {
       console.warn('logApiCall failed:', logErr.message);
     }
-    res.status(500).json({ error: `Image generation failed: ${err.message}` });
+    res.status(500).json({ error: 'Image generation failed. Please try again.' });
   }
 }

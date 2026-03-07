@@ -38,10 +38,13 @@ export default async function handler(req, res) {
   if (!text) {
     return res.status(400).json({ error: "text is required" });
   }
+  if (typeof text !== 'string' || text.length > 5000) {
+    return res.status(400).json({ error: "text must be a string under 5000 characters" });
+  }
 
   // Accept ElevenLabs voice ID directly, with a sensible default
   const DEFAULT_VOICE = "o5yhdpwO4YUK0MmUtJv5";
-  const voice = voiceId && voiceId.length > 10 ? voiceId : DEFAULT_VOICE;
+  const voice = voiceId && /^[a-zA-Z0-9]{10,40}$/.test(voiceId) ? voiceId : DEFAULT_VOICE;
   const narrationText = prepareNarrationText(text);
 
   try {
